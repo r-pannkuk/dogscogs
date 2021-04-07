@@ -55,7 +55,7 @@ class ChannelDM(commands.Cog):
         if not message.channel.type == discord.ChannelType.private:
             return
         
-        if message.content.startswith(self.config.guild(message.guild).get_prefix(message)):
+        if message.content.startswith(self.bot.get_valid_prefixes(message.guild)):
             return
 
         message.reply("Yes, I did it!")
