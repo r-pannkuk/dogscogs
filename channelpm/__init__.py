@@ -3,11 +3,11 @@ from pathlib import Path
 
 from redbot.core.bot import Red
 
-from .channeldm import ChannelDM
+from .channelpm import ChannelPM
 
 with open(Path(__file__).parent / "info.json") as fp:
     __red_end_user_data_statement__ = json.load(fp)["end_user_data_statement"]
 
 
 async def setup(bot: Red) -> None:
-    bot.add_cog(ChannelDM(bot))
+    bot.add_cog(ChannelPM(bot))

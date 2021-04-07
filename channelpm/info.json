@@ -1,7 +1,7 @@
 {
-    "name": "ChannelDM",
+    "name": "ChannelPM",
     "short": "Messages to the bot will be redirected to a specified channel.",
-    "description": "When a user messages the bot, it will echo the message to a specified channel. Users in that channel may reply with the !r or !dm commands.",
+    "description": "When a user messages the bot, it will echo the message to a specified channel. Users in that channel may reply with the !r or !pm commands.",
     "end_user_data_statement": "This cog does not persistently store any data or metadata about users.",
     "author": [
         "Klypto"

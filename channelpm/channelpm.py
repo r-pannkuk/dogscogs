@@ -55,10 +55,10 @@ class ChannelDM(commands.Cog):
     @commands.mod()
     @commands.command(usage="<user> <message>")
     async def pm(self, ctx, user: discord.User, message: str):
-        if message.author == self.bot.user:
+        if ctx.author == self.bot.user:
             return
 
-        if await self.bot.cog_disabled_in_guild(self, message.guild):
+        if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return
         
         response_channel = await self.config.GLOBAL.dump_channel()
@@ -66,7 +66,7 @@ class ChannelDM(commands.Cog):
         if response_channel is None:
             self.config.GLOBAL.dump_channel.set(ctx.channel)
 
-        response = """**{0}>{1}**: {2}""".format(message.author.display_name(), user.display_name(), message)
+        response = """**{0}>{1}**: {2}""".format(ctx.author.display_name(), user.display_name(), message)
 
         await user.send(response)
         await ctx.channel.send(response)
