@@ -33,18 +33,30 @@ class ChannelPM(commands.Cog):
         # TODO: Replace this with the proper end user data removal handling.
         super().red_delete_data_for_user(requester=requester, user_id=user_id)
         return
+    
+
+    @commands.group()
+    async def channelpm(self, ctx):
+        """
+        Manages channel PM's.
+        """
+        pass
 
 
     @commands.guild_only()
     @commands.is_owner()
-    @commands.command(usage="<channel>")
+    @channelpm.command(usage="<channel>")
     async def channel(self, ctx, channel: Optional[discord.TextChannel]):
         """
         Sets the channel where communications will be sent.
         """
         if channel is None:
-            await self.config.dump_channel.set(None)
-            return await ctx.send("Done. Cleared DM channel.")
+            channel = self.config.dump_channel()
+
+            if channel is None:
+                return await ctx.send("PM channel currently not set.")
+
+            return await ctx.send("PM channel currently set to {}.".format(channel.mention))
 
         await self.config.dump_channel.set(channel.id)
         await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))
@@ -64,7 +76,7 @@ class ChannelPM(commands.Cog):
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return
         
-        response_channel = await self.bot.get_channel(self.config.dump_channel())
+        response_channel = self.bot.get_channel(self.config.dump_channel())
 
         if response_channel is None:
             await self.config.dump_channel.set(ctx.channel.id)
@@ -84,7 +96,7 @@ class ChannelPM(commands.Cog):
         """
         Replies to the last person who messaged the bot.
         """
-        await self.pm(ctx, await self.bot.get_user(self.config.reply_target()), message)
+        await self.pm(ctx, self.bot.get_user(self.config.reply_target()), message)
         return
         
 
