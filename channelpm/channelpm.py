@@ -51,7 +51,7 @@ class ChannelPM(commands.Cog):
         Sets the channel where communications will be sent.
         """
         if channel is None:
-            channel = self.bot.get_channel(self.config.dump_channel())
+            channel = self.bot.get_channel(await self.config.dump_channel())
 
             if channel is None:
                 return await ctx.send("PM channel currently not set.")
@@ -60,6 +60,7 @@ class ChannelPM(commands.Cog):
 
         await self.config.dump_channel.set(channel.id)
         await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))
+        print(await self.config.dump_channel())
         
         return
     
@@ -76,7 +77,7 @@ class ChannelPM(commands.Cog):
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return
         
-        response_channel = self.bot.get_channel(self.config.dump_channel())
+        response_channel = self.bot.get_channel(await self.config.dump_channel())
 
         if response_channel is None:
             await self.config.dump_channel.set(ctx.channel.id)
@@ -96,7 +97,7 @@ class ChannelPM(commands.Cog):
         """
         Replies to the last person who messaged the bot.
         """
-        await self.pm(ctx, self.bot.get_user(self.config.reply_target()), message)
+        await self.pm(ctx, self.bot.get_user(await self.config.reply_target()), message)
         return
         
 
@@ -115,7 +116,7 @@ class ChannelPM(commands.Cog):
         if message.content.startswith(tuple(await self.bot.get_valid_prefixes())) is True:
             return
 
-        channel = self.bot.get_channel(self.config.dump_channel())
+        channel = self.bot.get_channel(await self.config.dump_channel())
 
         if channel is None:
             return
