@@ -56,7 +56,10 @@ class ChannelDM(commands.Cog):
         if not message.channel.type == discord.ChannelType.private:
             return
         
-        if await message.content.startswith(tuple(await self.bot.get_valid_prefixes(message.guild))) is True:
+        valid_prefixes = tuple(await self.bot.get_valid_prefixes(message.guild))
+        print(valid_prefixes)
+
+        if await message.content.startswith(valid_prefixes) is True:
             return
 
         message.reply("Yes, I did it!")
