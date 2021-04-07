@@ -14,7 +14,7 @@ DEF_GLOBAL = {
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 
-class ChannelDM(commands.Cog):
+class ChannelPM(commands.Cog):
     """
     Messages to the bot will be redirected to a specified channel.
     """
