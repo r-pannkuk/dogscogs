@@ -54,7 +54,7 @@ class ChannelDM(commands.Cog):
     @commands.guild_only()
     @commands.mod()
     @commands.command(usage="<user> <message>")
-    async def dm(self, ctx, user: discord.User, message: str):
+    async def pm(self, ctx, user: discord.User, message: str):
         if message.author == self.bot.user:
             return
 
@@ -78,7 +78,7 @@ class ChannelDM(commands.Cog):
     @commands.mod()
     @commands.command(usage="<message>")
     async def r(self, ctx, message: discord.Message):
-        await self.dm(ctx, self.config.GLOBAL.reply_target(), message)
+        await self.pm(ctx, self.config.GLOBAL.reply_target(), message)
         return
         
 
