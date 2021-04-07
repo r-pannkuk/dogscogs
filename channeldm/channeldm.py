@@ -48,7 +48,7 @@ class ChannelDM(commands.Cog):
         
 
     @commands.Cog.listener()
-    async def on_message(self, ctx, message: discord.Message):
+    async def on_message(self, message: discord.Message):
         """
         Listens for private messages to forward to the dump channel.
         """
