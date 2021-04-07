@@ -66,8 +66,9 @@ class ChannelPM(commands.Cog):
     
     @commands.guild_only()
     @commands.mod()
-    @commands.command(usage="<user> <message>")
-    async def pm(self, ctx, user: discord.User, message: str):
+    @commands.command(usage="<user> <message>", rest_is_raw=True)
+    @
+    async def pm(self, ctx, user: discord.User, *, message: str):
         """
         Mesages a user indirectly via the bot.
         """
@@ -92,8 +93,8 @@ class ChannelPM(commands.Cog):
 
     @commands.guild_only()
     @commands.mod()
-    @commands.command(usage="<message>")
-    async def r(self, ctx, message: str):
+    @commands.command(usage="<message>", rest_is_raw=True)
+    async def r(self, ctx, *, message: str):
         """
         Replies to the last person who messaged the bot.
         """
