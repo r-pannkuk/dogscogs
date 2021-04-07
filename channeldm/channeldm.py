@@ -6,8 +6,9 @@ from redbot.core.bot import Red
 from redbot.core.config import Config
 
 BASECOG = getattr(commands, "Cog", object)
-DEF_GUILD = {
-    "dump_channel": None
+DEF_GLOBAL = {
+    "dump_channel": None,
+    "reply_target": None
 }
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
@@ -25,7 +26,7 @@ class ChannelDM(commands.Cog):
             identifier="Klypto#3347",
             force_registration=True,
         )
-        self.config.register_guild(**DEF_GUILD)
+        self.config.register_global(**DEF_GLOBAL)
 
 
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
@@ -37,13 +38,47 @@ class ChannelDM(commands.Cog):
     @commands.guild_only()
     @commands.is_owner()
     @commands.command(usage="<channel>")
-    async def set_dump_channel(self, ctx, channel: discord.TextChannel):
+    async def channel(self, ctx, channel: Optional[discord.TextChannel]):
         """
         Sets the channel where communications will be sent.
         """
-        await self.config.guild(ctx.guild).dump_channel.set(channel.id)
+        if channel is None:
+            await self.config.GLOBAL.dump_channel.set(None)
+            return await ctx.send("Done. Cleared DM channel.")
+
+        await self.config.GLOBAL.dump_channel.set(channel)
         await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))
         
+        return
+    
+    @commands.guild_only()
+    @commands.mod()
+    @commands.command(usage="<user> <message>")
+    async def dm(self, ctx, user: discord.User, message: str):
+        if message.author == self.bot.user:
+            return
+
+        if await self.bot.cog_disabled_in_guild(self, message.guild):
+            return
+        
+        response_channel = await self.config.GLOBAL.dump_channel()
+
+        if response_channel is None:
+            self.config.GLOBAL.dump_channel.set(ctx.channel)
+
+        response = """**{0}>{1}**: {2}""".format(message.author.display_name(), user.display_name(), message)
+
+        await user.send(response)
+        await ctx.channel.send(response)
+        await ctx.message.delete()
+
+        return
+
+    @commands.guild_only()
+    @commands.mod()
+    @commands.command(usage="<message>")
+    async def r(self, ctx, message: discord.Message):
+        await self.dm(ctx, self.config.GLOBAL.reply_target(), message)
         return
         
 
@@ -59,8 +94,15 @@ class ChannelDM(commands.Cog):
         if message.author == self.bot.user:
             return
 
-        if message.content.startswith(tuple(await self.bot.get_valid_prefixes(message.guild))) is True:
+        if message.content.startswith(tuple(await self.bot.get_valid_prefixes())) is True:
             return
 
-        await message.reply("Yes, I did it!")
+        channel = self.config.GLOBAL.dump_channel()
+
+        if channel is None:
+            return
+
+        await self.config.GLOBAL.reply_target.set(message.author)
+
+        await channel.send("""**{0}**: {1}""".format(message.author.mention, message.content))
         return
