@@ -67,7 +67,6 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.mod()
     @commands.command(usage="<user> <message>", rest_is_raw=True)
-    @
     async def pm(self, ctx, user: discord.User, *, message: str):
         """
         Mesages a user indirectly via the bot.
