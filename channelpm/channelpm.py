@@ -82,7 +82,7 @@ class ChannelPM(commands.Cog):
         if response_channel is None:
             await self.config.dump_channel.set(ctx.channel.id)
 
-        response = """**{0}>{1}#{2}**: {2}""".format(ctx.author.display_name, user.name, user.discriminator, message)
+        response = """**{0}>{1}#{2}**: {3}""".format(ctx.author.display_name, user.name, user.discriminator, message)
 
         await user.send(response)
         await ctx.channel.send(response)
