@@ -51,7 +51,7 @@ class ChannelPM(commands.Cog):
         Sets the channel where communications will be sent.
         """
         if channel is None:
-            channel = await self.bot.get_channel(self.config.dump_channel())
+            channel = self.bot.get_channel(self.config.dump_channel())
 
             if channel is None:
                 return await ctx.send("PM channel currently not set.")
