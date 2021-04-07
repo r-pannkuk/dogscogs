@@ -59,7 +59,7 @@ class ChannelDM(commands.Cog):
         valid_prefixes = tuple(await self.bot.get_valid_prefixes(message.guild))
         print(valid_prefixes)
 
-        if await message.content.startswith(valid_prefixes) is True:
+        if message.content.startswith(valid_prefixes) is True:
             return
 
         message.reply("Yes, I did it!")
