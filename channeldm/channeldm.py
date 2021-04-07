@@ -17,7 +17,7 @@ class ChannelDM(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=Klypto#3347,
+            identifier="Klypto#3347",
             force_registration=True,
         )
 
