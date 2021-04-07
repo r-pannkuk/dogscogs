@@ -47,6 +47,7 @@ class ChannelDM(commands.Cog):
         return
         
 
+    @commands.dm_only()
     @commands.Cog.listener()
     async def on_message(self, message):
         """
@@ -55,7 +56,7 @@ class ChannelDM(commands.Cog):
         if not message.channel.type == discord.ChannelType.private:
             return
         
-        if await message.content.startswith(self.bot.get_valid_prefixes(message.guild)):
+        if await message.content.startswith(await self.bot.get_valid_prefixes(message.guild)):
             return
 
         message.reply("Yes, I did it!")
