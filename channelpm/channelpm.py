@@ -43,10 +43,10 @@ class ChannelPM(commands.Cog):
         Sets the channel where communications will be sent.
         """
         if channel is None:
-            await self.config.GLOBAL.dump_channel.set(None)
+            await self.config.dump_channel.set(None)
             return await ctx.send("Done. Cleared DM channel.")
 
-        await self.config.GLOBAL.dump_channel.set(channel)
+        await self.config.dump_channel.set(channel)
         await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))
         
         return
@@ -64,12 +64,12 @@ class ChannelPM(commands.Cog):
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return
         
-        response_channel = await self.config.GLOBAL.dump_channel()
+        response_channel = await self.config.dump_channel()
 
         if response_channel is None:
-            self.config.GLOBAL.dump_channel.set(ctx.channel)
+            self.config.dump_channel.set(ctx.channel)
 
-        response = """**{0}>{1}**: {2}""".format(ctx.author.display_name(), user.display_name(), message)
+        response = """**{0}>{1}**: {2}""".format(ctx.author.display_name, user.display_name, message)
 
         await user.send(response)
         await ctx.channel.send(response)
@@ -84,7 +84,7 @@ class ChannelPM(commands.Cog):
         """
         Replies to the last person who messaged the bot.
         """
-        await self.pm(ctx, self.config.GLOBAL.reply_target(), message)
+        await self.pm(ctx, self.config.reply_target(), message)
         return
         
 
@@ -103,12 +103,12 @@ class ChannelPM(commands.Cog):
         if message.content.startswith(tuple(await self.bot.get_valid_prefixes())) is True:
             return
 
-        channel = self.config.GLOBAL.dump_channel()
+        channel = self.config.dump_channel()
 
         if channel is None:
             return
 
-        await self.config.GLOBAL.reply_target.set(message.author)
+        await self.config.reply_target.set(message.author)
 
         await channel.send("""**{0}**: {1}""".format(message.author.mention, message.content))
         return
