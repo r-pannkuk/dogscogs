@@ -22,7 +22,7 @@ class ChannelDM(commands.Cog):
         )
 
     @commands.command()
-    async def r(self, ctx):
+    async def very_specific_test_command(self, ctx):
         await ctx.send("I can do stuff.")
         
 
