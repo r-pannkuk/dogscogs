@@ -59,9 +59,7 @@ class ChannelPM(commands.Cog):
             return await ctx.send("PM channel currently set to {}.".format(channel.mention))
 
         await self.config.dump_channel.set(channel.id)
-        await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))
-        print(await self.config.dump_channel())
-        
+        await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))        
         return
     
     @commands.guild_only()
@@ -97,7 +95,7 @@ class ChannelPM(commands.Cog):
         """
         Replies to the last person who messaged the bot.
         """
-        await self.pm(ctx, self.bot.get_user(await self.config.reply_target()), message)
+        await self.pm(ctx, self.bot.get_user(await self.config.reply_target()), message=message)
         return
         
 
