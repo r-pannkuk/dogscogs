@@ -62,5 +62,5 @@ class ChannelDM(commands.Cog):
         if message.content.startswith(valid_prefixes) is True:
             return
 
-        message.reply("Yes, I did it!")
+        await message.reply("Yes, I did it!")
         return
