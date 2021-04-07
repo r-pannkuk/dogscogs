@@ -46,7 +46,7 @@ class ChannelPM(commands.Cog):
             await self.config.dump_channel.set(None)
             return await ctx.send("Done. Cleared DM channel.")
 
-        await self.config.dump_channel.set(channel)
+        await self.config.dump_channel.set(channel.id)
         await ctx.send("Done. Set {} as the channel for communications.".format(channel.mention))
         
         return
@@ -64,12 +64,12 @@ class ChannelPM(commands.Cog):
         if await self.bot.cog_disabled_in_guild(self, ctx.guild):
             return
         
-        response_channel = await self.config.dump_channel()
+        response_channel = await self.bot.get_channel(self.config.dump_channel())
 
         if response_channel is None:
-            self.config.dump_channel.set(ctx.channel)
+            await self.config.dump_channel.set(ctx.channel.id)
 
-        response = """**{0}>{1}**: {2}""".format(ctx.author.display_name, user.display_name, message)
+        response = """**{0}>{1}#{2}**: {2}""".format(ctx.author.display_name, user., message)
 
         await user.send(response)
         await ctx.channel.send(response)
@@ -84,7 +84,7 @@ class ChannelPM(commands.Cog):
         """
         Replies to the last person who messaged the bot.
         """
-        await self.pm(ctx, self.config.reply_target(), message)
+        await self.pm(ctx, await self.bot.get_user(self.config.reply_target()), message)
         return
         
 
@@ -103,12 +103,13 @@ class ChannelPM(commands.Cog):
         if message.content.startswith(tuple(await self.bot.get_valid_prefixes())) is True:
             return
 
-        channel = self.config.dump_channel()
+        channel = self.bot.get_channel(self.config.dump_channel())
 
         if channel is None:
             return
 
-        await self.config.reply_target.set(message.author)
+        await self.config.reply_target.set(message.author.id)
 
-        await channel.send("""**{0}**: {1}""".format(message.author.mention, message.content))
+        private_message = """**{0}#{1}**: {2}""".format(message.author.name, message.author.discriminator, message.content)
+        await channel.send(private_message)
         return
