@@ -55,6 +55,9 @@ class ChannelPM(commands.Cog):
     @commands.mod()
     @commands.command(usage="<user> <message>")
     async def pm(self, ctx, user: discord.User, message: str):
+        """
+        Mesages a user indirectly via the bot.
+        """
         if ctx.author == self.bot.user:
             return
 
@@ -78,6 +81,9 @@ class ChannelPM(commands.Cog):
     @commands.mod()
     @commands.command(usage="<message>")
     async def r(self, ctx, message: discord.Message):
+        """
+        Replies to the last person who messaged the bot.
+        """
         await self.pm(ctx, self.config.GLOBAL.reply_target(), message)
         return
         
