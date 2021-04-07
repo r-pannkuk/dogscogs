@@ -93,7 +93,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.mod()
     @commands.command(usage="<message>")
-    async def r(self, ctx, message: discord.Message):
+    async def r(self, ctx, message: str):
         """
         Replies to the last person who messaged the bot.
         """
