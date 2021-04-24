@@ -9,10 +9,6 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 USERNAME_TOKEN = """%%user%%"""
 
-DEFAULTS = {
-
-}
-
 DEFAULT_MEMBER = {
     "is_gulaged": False,
     "restore_role_ids": None,
@@ -139,8 +135,11 @@ class Gulag(commands.Cog):
         return role
 
     @commands.mod()
-    @commands.command(usage="<user>")
+    @commands.group(invoke_without_command=True, usage="<user>")
     async def gulag(self, ctx: commands.Context, user: discord.User):
+        """
+        Moderates a user, preventing them from seeing any channels except their own warning channel.
+        """
         guild: discord.Guild = ctx.guild
 
         member: discord.Member = guild.get_member(user.id)
@@ -184,6 +183,9 @@ class Gulag(commands.Cog):
     @commands.mod()
     @commands.command(usage="<user>")
     async def ungulag(self, ctx: commands.Context, user: discord.User):
+        """
+        Unmoderates a user, restoring all roles they had and cleaning up any moderation roles or channels created.
+        """
         guild: discord.Guild = ctx.guild
 
         member: discord.Member = guild.get_member(user.id)
@@ -218,13 +220,57 @@ class Gulag(commands.Cog):
         await group.gulag_channel_id.set(None)
         await group.gulag_role_id.set(None)
 
-        await ctx.channel.send(
-            """{0} has been unmoderated.""".format(member.display_name)
-        )
+        if ctx.channel.id != channel.id:
+            await ctx.channel.send(
+                """{0} has been unmoderated.""".format(member.display_name)
+            )
 
     @commands.mod()
-    @commands.command(usage="<user>")
+    @gulag.command(usage="<role>")
+    async def add_mod_role(self, ctx: commands.Context, role: discord.Role):
+        """
+        Adds a mod role to the list of roles with permissions to view moderation channels.
+        """
+        roles: list[int] = await self.config.guild(ctx.guild).permitted_role_ids()
+
+        if role.id in roles:
+            await ctx.channel.send("""Role {0} is already set to view moderation channels.""".format(role.name))
+            return
+
+        roles.append(role.id)
+
+        await self.config.guild(ctx.guild).permitted_role_ids.set(roles)
+
+        await ctx.channel.send("""Role {0} can now view moderation channels.""".format(role.name))
+        return
+
+
+    @commands.mod()
+    @gulag.command(usage="<role>")
+    async def remove_mod_role(self, ctx: commands.Context, role: discord.Role):
+        """
+        Adds a mod role to the list of roles with permissions to view moderation channels.
+        """
+        roles: list[int] = await self.config.guild(ctx.guild).permitted_role_ids()
+
+        if role.id not in roles:
+            await ctx.channel.send("""Role {0} is not set to view moderation channels.""".format(role.name))
+            return
+
+        roles.remove(role.id)
+
+        await self.config.guild(ctx.guild).permitted_role_ids.set(roles)
+
+        await ctx.channel.send("""Role {0} will no longer be able to view moderation channels.""".format(role.name))
+        return
+
+
+    @commands.mod()
+    @gulag.command(usage="<user>")
     async def delete_data_for_user(self, ctx: commands.Context, user: discord.User):
+        """
+        Deletes stored data for a user.  Only use if you know what you're doing!
+        """
         await self.config.user(user).clear()
         await self.config.member_from_ids(ctx.guild.id, user.id).clear()
         # self.red_delete_data_for_user(self, requester=ctx.author, user_id=user.id)
@@ -232,4 +278,3 @@ class Gulag(commands.Cog):
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
         # TODO: Replace this with the proper end user data removal handling.
         super().red_delete_data_for_user(requester=requester, user_id=user_id)
-
