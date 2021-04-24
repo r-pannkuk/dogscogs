@@ -135,7 +135,7 @@ class Gulag(commands.Cog):
         return role
 
     @commands.mod()
-    @commands.group(invoke_without_command=True, usage="<user>")
+    @commands.command(usage="<user>")
     async def gulag(self, ctx: commands.Context, user: discord.User):
         """
         Moderates a user, preventing them from seeing any channels except their own warning channel.
@@ -226,7 +226,7 @@ class Gulag(commands.Cog):
             )
 
     @commands.mod()
-    @gulag.command(usage="<role>")
+    @commands.command(usage="<role>")
     async def add_mod_role(self, ctx: commands.Context, role: discord.Role):
         """
         Adds a mod role to the list of roles with permissions to view moderation channels.
@@ -246,7 +246,7 @@ class Gulag(commands.Cog):
 
 
     @commands.mod()
-    @gulag.command(usage="<role>")
+    @commands.command(usage="<role>")
     async def remove_mod_role(self, ctx: commands.Context, role: discord.Role):
         """
         Adds a mod role to the list of roles with permissions to view moderation channels.
@@ -266,7 +266,7 @@ class Gulag(commands.Cog):
 
 
     @commands.mod()
-    @gulag.command(usage="<user>")
+    @commands.command(usage="<user>")
     async def delete_data_for_user(self, ctx: commands.Context, user: discord.User):
         """
         Deletes stored data for a user.  Only use if you know what you're doing!
