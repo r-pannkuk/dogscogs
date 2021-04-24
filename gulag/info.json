@@ -1,0 +1,20 @@
+{
+    "name": "gulag",
+    "short": "Sends a user to a private channel for moderation.",
+    "description": "Removes all roles and designates a private channel for the user to be sent to.",
+    "end_user_data_statement": "Stores information about the user's roles; captures all messages in the moderation channel to report to a log channel.",
+    "author": [
+        "Klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "tag1",
+        "tag2",
+        "tag3"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

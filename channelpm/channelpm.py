@@ -23,7 +23,7 @@ class ChannelPM(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier="Klypto#3347",
+            identifier=331669086813814784,
             force_registration=True,
         )
         self.config.register_global(**DEF_GLOBAL)
