@@ -134,7 +134,7 @@ class Gulag(commands.Cog):
 
         return role
 
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>")
     async def gulag(self, ctx: commands.Context, user: discord.User):
         """
@@ -180,7 +180,7 @@ class Gulag(commands.Cog):
         await ctx.channel.send("""{0} has been moderated. See: {1}""".format(
             member.display_name, channel.mention))
 
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>")
     async def ungulag(self, ctx: commands.Context, user: discord.User):
         """
@@ -225,7 +225,7 @@ class Gulag(commands.Cog):
                 """{0} has been unmoderated.""".format(member.display_name)
             )
 
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<role>")
     async def add_mod_role(self, ctx: commands.Context, role: discord.Role):
         """
@@ -245,7 +245,7 @@ class Gulag(commands.Cog):
         return
 
 
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<role>")
     async def remove_mod_role(self, ctx: commands.Context, role: discord.Role):
         """
@@ -265,7 +265,7 @@ class Gulag(commands.Cog):
         return
 
 
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>")
     async def delete_data_for_user(self, ctx: commands.Context, user: discord.User):
         """

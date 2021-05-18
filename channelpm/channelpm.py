@@ -63,7 +63,7 @@ class ChannelPM(commands.Cog):
         return
     
     @commands.guild_only()
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True)
     async def pm(self, ctx, user: discord.User, *, message: str):
         """
@@ -89,7 +89,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod()
+    @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<message>", rest_is_raw=True)
     async def r(self, ctx, *, message: str):
         """
