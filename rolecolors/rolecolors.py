@@ -366,7 +366,7 @@ class RoleColors(commands.Cog):
 
 
     @rolecolors.command(usage="<hex_or_roleid>")
-    async def set(self, ctx: commands.Context, hex_or_roleid: typing.Union[str, discord.Role]):
+    async def set(self, ctx: commands.Context, hex_or_roleid: typing.Union[discord.Role, str]):
         color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
         color_roles = [
             role for role in ctx.guild.roles if role.id in color_role_ids]
