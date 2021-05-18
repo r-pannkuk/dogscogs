@@ -1,4 +1,5 @@
 from typing import Literal, Optional
+import typing
 
 import discord
 from redbot.core import commands
@@ -65,7 +66,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True)
-    async def pm(self, ctx, user: discord.User, *, message: str):
+    async def pm(self, ctx, user: typing.Union[discord.Member, discord.User], *, message: str):
         """
         Mesages a user indirectly via the bot.
         """
@@ -80,7 +81,7 @@ class ChannelPM(commands.Cog):
         if response_channel is None:
             await self.config.dump_channel.set(ctx.channel.id)
 
-        response = """**{0}>{1}#{2}**: {3}""".format(ctx.author.display_name, user.name, user.discriminator, message)
+        response = f"**{ctx.author.display_name}>{user.name}#{user.discriminator}**: {message}"
 
         await user.send(response)
         await ctx.channel.send(response)
@@ -121,6 +122,6 @@ class ChannelPM(commands.Cog):
 
         await self.config.reply_target.set(message.author.id)
 
-        private_message = """**{0}#{1}**: {2}""".format(message.author.name, message.author.discriminator, message.content)
+        private_message = f"**{message.author.name}#{message.author.discriminator}**: {message.content}"
         await channel.send(private_message)
         return

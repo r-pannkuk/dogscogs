@@ -1,4 +1,5 @@
 from typing import Literal
+import typing
 
 import discord
 from redbot.core import commands
@@ -69,8 +70,9 @@ class Gulag(commands.Cog):
             await self.config.guild(guild).category_id.set(category.id)
 
         # Gives access to view for all permitted roles.
-        for r in await self.config.guild(guild).permitted_roles():
-            await category.set_permissions(target=r, overwrite=discord.PermissionOverwrite(
+        for r in await self.config.guild(guild).permitted_role_ids():
+            role = guild.get_role(r)
+            await category.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
                 read_messages=True,
                 send_messages=True,
                 view_channel=True
@@ -136,15 +138,13 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>")
-    async def gulag(self, ctx: commands.Context, user: discord.User):
+    async def gulag(self, ctx: commands.Context, member: discord.Member):
         """
         Moderates a user, preventing them from seeing any channels except their own warning channel.
         """
         guild: discord.Guild = ctx.guild
 
-        member: discord.Member = guild.get_member(user.id)
-
-        group = self.config.member_from_ids(guild.id, user.id)
+        group = self.config.member_from_ids(guild.id, member.id)
 
         if group == None or await group.is_gulaged():
             channel = guild.get_channel(await group.gulag_channel_id())
@@ -182,15 +182,13 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>")
-    async def ungulag(self, ctx: commands.Context, user: discord.User):
+    async def ungulag(self, ctx: commands.Context, member: discord.Member):
         """
         Unmoderates a user, restoring all roles they had and cleaning up any moderation roles or channels created.
         """
         guild: discord.Guild = ctx.guild
 
-        member: discord.Member = guild.get_member(user.id)
-
-        group = self.config.member_from_ids(guild.id, user.id)
+        group = self.config.member_from_ids(guild.id, member.id)
 
         if group == None or not await group.is_gulaged():
             await ctx.channel.send(
@@ -267,7 +265,7 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>")
-    async def delete_data_for_user(self, ctx: commands.Context, user: discord.User):
+    async def delete_data_for_user(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User]):
         """
         Deletes stored data for a user.  Only use if you know what you're doing!
         """
