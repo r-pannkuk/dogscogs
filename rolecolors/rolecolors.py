@@ -397,7 +397,7 @@ class RoleColors(commands.Cog):
 
         await ctx.author.add_roles(role)
 
-        await ctx.channel.send(f"User {ctx.author} assigned color #{role.color.value:06x}")
+        await ctx.channel.send(f"User {ctx.author} assigned {role.name} (#{role.color.value:06x}).")
 
 
     @rolecolors.command()
