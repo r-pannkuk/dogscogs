@@ -6,7 +6,7 @@ import colorsys
 import itertools
 import math
 from fractions import Fraction
-import numpy as np
+# import numpy as np
 
 import discord
 from discord.errors import InvalidArgument
