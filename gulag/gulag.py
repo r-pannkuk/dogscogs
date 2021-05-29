@@ -48,6 +48,9 @@ class Gulag(commands.Cog):
         pass
 
     async def create_category_channel(self, guild: discord.Guild):
+        """
+        Creates a category channel for inserting moderation channels into.
+        """
         channel_id = await self.config.guild(guild).category_id()
 
         category: discord.CategoryChannel = guild.get_channel(channel_id)
@@ -88,6 +91,9 @@ class Gulag(commands.Cog):
         pass
 
     async def create_gulag_channel(self, guild: discord.Guild, member: discord.Member) -> discord.TextChannel:
+        """
+        Creates a new moderation channel that a user will be able to post in when moderated.
+        """
         if guild == None:
             guild = member.guild
 
@@ -106,6 +112,9 @@ class Gulag(commands.Cog):
         )
 
     async def create_gulag_role(self, guild: discord.Guild, member: discord.Member, channel: discord.TextChannel) -> discord.Role:
+        """
+        Creates the role used to moderate a user and assign them to the respective moderation channel.
+        """
         if guild == None:
             guild = member.guild
 

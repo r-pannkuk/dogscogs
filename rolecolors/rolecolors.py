@@ -169,6 +169,9 @@ DEFAULT_COLORS = [
 
 
 def color_diff(rgb1, rgb2):
+    """
+    Determines the relative distance between two colors.
+    """
     if isinstance(rgb1, discord.Colour):
         rgb1 = (rgb1.r, rgb1.g, rgb1.b)
     if isinstance(rgb2, discord.Colour):
@@ -178,11 +181,17 @@ def color_diff(rgb1, rgb2):
 
 
 def sort_palette(color):
+    """
+    Sorts a palette based on hue, then by lightness, then by saturation.
+    """
     hls = colorsys.rgb_to_hls(color[0] / 255, color[1] / 255, color[2] / 255)
     return hls[0] * 100 + hls[1] * 5 + hls[2] * 5
 
 
 def aggregate_palette(p):
+    """
+    Combines a palette together to get a superset. 
+    """
     result = 0
     for a, b in itertools.combinations(p, 2):
         result += color_diff(a, b)
@@ -191,6 +200,9 @@ def aggregate_palette(p):
 
 
 def min_palette_diff(p):
+    """
+    Finds the smallest distance between two elements of a palette.
+    """
     min = None
     for a, b in itertools.combinations(p, 2):
         diff = color_diff(a, b)
@@ -200,6 +212,9 @@ def min_palette_diff(p):
 
 
 def get_palette(n: int = 100, Lmin: int = 5, Lmax: int = 90, maxLoops: int = 100000) -> Iterable[RGBTuple]:
+    """
+    Obtains a palette based on the number of colors desired.
+    """
     data = []
 
     for color in DEFAULT_COLORS:
@@ -224,6 +239,9 @@ def get_palette(n: int = 100, Lmin: int = 5, Lmax: int = 90, maxLoops: int = 100
 
 
 def rgbs(num_colors) -> Iterable[RGBTuple]:
+    """
+    Obtains a palette based on the number of colors desired.
+    """
     colors = [(0.08, 0.08, 0.08), (1, 1, 1), (0.5, 0.5, 0.5)]
     if num_colors > 3:
         for i in np.arange(0., 360., 360. / (num_colors - 3)):
@@ -236,6 +254,9 @@ def rgbs(num_colors) -> Iterable[RGBTuple]:
 
 # https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python
 def hex_to_rgb(h) -> Tuple[int, int, int]:
+    """
+    Converts a hex value to 3 rgb values.
+    """
     h = h.replace('#', '').replace('0x', '').replace('0X', '')
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
 
@@ -257,6 +278,9 @@ class RoleColors(commands.Cog):
 
     @commands.group()
     async def rolecolors(self, ctx):
+        """
+        Manages color assignment for users based on designated color roles.
+        """
         pass
 
     @rolecolors.command(usage="<amount>", name="create")
@@ -264,6 +288,9 @@ class RoleColors(commands.Cog):
     async def create_color_roles(self,
                                  ctx: commands.Context,
                                  amount: typing.Optional[int]) -> None:
+        """
+        Creates a new group of `N` color roles.  Replaces old roles in use. 
+        """
         default_amount = await self.config.guild_from_id(
             ctx.guild.id).number_of_colors()
         if amount is None:
@@ -328,6 +355,9 @@ class RoleColors(commands.Cog):
     async def add_color_role(self,
                              ctx: commands.Context,
                              color: typing.Union[discord.Role, str]) -> None:
+        """
+        Adds an already existing color role or creates a new one based on hex value.
+        """
         guild: discord.Guild = ctx.guild
         previous_role_ids = await self.config.guild_from_id(guild.id).role_ids()
 
@@ -367,6 +397,9 @@ class RoleColors(commands.Cog):
 
     @rolecolors.command(usage="<hex_or_roleid>")
     async def set(self, ctx: commands.Context, hex_or_roleid: typing.Union[discord.Role, str]):
+        """
+        Sets the color for a user by assigning them to the closest role.
+        """
         color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
         color_roles = [
             role for role in ctx.guild.roles if role.id in color_role_ids]
@@ -402,6 +435,9 @@ class RoleColors(commands.Cog):
 
     @rolecolors.command()
     async def clear(self, ctx: commands.Context):
+        """
+        Clears any color roles that the caller may have.
+        """
         color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
         color_roles = [
             role for role in ctx.guild.roles if role.id in color_role_ids]
@@ -412,6 +448,9 @@ class RoleColors(commands.Cog):
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role : discord.Role):
+        """
+        Updates color role list with any deleted roles that the guild deletes. 
+        """
         color_role_ids : typing.List[int] = await self.config.guild_from_id(role.guild.id).role_ids()
 
         if role.id in color_role_ids:
