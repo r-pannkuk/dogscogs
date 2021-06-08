@@ -334,7 +334,7 @@ class logger(commands.Cog):
                 pass
             elif payload.type == 'UPDATE':
                 if await self.config.guild_from_id(guild.id).formatted_inline():
-                    await logger_channel.send(log + f"{payload.delta_inline}")
+                    await logger_channel.send(log + f"\n{payload.delta_inline}")
                 else:
                     before = '>>> ' + payload.before.content
                     await logger_channel.send(f"{log}\n{before}")
