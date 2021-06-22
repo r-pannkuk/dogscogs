@@ -9,6 +9,7 @@ from redbot.core.bot import Red
 from redbot.core.config import Config
 
 DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
+DISCORD_MAX_MESSAGE_SIZE_LIMIT = 2000
 COG_IDENTIFIER = 260288776360820736
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
@@ -248,8 +249,11 @@ class Gulag(commands.Cog):
         if logs_enabled and log_channel is not None and gulag_channel is not None:
 
             messages: list[discord.Message] = await gulag_channel.history(limit=200).flatten()
+            log = ''
 
-            log = ""
+            if len(messages) > 0:
+                messages.sort(key=lambda m: m.created_at)
+                log = f'__Chat History of **{gulag_channel.name}**__:\n'
 
             for message in messages:
                 author: discord.Member = message.author
@@ -264,10 +268,23 @@ class Gulag(commands.Cog):
                 )
                 time = time.astimezone(pytz.timezone("US/Eastern"))
                 timestring = time.strftime("%m/%d/%Y %I:%M:%S %p")
-                log += f"`{timestring}` **{author.display_name}**: {message.clean_content}\n"
+                str = f"`{timestring}` **{author.display_name}**: "
+                
+                if len(message.clean_content) < DISCORD_MAX_MESSAGE_SIZE_LIMIT-100:
+                    str += f"{message.clean_content}\n"
+                else:
+                    str += f"{message.clean_content[:DISCORD_MAX_MESSAGE_SIZE_LIMIT-100]}...\n"
 
-            if len(log) > 0:
-                await log_channel.send(f'__Chat History of **{gulag_channel.name}**__:')
+                for attachment in message.attachments:
+                    str += attachment.url + '\n'
+
+                if len(log) + len(str) > DISCORD_MAX_MESSAGE_SIZE_LIMIT:
+                    await log_channel.send(log)
+                    log = str
+                else:
+                    log += str
+            
+            if len(log) >= 0:
                 await log_channel.send(log)
         # END OF DUMB LOGGING THING THAT SHOULD BE AN EVENT
 
