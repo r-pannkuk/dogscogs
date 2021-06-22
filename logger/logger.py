@@ -7,6 +7,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+COG_IDENTIFIER = 260288776360820736
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -105,7 +107,7 @@ class LogPayload:
         return str
 
 
-class logger(commands.Cog):
+class Logger(commands.Cog):
     """
     Logs message deletions and edits.
     """
@@ -114,7 +116,7 @@ class logger(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -140,8 +142,12 @@ class logger(commands.Cog):
         is_enabled = await self.config.guild_from_id(guild.id).is_enabled()
 
         logger_channel_id = await self.config.guild_from_id(guild.id).logger_channel_id() 
+        prefix = await ctx.bot.get_prefix(ctx.message)
 
-        channel_unset_message = 'Please set a logging channel using `.logger channel <channel>` or create one with `.logger create <name>`.'
+        if isinstance(prefix, list):
+            prefix = prefix[0]
+
+        channel_unset_message = f'Please set a logging channel using `{prefix}logger channel <channel>` or create one with `{prefix}logger create <name>`.'
         
         if logger_channel_id is not None:
             logger_channel = guild.get_channel(logger_channel_id)

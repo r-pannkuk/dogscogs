@@ -6,6 +6,9 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
+COG_IDENTIFIER = 260288776360820736
+
 BASECOG = getattr(commands, "Cog", object)
 DEF_GLOBAL = {
     "dump_channel": None,
@@ -17,8 +20,6 @@ DEF_GUILD = {
     "dump_channel": None,
     "reply_target": None
 }
-
-DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -32,7 +33,7 @@ class ChannelPM(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=331669086813814784,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         self.config.register_global(**DEF_GLOBAL)

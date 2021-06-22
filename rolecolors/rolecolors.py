@@ -14,6 +14,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+COG_IDENTIFIER = 260288776360820736
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -238,18 +240,18 @@ def get_palette(n: int = 100, Lmin: int = 5, Lmax: int = 90, maxLoops: int = 100
     return bestPalette
 
 
-def rgbs(num_colors) -> Iterable[RGBTuple]:
-    """
-    Obtains a palette based on the number of colors desired.
-    """
-    colors = [(0.08, 0.08, 0.08), (1, 1, 1), (0.5, 0.5, 0.5)]
-    if num_colors > 3:
-        for i in np.arange(0., 360., 360. / (num_colors - 3)):
-            hue = i/360.
-            lightness = (50 + np.random.rand() * 10)/100.
-            saturation = (90 + np.random.rand() * 10)/100.
-            colors.append(colorsys.hls_to_rgb(hue, lightness, saturation))
-    return colors
+# def rgbs(num_colors) -> Iterable[RGBTuple]:
+#     """
+#     Obtains a palette based on the number of colors desired.
+#     """
+#     colors = [(0.08, 0.08, 0.08), (1, 1, 1), (0.5, 0.5, 0.5)]
+#     if num_colors > 3:
+#         for i in np.arange(0., 360., 360. / (num_colors - 3)):
+#             hue = i/360.
+#             lightness = (50 + np.random.rand() * 10)/100.
+#             saturation = (90 + np.random.rand() * 10)/100.
+#             colors.append(colorsys.hls_to_rgb(hue, lightness, saturation))
+#     return colors
 
 
 # https://stackoverflow.com/questions/29643352/converting-hex-to-rgb-value-in-python
@@ -270,7 +272,7 @@ class RoleColors(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
