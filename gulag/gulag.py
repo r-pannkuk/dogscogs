@@ -26,6 +26,7 @@ DEFAULT_MEMBER = {
 
 DEFAULT_ROLE = {
     "is_gulag_role": False,
+    "is_priveleged_role": False,
     "user_id": None,
     "gulag_channel_id": None
 }
@@ -98,7 +99,7 @@ class Gulag(commands.Cog):
 
         # Gives access to view for all permitted roles.
         for role in guild.roles:
-            if await self.config.role(role).is_gulag_role():
+            if await self.config.role(role).is_priveleged_role():
                 await category.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
                     read_messages=True,
                     send_messages=True,
@@ -365,7 +366,7 @@ class Gulag(commands.Cog):
         """
         Adds a mod role to the list of roles with permissions to view moderation channels.
         """
-        if await self.config.role(role).is_gulag_role():
+        if await self.config.role(role).is_priveleged_role():
             await ctx.channel.send(f"Role {role.name} is already set to view moderation channels.")
             return
 
@@ -380,6 +381,8 @@ class Gulag(commands.Cog):
                     view_channel=True
                 ))
 
+        await self.config.role(role).is_priveleged_role.set(True)
+
         await ctx.channel.send(f"Role {role.name} can now view moderation channels.")
         return
 
@@ -389,7 +392,7 @@ class Gulag(commands.Cog):
         """
         Adds a mod role to the list of roles with permissions to view moderation channels.
         """
-        if not await self.config.role(role).is_gulag_role():
+        if not await self.config.role(role).is_priveleged_role():
             await ctx.channel.send(f"Role {role.name} is not set to view moderation channels.")
             return
 
@@ -403,6 +406,8 @@ class Gulag(commands.Cog):
                     send_messages=False,
                     view_channel=False
                 ))
+
+        await self.config.role(role).is_priveleged_role.set(False)
 
         await ctx.channel.send(f"Role {role.name} will no longer be able to view moderation channels.")
         return
