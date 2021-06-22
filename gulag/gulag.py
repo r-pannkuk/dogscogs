@@ -38,7 +38,7 @@ DEFAULT_CHANNEL = {
 DEFAULT_GUILD = {
     "category_id": None,
     "category_creation_reason": "Warnings channel for moderation of users.",
-    "category_name": "Warnings",
+    "category_name": "Moderation",
     "channel_name": f"warning-{USERNAME_TOKEN}",
     "log_channel_id": None,
     "log_channel_name": "gulogs",
