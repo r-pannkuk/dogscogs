@@ -264,10 +264,10 @@ class Gulag(commands.Cog):
                 )
                 time = time.astimezone(pytz.timezone("US/Eastern"))
                 timestring = time.strftime("%m/%d/%Y %I:%M:%S %p")
-                log += f"[{timestring}] **{author.display_name}**: {message.clean_content}\n"
+                log += f"`{timestring}` **{author.display_name}**: {message.clean_content}\n"
 
             if len(log) > 0:
-                await log_channel.send(f'`Chat History of {gulag_channel.name}`:')
+                await log_channel.send(f'__Chat History of **{gulag_channel.name}**__:')
                 await log_channel.send(log)
         # END OF DUMB LOGGING THING THAT SHOULD BE AN EVENT
 
