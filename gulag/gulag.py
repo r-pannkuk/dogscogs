@@ -136,13 +136,6 @@ class Gulag(commands.Cog):
             name=channel_name
         )
 
-        # Overwrite permissions for this specific role for communication.
-        await channel.set_permissions(target=member, overwrite=discord.PermissionOverwrite(
-            read_messages=True,
-            send_messages=True,
-            view_channel=True
-        ))
-
         await self.config.channel(channel).is_gulag_channel.set(True)
         await self.config.channel(channel).user_id.set(member.id)
 
@@ -167,6 +160,7 @@ class Gulag(commands.Cog):
             ))
 
         await self.config.role(role).is_gulag_role.set(True)
+        await self.config.guild(guild).gulag_role_id.set(role.id)
         return role
 
     async def moderate_user(self,
@@ -198,12 +192,21 @@ class Gulag(commands.Cog):
                 if gulag_role is None:
                     gulag_role = await self.create_gulag_role(guild, await self.config.guild(guild).gulag_role_name())
 
-        current_roles = [r for r in member.roles if r != guild.default_role]
+        existing_restoration_roles = await group.restore_role_ids() or list()
+        restricted_date = await group.restricted_date()
+        current_roles = [r for r in member.roles if r != guild.default_role] + [guild.get_role(id) for id in existing_restoration_roles]
+
+        # Overwrite permissions for this specific role for communication.
+        await gulag_channel.set_permissions(target=member, overwrite=discord.PermissionOverwrite(
+            read_messages=True,
+            send_messages=True,
+            view_channel=True
+        ))
 
         await group.is_gulaged.set(True)
         await group.restore_role_ids.set([r.id for r in current_roles])
         await group.gulag_channel_id.set(gulag_channel.id)
-        await group.restricted_date.set(datetime.now().timestamp())
+        await group.restricted_date.set(restricted_date or datetime.now().timestamp())
         await group.gulag_role_id.set(gulag_role.id)
 
         for role in current_roles:
@@ -575,7 +578,6 @@ class Gulag(commands.Cog):
 
         role: discord.Role = await self.create_gulag_role(guild, name)
 
-        await self.config.guild(guild).gulag_role_id.set(role.id)
         await self.config.guild(guild).gulag_role_name.set(name)
 
         await ctx.channel.send(f"New role {role.mention} will now moderate users.")
@@ -772,12 +774,24 @@ class Gulag(commands.Cog):
         guild: discord.Guild = member.guild
 
         if await self.config.member(member).is_gulaged():
-            gulag_role: discord.Role = guild.get_role(await self.config.guild(guild).gulag_role_id())
+            gulag_role_id = await self.config.guild(guild).gulag_role_id()
+            gulag_role: discord.Role = guild.get_role(gulag_role_id)
 
             if gulag_role is None:
                 return
 
-            await member.add_roles(gulag_role,
-                                   atomic=True,
-                                   reason=await self.config.guild(guild).gulag_reason())
+            gulag_channel_id = await self.config.member(member).gulag_channel_id()
+            gulag_channel : discord.TextChannel = guild.get_channel(gulag_channel_id)
+
+            if gulag_channel is None:
+                return
+
+            await self.moderate_user(member, gulag_role=gulag_role, gulag_channel=gulag_channel)
+        pass
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+        """
+        Attempting to understand this.
+        """
         pass
