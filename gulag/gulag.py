@@ -18,6 +18,7 @@ USERNAME_TOKEN = "%%user%%"
 
 DEFAULT_MEMBER = {
     "is_gulaged": False,
+    "is_privileged": False,
     "restore_role_ids": None,
     "restricted_date": None,
     "gulag_channel_id": None,
@@ -26,9 +27,7 @@ DEFAULT_MEMBER = {
 
 DEFAULT_ROLE = {
     "is_gulag_role": False,
-    "is_priveleged_role": False,
-    "user_id": None,
-    "gulag_channel_id": None
+    "is_privileged": False
 }
 
 DEFAULT_CHANNEL = {
@@ -41,11 +40,12 @@ DEFAULT_GUILD = {
     "category_creation_reason": "Warnings channel for moderation of users.",
     "category_name": "Moderation",
     "channel_name": f"warning-{USERNAME_TOKEN}",
+    "gulag_reason": "User being moderated.",
+    "gulag_role_id": None,
+    "gulag_role_name": f"Warnings",
     "log_channel_id": None,
     "log_channel_name": "gulogs",
-    "logs_enabled": True,
-    "gulag_reason": "User being moderated.",
-    "role_name": f"Warned-{USERNAME_TOKEN}"
+    "logs_enabled": True
 }
 
 
@@ -99,7 +99,7 @@ class Gulag(commands.Cog):
 
         # Gives access to view for all permitted roles.
         for role in guild.roles:
-            if await self.config.role(role).is_priveleged_role():
+            if await self.config.role(role).is_privileged():
                 await category.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
                     read_messages=True,
                     send_messages=True,
@@ -136,24 +136,24 @@ class Gulag(commands.Cog):
             name=channel_name
         )
 
+        # Overwrite permissions for this specific role for communication.
+        await channel.set_permissions(target=member, overwrite=discord.PermissionOverwrite(
+            read_messages=True,
+            send_messages=True,
+            view_channel=True
+        ))
+
         await self.config.channel(channel).is_gulag_channel.set(True)
         await self.config.channel(channel).user_id.set(member.id)
 
         return channel
 
-    async def create_gulag_role(self, guild: discord.Guild, member: discord.Member, channel: discord.TextChannel) -> discord.Role:
+    async def create_gulag_role(self, guild, name):
         """
-        Creates the role used to moderate a user and assign them to the respective moderation channel.
+        Creates a new role for gulaging with the appropriate permissions.
         """
-        if guild == None:
-            guild = member.guild
-
-        role_name = (await self.config.guild(guild).role_name()).replace(
-            USERNAME_TOKEN, member.display_name
-        )
-
         role = await guild.create_role(
-            name=role_name,
+            name=name,
             mentionable=False,
             hoist=False,
             permissions=discord.Permissions.none()
@@ -166,17 +166,7 @@ class Gulag(commands.Cog):
                 view_channel=False
             ))
 
-        # Overwrite permissions for this specific role for communication.
-        await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
-            read_messages=True,
-            send_messages=True,
-            view_channel=True
-        ))
-
         await self.config.role(role).is_gulag_role.set(True)
-        await self.config.role(role).user_id.set(member.id)
-        await self.config.role(role).gulag_channel_id.set(channel.id)
-
         return role
 
     async def moderate_user(self,
@@ -202,7 +192,11 @@ class Gulag(commands.Cog):
             gulag_role: discord.Role = guild.get_role(await self.config.member(member).gulag_role_id())
 
             if gulag_role is None:
-                gulag_role = await self.create_gulag_role(guild, member, gulag_channel)
+                # gulag_role = await self.create_gulag_role(guild, member, gulag_channel)
+                gulag_role = guild.get_role(await self.config.guild(guild).gulag_role_id())
+
+                if gulag_role is None:
+                    gulag_role = await self.create_gulag_role(guild, await self.config.guild(guild).gulag_role_name())
 
         current_roles = [r for r in member.roles if r != guild.default_role]
 
@@ -299,7 +293,7 @@ class Gulag(commands.Cog):
             await gulag_channel.delete()
 
         if gulag_role != None:
-            await gulag_role.delete()
+            await member.remove_roles(gulag_role, atomic=True)
 
         for r in restore_role_ids:
             role = guild.get_role(r)
@@ -350,7 +344,8 @@ class Gulag(commands.Cog):
 
         await self.unmoderate_user(member)
 
-        await ctx.channel.send(f"{member.display_name} has been unmoderated.")
+        if ctx.channel.id in [channel.id for channel in guild.channels]:
+            await ctx.channel.send(f"{member.display_name} has been unmoderated.")
 
     @commands.mod_or_permissions(manage_roles=True)
     @commands.group()
@@ -361,55 +356,70 @@ class Gulag(commands.Cog):
         pass
 
     @commands.mod_or_permissions(manage_roles=True)
-    @gulag.command(usage="<role>")
-    async def addrole(self, ctx: commands.Context, role: discord.Role):
+    @ gulag.command(usage="<user|role>", aliases=["allow"], show_aliases=True)
+    async def permit(self, ctx: commands.Context, target: typing.Union[discord.Member, discord.Role]):
         """
-        Adds a mod role to the list of roles with permissions to view moderation channels.
+        Allows a user or role to view moderation channels.
         """
-        if await self.config.role(role).is_priveleged_role():
-            await ctx.channel.send(f"Role {role.name} is already set to view moderation channels.")
+        group = None
+        if isinstance(target, discord.Member):
+            group = self.config.member(target)
+            name = target.display_name
+        if isinstance(target, discord.Role):
+            group = self.config.role(target)
+            name = f"Role {target.name}"
+
+        if await group.is_privileged():
+            await ctx.channel.send(f"{name} is already set to view moderation channels.")
             return
 
-        guild: discord.Guild = role.guild
+        guild: discord.Guild = target.guild
         log_channel_id = await self.config.guild(guild).log_channel_id()
 
         for channel in guild.channels:
             if await self.config.channel(channel).is_gulag_channel() or channel.id == log_channel_id:
-                await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
+                await channel.set_permissions(target=target, overwrite=discord.PermissionOverwrite(
                     read_messages=True,
                     send_messages=True,
                     view_channel=True
                 ))
 
-        await self.config.role(role).is_priveleged_role.set(True)
+        await group.is_privileged.set(True)
 
-        await ctx.channel.send(f"Role {role.name} can now view moderation channels.")
+        await ctx.channel.send(f"{name} is now set to view moderation channels.")
         return
 
-    @ commands.mod_or_permissions(manage_roles=True)
-    @ gulag.command(usage="<role>")
-    async def removerole(self, ctx: commands.Context, role: discord.Role):
+    @commands.mod_or_permissions(manage_roles=True)
+    @ gulag.command(usage="<user|role>", aliases=["disallow", "unpermit"], show_aliases=True)
+    async def prohibit(self, ctx: commands.Context, target: typing.Union[discord.Member, discord.Role]):
         """
-        Adds a mod role to the list of roles with permissions to view moderation channels.
+        Prohibits a user or role from viewing moderation channels.
         """
-        if not await self.config.role(role).is_priveleged_role():
-            await ctx.channel.send(f"Role {role.name} is not set to view moderation channels.")
+        group = None
+        if isinstance(target, discord.Member):
+            group = self.config.member(target)
+            name = target.display_name
+        if isinstance(target, discord.Role):
+            group = self.config.role(target)
+            name = f"Role {target.name}"
+
+        if not await group.is_privileged():
+            await ctx.channel.send(f"{name} is not set to view moderation channels.")
             return
 
-        guild: discord.Guild = role.guild
+        guild: discord.Guild = target.guild
         log_channel_id = await self.config.guild(guild).log_channel_id()
 
         for channel in guild.channels:
             if await self.config.channel(channel).is_gulag_channel() or channel.id == log_channel_id:
-                await channel.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
+                await channel.set_permissions(target=target, overwrite=discord.PermissionOverwrite(
                     read_messages=False,
                     send_messages=False,
                     view_channel=False
                 ))
 
-        await self.config.role(role).is_priveleged_role.set(False)
-
-        await ctx.channel.send(f"Role {role.name} will no longer be able to view moderation channels.")
+        await group.is_privileged.set(False)
+        await ctx.channel.send(f"{name} will no longer be able to view moderation channels.")
         return
 
     @ commands.mod_or_permissions(manage_roles=True)
@@ -479,7 +489,7 @@ class Gulag(commands.Cog):
         return
 
     @commands.mod_or_permissions(manage_roles=True)
-    @gulag.command()
+    @gulag.command(usage="[category]")
     async def category(self, ctx: commands.Context, category: typing.Optional[typing.Union[discord.CategoryChannel, str]]):
         """
         Sets or displays the current category channel used for warnings.
@@ -518,6 +528,58 @@ class Gulag(commands.Cog):
             await old_category.delete()
 
         await ctx.channel.send(f'Category channel is now set to **{category.mention}**.')
+        return
+
+    @ commands.mod_or_permissions(manage_roles=True)
+    @ gulag.command()
+    async def role(self, ctx: commands.Context):
+        """
+        Displays the global role in use.
+        """
+        guild: discord.Guild = ctx.guild
+        global_role_id: str = await self.config.guild_from_id(guild.id).gulag_role_id()
+        global_role: discord.Role = None
+
+        if global_role_id is not None:
+            global_role = guild.get_role(global_role_id)
+
+        prefix = await ctx.bot.get_prefix(ctx.message)
+
+        if isinstance(prefix, list):
+            prefix = prefix[0]
+
+        if global_role is None:
+            await ctx.channel.send(f'Gulag global role is not currently set.  Please use the `{prefix}gulag create` command to create a new gulag role.')
+        else:
+            await ctx.channel.send(f'Gulag global role is currently set to {global_role.mention}.')
+        return
+
+    @ commands.mod_or_permissions(manage_roles=True)
+    @ gulag.command(usage="[name]", name="create")
+    async def create_role(self, ctx: commands.Context, name: typing.Optional[str]):
+        """
+        Creates a new global role that will be used to moderate users.
+        """
+        guild: discord.Guild = ctx.guild
+
+        if name is None:
+            name = await self.config.guild_from_id(guild.id).gulag_role_name()
+
+        roles: typing.List[discord.Role] = [
+            role for role in guild.roles if role.name == name
+        ]
+
+        if len(roles) > 0:
+            await ctx.channel.send(f"Already found existing role with name {roles[0].mention}. Please use a different name.")
+            return
+
+        role: discord.Role = await self.create_gulag_role(guild, name)
+
+        await self.config.guild(guild).gulag_role_id.set(role.id)
+        await self.config.guild(guild).gulag_role_name.set(name)
+
+        await ctx.channel.send(f"New role {role.mention} will now moderate users.")
+
         return
 
     @ commands.mod_or_permissions(manage_roles=True)
@@ -560,8 +622,8 @@ class Gulag(commands.Cog):
         return
 
     @ commands.mod_or_permissions(manage_roles=True)
-    @ logs.command(usage="<name>")
-    async def create(self, ctx: commands.Context, name: typing.Optional[str]):
+    @ logs.command(usage="<name>", name="create")
+    async def create_logs(self, ctx: commands.Context, name: typing.Optional[str]):
         """
         Creates a new channel to store a history of gulag messages within.
         """
@@ -700,4 +762,22 @@ class Gulag(commands.Cog):
                     await self.unmoderate_user(before, gulag_role=removed_role)
                 pass
             pass
+        pass
+
+    @ commands.Cog.listener()
+    async def on_member_join(self, member: discord.Member):
+        """
+        Restore status.
+        """
+        guild: discord.Guild = member.guild
+
+        if await self.config.member(member).is_gulaged():
+            gulag_role: discord.Role = guild.get_role(await self.config.guild(guild).gulag_role_id())
+
+            if gulag_role is None:
+                return
+
+            await member.add_roles(gulag_role,
+                                   atomic=True,
+                                   reason=await self.config.guild(guild).gulag_reason())
         pass

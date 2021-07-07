@@ -321,6 +321,9 @@ class Logger(commands.Cog):
             logger_channel: discord.TextChannel = guild.get_channel(
                 logger_channel_id)
 
+            if payload.before is None:
+                return
+
             author = await self.bot.get_or_fetch_member(guild, payload.before.author.id)
             if author is None:
                 author = await self.bot.get_or_fetch_user(payload.before.author.id)
