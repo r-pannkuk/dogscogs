@@ -16,8 +16,6 @@ from json import JSONEncoder
 
 import random
 
-import arrow
-
 DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
 DISCORD_MAX_MESSAGE_SIZE_LIMIT = 2000
 
