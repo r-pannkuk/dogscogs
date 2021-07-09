@@ -602,17 +602,17 @@ class Birthday(commands.Cog):
             if birthday_role is None:
                 await ctx.channel.send(f'Birthday ping role is not currently set.  Please specify a role name.')
             else:
-                await ctx.channel.send(f'Birthday ping role is currently set to {birthday_role.mention}.')
+                await ctx.channel.send(f'Birthday ping role is currently set to **{birthday_role.name}**.')
 
             return
 
         if birthday_role and birthday_role.id == role.id:
-            await ctx.channel.send(f'Birthday ping role is already set to {role.mention}.')
+            await ctx.channel.send(f'Birthday ping role is already set to **{role.name}**.')
             return
 
         await self.config.guild_from_id(guild.id).role_id.set(role.id)
 
-        await ctx.channel.send(f'Birthday ping role is now set to {role.mention}.')
+        await ctx.channel.send(f'Birthday ping role is now set to **{role.name}**.')
         pass
 
     @birthday.group()
