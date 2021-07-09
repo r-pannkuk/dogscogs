@@ -315,8 +315,9 @@ class Birthday(commands.Cog):
                 member: discord.Member = guild.get_member(id)
                 channel = guild.get_channel(await self.config.guild(guild).channel_id())
 
-                await channel.send(
-                    f"{role.mention} - {self.birthday_message(member, now).replace('{USER}', member.mention)}")
+                if channel is not None and role is not None:
+                    await channel.send(
+                        f"{role.mention} - {self.birthday_message(member, now).replace('{USER}', member.mention)}")
         pass
 
     async def set_birthday(self, member: discord.Member, date: datetime.datetime) -> BirthdayRecord:
