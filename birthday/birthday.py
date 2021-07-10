@@ -287,9 +287,8 @@ class Birthday(commands.Cog):
         else:
             options.append(
                 "Everybody challenge {USER} to a FT5.  It's their birthday.")
-            options.append(
-                "You could have picked a better day to be born, {USER}.")
             options.append("Happy {USER} Day, everyone!")
+            options.append("Happy birthday {USER}!")
         return random.choice(options)
 
     async def fire_today_birthdays(self):
@@ -656,7 +655,7 @@ class Birthday(commands.Cog):
             await ctx.send(f"**{member.display_name}** birthday was not found.")
             return
 
-        await ctx.send(f"**{ctx.author.display_name}** birthday has been unset.")
+        await ctx.send(f"**{member.display_name}** birthday has been unset.")
         pass
 
     @ commands.Cog.listener()
