@@ -108,7 +108,7 @@ class BirthdayRecord:
 
     @property
     def last_updated(self) -> datetime.datetime:
-        """The last time this record was updated with new info. 
+        """The last time this record was updated with new info.
 
         Returns:
             datetime.datetime: Date object for the last time this record was updated.
@@ -183,6 +183,7 @@ class BirthdayRecordEncoder(JSONEncoder):
 
 DEFAULT_GUILD = {
     "birthday_records_list": [],
+    "current_birthday_member_ids": [],
     "default_role_name": None,
     "channel_id": None,
     "role_id": None
@@ -251,7 +252,9 @@ class Birthday(commands.Cog):
                 tomorrow = (now + datetime.timedelta(days=1)
                             ).replace(hour=0, minute=0, second=0, microsecond=0)
                 tomorrow.astimezone(tz=pytz.timezone("US/Eastern"))
+
                 await asyncio.sleep((tomorrow - now).total_seconds())
+
                 await self.fire_today_birthdays()
         pass
 
@@ -291,6 +294,55 @@ class Birthday(commands.Cog):
             options.append("Happy birthday {USER}!")
         return random.choice(options)
 
+    async def fire_guild_birthday_list(self, guild : discord.Guild, predicate):
+        role: discord.Role = guild.get_role(await self.config.guild(guild).role_id())
+        raw = await self.config.guild(guild).birthday_records_list()
+        records: typing.Dict[int, BirthdayRecord] = {
+            BirthdayRecord(**r).member_id: BirthdayRecord(**r) for r in raw
+        }
+        now = datetime.datetime.utcnow()
+
+        birthday_member_ids = [
+            member_id for member_id, record in records.items()
+            if predicate(record)
+        ]
+
+        current_birthday_member_ids: typing.List[int] = await self.config.guild(guild).current_birthday_member_ids()
+
+        # Remove old birthday emoji
+        while len(current_birthday_member_ids) > 0:
+            id = current_birthday_member_ids.pop()
+            member: discord.Member = guild.get_member(id)
+
+            try:
+                await member.edit(nick=member.display_name.replace('🎉', ''))
+            except:
+                print(f"Couldn't edit member **{member.display_name}**.")
+                pass
+
+        for id in birthday_member_ids:
+            records[id].last_fired = now
+            records[id].num_firings += 1
+
+            member: discord.Member = guild.get_member(id)
+            channel = guild.get_channel(await self.config.guild(guild).channel_id())
+
+            current_birthday_member_ids.append(member.id)
+
+
+            try:
+                await member.edit(nick=f"🎉{member.display_name}🎉")
+            except:
+                print(f"Couldn't edit member **{member.display_name}**.")
+                pass
+
+            if channel is not None and role is not None:
+                await channel.send(
+                    f"{role.mention} - {self.birthday_message(member, records[id].birthday.replace(year=now.year)).replace('{USER}', member.mention)}")
+
+        await self.config.guild(guild).current_birthday_member_ids.set(current_birthday_member_ids)
+        pass
+
     async def fire_today_birthdays(self):
         """Performs the birthday execution at the given date / time.
         """
@@ -298,25 +350,9 @@ class Birthday(commands.Cog):
         now = datetime.datetime.utcnow()
 
         for guild in guilds:
-            role: discord.Role = guild.get_role(await self.config.guild(guild).role_id())
-            raw = await self.config.guild(guild).birthday_records_list()
-            records: typing.Dict[int, BirthdayRecord] = {
-                BirthdayRecord(**r).member_id: BirthdayRecord(**r) for r in raw}
-            birthday_member_ids = [
-                member_id for member_id, record in records.items()
-                if record.active == True and record.birthday.month == now.month and record.birthday.day == now.day
-            ]
-
-            for id in birthday_member_ids:
-                records[id].last_fired = now
-                records[id].num_firings += 1
-
-                member: discord.Member = guild.get_member(id)
-                channel = guild.get_channel(await self.config.guild(guild).channel_id())
-
-                if channel is not None and role is not None:
-                    await channel.send(
-                        f"{role.mention} - {self.birthday_message(member, now).replace('{USER}', member.mention)}")
+            await self.fire_guild_birthday_list(guild, 
+                lambda r: r.active == True and r.birthday.month == now.month and r.birthday.day == now.day
+            )
         pass
 
     async def set_birthday(self, member: discord.Member, date: datetime.datetime) -> BirthdayRecord:
@@ -708,23 +744,7 @@ class Birthday(commands.Cog):
     @birthday.command(hidden=True)
     async def test(self, ctx: commands.Context):
         guild: discord.Guild = ctx.guild
-        raw = await self.config.guild(guild).birthday_records_list()
-        records: typing.Dict[int, BirthdayRecord] = {
-            BirthdayRecord(**r).member_id: BirthdayRecord(**r) for r in raw}
-        birthday_member_ids = [id for id,
-                               value in records.items()]
-        now = datetime.datetime.utcnow()
-        role = guild.get_role(await self.config.guild(guild).role_id())
-
-        for id in birthday_member_ids:
-            records[id].last_fired = now
-            records[id].num_firings += 1
-
-            member: discord.Member = guild.get_member(id)
-            channel = guild.get_channel(await self.config.guild(guild).channel_id())
-
-            await channel.send(
-                f"{role.mention} - {self.birthday_message(member, records[id].birthday).replace('{USER}', member.mention)}")
+        await self.fire_guild_birthday_list(guild, lambda r: r.active)
         pass
 
     @commands.is_owner()
