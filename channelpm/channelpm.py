@@ -165,12 +165,14 @@ class ChannelPM(commands.Cog):
             await ctx.send(embed=embed)
         return
 
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    @commands.command(usage="<user> <message>", rest_is_raw=True)
-    async def pm(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
-        """
-        Mesages a user indirectly via the bot.
+    async def message(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str = "", anonymous: bool = False):
+        """Messages a user directly via mod channel.
+
+        Args:
+            ctx (commands.Context): The command context.
+            user (typing.Union[discord.Member, discord.User]): The user for messaging.
+            message (str): Message to send the user over DM.
+            anonymous (bool): Whether or not to send the message anonymously.
         """
         if ctx.author == self.bot.user:
             return
@@ -190,22 +192,55 @@ class ChannelPM(commands.Cog):
         else:
             name = f"{member.display_name}"
 
-        response = f"**{ctx.author.display_name}>{name}**: {message}"
+        
+        if anonymous:
+            await user.send(f"`[{ctx.guild.name}]`**>{name}**: {message}")
+            await ctx.channel.send(f"**{ctx.author.display_name} (anon)>{name}**: {message}")
+        else:
+            await user.send(f"`[{ctx.guild.name}]`**{ctx.author.display_name}>{name}**: {message}")
+            await ctx.channel.send(f"**{ctx.author.display_name}>{name}**: {message}")
 
-        await user.send(f"[{ctx.guild.name}] " + response)
-        await ctx.channel.send(response)
         await ctx.message.delete()
-
         return
 
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
-    @commands.command(usage="<message>", rest_is_raw=True)
+    @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["message", "msg"])
+    async def pm(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
+        """
+        Mesages a user indirectly via the bot.
+        """
+        await self.message(ctx, user, message=message, anonymous=False)
+        return
+
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @commands.command(usage="<message>", rest_is_raw=True, aliases=["reply"])
     async def r(self, ctx: commands.Context, *, message: str):
         """
         Replies to the last person who messaged the bot.
         """
         await self.pm(ctx, self.bot.get_user(await self.config.guild(ctx.guild).reply_target()), message=message)
+        return
+
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["messageanon", "msganon", "msga"])
+    async def pma(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
+        """
+        Mesages a user indirectly via the bot, anonymously.
+        """
+        await self.message(ctx, user, message=message, anonymous=True)
+        return
+
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["replyanon"])
+    async def ra(self, ctx: commands.Context, *, message: str):
+        """
+        Replies to the last person who messaged the bot, anonymously.
+        """
+        await self.pma(ctx, self.bot.get_user(await self.config.guild(ctx.guild).reply_target()), message=message)
         return
 
     @commands.dm_only()
