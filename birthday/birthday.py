@@ -249,9 +249,9 @@ class Birthday(commands.Cog):
             # Stops the loop when the cog is reloaded
             while self == self.bot.get_cog(self.__class__.__name__):
                 now = datetime.datetime.utcnow()
+                now.astimezone(tz=pytz.timezone("US/Eastern"))
                 tomorrow = (now + datetime.timedelta(days=1)
                             ).replace(hour=0, minute=0, second=0, microsecond=0)
-                tomorrow.astimezone(tz=pytz.timezone("US/Eastern"))
 
                 await asyncio.sleep((tomorrow - now).total_seconds())
 
