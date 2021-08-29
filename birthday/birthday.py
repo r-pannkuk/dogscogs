@@ -250,7 +250,8 @@ class Birthday(commands.Cog):
             while self == self.bot.get_cog(self.__class__.__name__):
                 now = datetime.datetime.utcnow()
                 now.astimezone(tz=pytz.timezone("US/Eastern"))
-                tomorrow = (now + datetime.timedelta(days=1)
+                tomorrow =  (now + datetime.timedelta(days=1)
+                            ).astimezone(tz=pytz.timezone("US/Eastern")
                             ).replace(hour=0, minute=0, second=0, microsecond=0)
 
                 await asyncio.sleep((tomorrow - now).total_seconds())
@@ -360,7 +361,7 @@ class Birthday(commands.Cog):
 
         Args:
             member (discord.Member): The member to lookup a birthday for.
-            date (datetime.datetime): The birthday to set.
+            date (datetime.datetime): The birthday to set.  Use format "MM/DD".
 
         Returns:
             BirthdayRecord: The entry in the Birthday records list. 
@@ -427,7 +428,7 @@ class Birthday(commands.Cog):
 
         Args:
             ctx (commands.Context): The command context.
-            date (datetime.datetime): The date to set a birthday to.
+            date (datetime.datetime): The date to set a birthday to.  Use format: `MM/DD`
         """
         record = await self.set_birthday(ctx.author, date)
 
