@@ -366,8 +366,10 @@ class ipcrier(commands.Cog):
             
             await self._set(message.author, ip, port)
 
-            if len(message.mentions) > 0:
-                await self._post_to_output_channel(message.author, message.mentions[0])
+            mentions = list(filter(lambda member: member.id != message.author.id, message.mentions))
+
+            if len(mentions) > 0:
+                await self._post_to_output_channel(message.author, mentions[0])
             else:
                 await self._post_to_output_channel(message.author, None)
 
