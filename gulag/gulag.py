@@ -98,21 +98,21 @@ class Gulag(commands.Cog):
 
             await self.config.guild(guild).category_id.set(category.id)
 
-        # Gives access to view for all permitted roles.
-        for role in guild.roles:
-            if await self.config.role(role).is_privileged():
-                await category.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
-                    read_messages=True,
-                    send_messages=True,
-                    view_channel=True
-                ))
+        # # Gives access to view for all permitted roles.
+        # for role in guild.roles:
+        #     if await self.config.role(role).is_privileged():
+        #         await category.set_permissions(target=role, overwrite=discord.PermissionOverwrite(
+        #             read_messages=True,
+        #             send_messages=True,
+        #             view_channel=True
+        #         ))
 
-        # Adds default role invisibility.
-        await category.set_permissions(target=guild.default_role, overwrite=discord.PermissionOverwrite(
-            read_messages=False,
-            send_messages=False,
-            view_channel=False
-        ))
+        # # Adds default role invisibility.
+        # await category.set_permissions(target=guild.default_role, overwrite=discord.PermissionOverwrite(
+        #     read_messages=False,
+        #     send_messages=False,
+        #     view_channel=False
+        # ))
 
         return category
 
