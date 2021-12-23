@@ -561,7 +561,7 @@ class Gulag(commands.Cog):
 
     @ commands.mod_or_permissions(manage_roles=True)
     @ gulag.command(usage="[name]", name="setrole")
-    async def set_role(self, ctx: commands.Context, *, name: typing.Optional[str]):
+    async def set_role(self, ctx: commands.Context, *, target: typing.Optional[typing.Union[str, discord.Role]]):
         """
         Sets or creates a global role that will be used to moderate users.
         """
@@ -569,31 +569,36 @@ class Gulag(commands.Cog):
 
         old_role_id = await self.config.guild_from_id(guild.id).gulag_role_id()
 
+        if target is None:
+            name : str = await self.config.guild_from_id(guild.id).gulag_role_name()
+        elif isinstance(target, discord.Role):
+            name = target.name
+        elif isinstance(target, str):
+            name = target
+
         if old_role_id is not None:
             old_role : discord.Role = guild.get_role(old_role_id)
 
             if old_role is not None:
+                
                 if await self.config.role(old_role).is_bot_created() and old_role.name != name:
                     await old_role.delete(reason="New gulag role is being set, and this was created by the bot.")
                 else:
                     await self.config.role(old_role).is_gulag_role.set(False)
 
-        if name is None:
-            name = await self.config.guild_from_id(guild.id).gulag_role_name()
+        if isinstance(target, str):
+            roles: typing.List[discord.Role] = [
+                role for role in guild.roles if str.lower(role.name) == str.lower(name)
+            ]
 
-        roles: typing.List[discord.Role] = [
-            role for role in guild.roles if str.lower(role.name) == str.lower(name)
-        ]
-
-        if len(roles) > 0:
-            role : discord.Role = roles.pop(0)
-            await self.config.role(role).is_gulag_role.set(True)
-            await self.config.guild(guild).gulag_role_id.set(role.id)
-        else:
-            role: discord.Role = await self.create_gulag_role(guild, name)
+            if len(roles) > 0:
+                role : discord.Role = roles.pop(0)
+                await self.config.role(role).is_gulag_role.set(True)
+                await self.config.guild(guild).gulag_role_id.set(role.id)
+            else:
+                role: discord.Role = await self.create_gulag_role(guild, target)
 
         await self.config.guild(guild).gulag_role_name.set(name)
-
         await ctx.channel.send(f"Role {role.mention} will now moderate users.")
 
         return
