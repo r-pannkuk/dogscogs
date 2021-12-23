@@ -27,7 +27,8 @@ DEFAULT_MEMBER = {
 
 DEFAULT_ROLE = {
     "is_gulag_role": False,
-    "is_privileged": False
+    "is_privileged": False,
+    "is_bot_created": False
 }
 
 DEFAULT_CHANNEL = {
@@ -159,6 +160,7 @@ class Gulag(commands.Cog):
                 view_channel=False
             ))
 
+        await self.config.role(role).is_bot_created.set(True)
         await self.config.role(role).is_gulag_role.set(True)
         await self.config.guild(guild).gulag_role_id.set(role.id)
         return role
@@ -552,7 +554,7 @@ class Gulag(commands.Cog):
             prefix = prefix[0]
 
         if global_role is None:
-            await ctx.channel.send(f'Gulag global role is not currently set.  Please use the `{prefix}gulag create` command to create a new gulag role.')
+            await ctx.channel.send(f'Gulag global role is not currently set.  Please use the `{prefix}gulag setrole` command to create a new gulag role.')
         else:
             await ctx.channel.send(f'Gulag global role is currently set to {global_role.mention}.')
         return
@@ -565,6 +567,15 @@ class Gulag(commands.Cog):
         """
         guild: discord.Guild = ctx.guild
 
+        old_role_id = await self.config.guild_from_id(guild.id).gulag_role_id()
+
+        if old_role_id is not None:
+            old_role : discord.Role = guild.get_role(old_role_id)
+
+            if old_role is not None:
+                if await self.config.role(old_role).is_bot_created() and old_role.name != name:
+                    await old_role.delete(reason="New gulag role is being set, and this was created by the bot.")
+
         if name is None:
             name = await self.config.guild_from_id(guild.id).gulag_role_name()
 
@@ -574,6 +585,8 @@ class Gulag(commands.Cog):
 
         if len(roles) > 0:
             role : discord.Role = roles.pop(0)
+            await self.config.role(role).is_gulag_role.set(True)
+            await self.config.guild(guild).gulag_role_id.set(role.id)
         else:
             role: discord.Role = await self.create_gulag_role(guild, name)
 
