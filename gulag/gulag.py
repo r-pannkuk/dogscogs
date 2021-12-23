@@ -561,7 +561,7 @@ class Gulag(commands.Cog):
 
     @ commands.mod_or_permissions(manage_roles=True)
     @ gulag.command(usage="[name]", name="setrole")
-    async def set_role(self, ctx: commands.Context, *, target: typing.Optional[typing.Union[str, discord.Role]]):
+    async def set_role(self, ctx: commands.Context, *, target: typing.Optional[typing.Union[discord.Role, str, int]]):
         """
         Sets or creates a global role that will be used to moderate users.
         """
@@ -571,9 +571,17 @@ class Gulag(commands.Cog):
 
         if target is None:
             name : str = await self.config.guild_from_id(guild.id).gulag_role_name()
+            target = name
         elif isinstance(target, discord.Role):
             name = target.name
-        elif isinstance(target, str):
+        elif isinstance(target, int):
+            found_role : discord.Role = guild.get_role(int(target))
+            if found_role is not None:
+                name = found_role.name
+                target = found_role
+            else:
+                name = target
+        elif isinstance(target, str):        
             name = target
 
         if old_role_id is not None:
@@ -592,14 +600,15 @@ class Gulag(commands.Cog):
             ]
 
             if len(roles) > 0:
-                role : discord.Role = roles.pop(0)
-                await self.config.role(role).is_gulag_role.set(True)
-                await self.config.guild(guild).gulag_role_id.set(role.id)
+                target : discord.Role = roles.pop(0)
             else:
-                role: discord.Role = await self.create_gulag_role(guild, target)
+                target: discord.Role = await self.create_gulag_role(guild, target)
+
+        await self.config.role(target).is_gulag_role.set(True)
+        await self.config.guild(guild).gulag_role_id.set(target.id)
 
         await self.config.guild(guild).gulag_role_name.set(name)
-        await ctx.channel.send(f"Role {role.mention} will now moderate users.")
+        await ctx.channel.send(f"Role {target.mention} will now moderate users.")
 
         return
 
