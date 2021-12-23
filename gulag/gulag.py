@@ -575,6 +575,8 @@ class Gulag(commands.Cog):
             if old_role is not None:
                 if await self.config.role(old_role).is_bot_created() and old_role.name != name:
                     await old_role.delete(reason="New gulag role is being set, and this was created by the bot.")
+                else:
+                    await self.config.role(old_role).is_gulag_role.set(False)
 
         if name is None:
             name = await self.config.guild_from_id(guild.id).gulag_role_name()
