@@ -1,2 +1,16 @@
 {
+    "configurations": [
+        {
+            "name": "Python: RedBot",
+            "type": "python",
+            "request": "launch",
+            "module": "redbot",
+            "args": [
+                "Remibot",
+                "--dev",
+                "--debug"
+            ],
+            "console": "integratedTerminal"
+        }
+    ]
 }
