@@ -307,7 +307,7 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>", aliases=["moderate"], show_aliases=True)
-    async def restrict(self, ctx: commands.Context, member: discord.Member):
+    async def restrict(self, ctx: commands.Context, *, member: discord.Member):
         """
         Moderates a user, preventing them from seeing any channels except their own warning channel.
         """
@@ -331,7 +331,7 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @commands.command(usage="<user>", aliases=["unmoderate"], show_aliases=True)
-    async def unrestrict(self, ctx: commands.Context, member: discord.Member):
+    async def unrestrict(self, ctx: commands.Context, *, member: discord.Member):
         """
         Unmoderates a user, restoring all roles they had and cleaning up any moderation roles or channels created.
         """
@@ -360,7 +360,7 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @ gulag.command(usage="<user|role>", aliases=["allow"], show_aliases=True)
-    async def permit(self, ctx: commands.Context, target: typing.Union[discord.Member, discord.Role]):
+    async def permit(self, ctx: commands.Context, *, target: typing.Union[discord.Member, discord.Role]):
         """
         Allows a user or role to view moderation channels.
         """
@@ -394,7 +394,7 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @ gulag.command(usage="<user|role>", aliases=["disallow", "unpermit"], show_aliases=True)
-    async def prohibit(self, ctx: commands.Context, target: typing.Union[discord.Member, discord.Role]):
+    async def prohibit(self, ctx: commands.Context, *, target: typing.Union[discord.Member, discord.Role]):
         """
         Prohibits a user or role from viewing moderation channels.
         """
@@ -493,7 +493,7 @@ class Gulag(commands.Cog):
 
     @commands.mod_or_permissions(manage_roles=True)
     @gulag.command(usage="[category]")
-    async def category(self, ctx: commands.Context, category: typing.Optional[typing.Union[discord.CategoryChannel, str]]):
+    async def category(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[discord.CategoryChannel, str]]):
         """
         Sets or displays the current category channel used for warnings.
         """
@@ -558,10 +558,10 @@ class Gulag(commands.Cog):
         return
 
     @ commands.mod_or_permissions(manage_roles=True)
-    @ gulag.command(usage="[name]", name="create")
-    async def create_role(self, ctx: commands.Context, name: typing.Optional[str]):
+    @ gulag.command(usage="[name]", name="setrole")
+    async def set_role(self, ctx: commands.Context, *, name: typing.Optional[str]):
         """
-        Creates a new global role that will be used to moderate users.
+        Sets or creates a global role that will be used to moderate users.
         """
         guild: discord.Guild = ctx.guild
 
@@ -569,18 +569,17 @@ class Gulag(commands.Cog):
             name = await self.config.guild_from_id(guild.id).gulag_role_name()
 
         roles: typing.List[discord.Role] = [
-            role for role in guild.roles if role.name == name
+            role for role in guild.roles if str.lower(role.name) == str.lower(name)
         ]
 
         if len(roles) > 0:
-            await ctx.channel.send(f"Already found existing role with name {roles[0].mention}. Please use a different name.")
-            return
-
-        role: discord.Role = await self.create_gulag_role(guild, name)
+            role : discord.Role = roles.pop(0)
+        else:
+            role: discord.Role = await self.create_gulag_role(guild, name)
 
         await self.config.guild(guild).gulag_role_name.set(name)
 
-        await ctx.channel.send(f"New role {role.mention} will now moderate users.")
+        await ctx.channel.send(f"Role {role.mention} will now moderate users.")
 
         return
 
@@ -594,7 +593,7 @@ class Gulag(commands.Cog):
 
     @ commands.mod_or_permissions(manage_roles=True)
     @ logs.command(usage="<channel>")
-    async def channel(self, ctx: commands.Context, channel: typing.Optional[typing.Union[discord.TextChannel, str]]):
+    async def channel(self, ctx: commands.Context, *, channel: typing.Optional[typing.Union[discord.TextChannel, str]]):
         """
         Sets or displays the channel in use for logging.
         """
@@ -625,7 +624,7 @@ class Gulag(commands.Cog):
 
     @ commands.mod_or_permissions(manage_roles=True)
     @ logs.command(usage="<name>", name="create")
-    async def create_logs(self, ctx: commands.Context, name: typing.Optional[str]):
+    async def create_logs(self, ctx: commands.Context, *, name: typing.Optional[str]):
         """
         Creates a new channel to store a history of gulag messages within.
         """
