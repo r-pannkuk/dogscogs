@@ -70,6 +70,23 @@ class Random(commands.Cog):
 
         pass
 
+    def choose_distinct_many(self, number: int, options: typing.List[str]) -> typing.List[str]:
+        """Chooses many items from a list, up to number.
+
+        __Args__:
+            number (int): The number of items to select.
+
+        Returns:
+            typing.List[str]: A list of choices selected.
+        """
+        chosen = []
+        values = list.copy(options)
+        for i in range(number):
+            selected = random.choice(values)
+            chosen.append(selected)
+            values.remove(selected)
+        return chosen
+
     def chooser(self, ctx: commands.Context, number: int, options: typing.List[str]) -> discord.Embed:
         """Chooses from a list and returns a discord Embed object.
 
@@ -85,7 +102,7 @@ class Random(commands.Cog):
         if number > len(options):
             raise ValueError("Cannot choose more than list provided.")
 
-        choices = random.choices(population=options, k=number)
+        choices = self.choose_distinct_many(number, options)
 
         options = sorted(options, key=lambda x: str.lower(x))
 
