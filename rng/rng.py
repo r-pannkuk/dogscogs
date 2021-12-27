@@ -15,7 +15,7 @@ DEFAULT_GUILD = {
     "ask": {
         "delay_ms": 5000,
         "affirmative": {
-            "weight": 0.33,
+            "weight": 0.45,
             "responses": [
                 "It is certain.",
                 "It is decidedly so.",
@@ -30,7 +30,7 @@ DEFAULT_GUILD = {
             ]
         },
         "neutral": {
-            "weight": 0.33,
+            "weight": 0.1,
             "responses": [
                 "Reply hazy, try again.",
                 "Ask again later.",
@@ -40,7 +40,7 @@ DEFAULT_GUILD = {
             ]
         },
         "negative": {
-            "weight": 0.33,
+            "weight": 0.45,
             "responses": [
                 "Don't count on it.",
                 "My reply is no.",
@@ -200,15 +200,22 @@ class Random(commands.Cog):
     async def roll(self, ctx: commands.Context, *, dice_string: str = "1d6"):
         """Rolls dice and performs operations on them.
 
-        Args:
+        __Syntax__: https://d20.readthedocs.io/en/latest/start.html#dice-syntax
+
+        __Args__:
             ctx (commands.Context): Command Context.
             dice_string (str, optional): A string containing a dice expression. Defaults to "1d6".
         """
         try:
-            parsed = d20.roll(dice_string)
+            parsed = d20.roll(dice_string, allow_comments=True)
+            description = ""
+
+            for i in range(len(parsed.expr.set)):
+                description += parsed.stringifier.stringify(parsed.expr.set[i]) + '\n'
+                pass
             await ctx.send(embed=discord.Embed(
                 title=f":game_die: Result: {parsed.total}",
-                description=parsed
+                description=description
             ))
         except d20.errors.TooManyRolls as e:
             await ctx.send("ERROR: Unable to perform that many rolls.")
