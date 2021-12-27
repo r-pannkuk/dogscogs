@@ -211,11 +211,12 @@ class Random(commands.Cog):
             description = ""
 
             for i in range(len(parsed.expr.set)):
-                description += parsed.stringifier.stringify(parsed.expr.set[i]) + '\n'
+                if parsed.expr.set[i].annotation != None:
+                    parsed.expr.set[i].annotation += "\n"
                 pass
             await ctx.send(embed=discord.Embed(
                 title=f":game_die: Result: {parsed.total}",
-                description=description
+                description=parsed.result
             ))
         except d20.errors.TooManyRolls as e:
             await ctx.send("ERROR: Unable to perform that many rolls.")
