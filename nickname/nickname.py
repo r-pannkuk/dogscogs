@@ -180,6 +180,7 @@ class Nickname(commands.Cog):
         pass
 
     @commands.command()
+    @commands.is_owner()
     async def _clear_all_data(self, ctx: commands.Context, member: discord.Member):
         await self.config.member(member).clear()
         await ctx.send(f"Data cleared for {member.mention}.")
