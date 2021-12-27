@@ -1,0 +1,19 @@
+{
+    "name": "Random",
+    "short": "Random functions for ease of use.",
+    "description": "Random functions for ease of use.",
+    "end_user_data_statement": "This cog does not persistently store any data or metadata about users.",
+    "author": [
+        "Klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "random",
+        "rng"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
