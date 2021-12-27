@@ -102,6 +102,8 @@ class Random(commands.Cog):
         if number > len(options):
             raise ValueError("Cannot choose more than list provided.")
 
+        options = [option.rstrip(', ').lstrip(', ') for option in options]
+
         choices = self.choose_distinct_many(number, options)
 
         options = sorted(options, key=lambda x: str.lower(x))
