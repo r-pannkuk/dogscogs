@@ -179,6 +179,12 @@ class Random(commands.Cog):
 
     @commands.command()
     async def roll(self, ctx: commands.Context, *, dice_string: str = "1d6"):
+        """Rolls dice and performs operations on them.
+
+        Args:
+            ctx (commands.Context): Command Context.
+            dice_string (str, optional): A string containing a dice expression. Defaults to "1d6".
+        """
         try:
             parsed = d20.roll(dice_string)
             await ctx.send(embed=discord.Embed(
@@ -207,6 +213,12 @@ class Random(commands.Cog):
 
     @commands.command(aliases=["8ball"])
     async def ask(self, ctx: commands.Context, *, question: str):
+        """Asks the magic 8 ball a question, and generates a response.
+
+        Args:
+            ctx (commands.Context): Command Context.
+            question (str): The question to ask the 8 ball.
+        """
         ask = await self.config.guild(ctx.guild).ask()
         affirmative = ask['affirmative']
         neutral = ask['neutral']
