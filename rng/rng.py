@@ -242,7 +242,7 @@ class Random(commands.Cog):
     async def ask(self, ctx: commands.Context, *, question: str):
         """Asks the magic 8 ball a question, and generates a response.
 
-        Args:
+        __Args__:
             ctx (commands.Context): Command Context.
             question (str): The question to ask the 8 ball.
         """
