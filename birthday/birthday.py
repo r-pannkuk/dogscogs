@@ -29,7 +29,7 @@ class BirthdayRecord:
     def __init__(self, *args, **kwargs) -> None:
         """Initializes a Birthday Record object for storing birthdays.
 
-        Args:
+        __Args__:
             active (bool): The state of the birthday record.
             member_id (int): The ID of the member this birthday record is for.
             birthday (datetime.datetime): The birthday to store.
@@ -260,7 +260,7 @@ class Birthday(commands.Cog):
     def birthday_message(self, member: discord.Member, date: datetime.datetime):
         """Obtains a proper birthday message for the given user and date.
 
-        Args:
+        __Args__:
             member (typing.Union[discord.Member, str]): The user.
             date (datetime.datetime): The date for their birthday.
         """
@@ -357,7 +357,7 @@ class Birthday(commands.Cog):
     async def set_birthday(self, member: discord.Member, date: datetime.datetime) -> BirthdayRecord:
         """Sets a birthday record in the birthday record list and returns the entry.
 
-        Args:
+        __Args__:
             member (discord.Member): The member to lookup a birthday for.
             date (datetime.datetime): The birthday to set.  Use format "MM/DD".
 
@@ -388,7 +388,7 @@ class Birthday(commands.Cog):
     async def unset_birthday(self, member: discord.Member) -> BirthdayRecord:
         """Deactivates a birthday record in the birthday record list and returns the entry.
 
-        Args:
+        __Args__:
             member (discord.Member): The member to lookup a birthday for.
 
         Returns:
@@ -415,7 +415,7 @@ class Birthday(commands.Cog):
     async def birthday(self, ctx: commands.Context):
         """Commands for assigning and managing user birthdays.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         pass
@@ -424,7 +424,7 @@ class Birthday(commands.Cog):
     async def set(self, ctx: commands.Context, *, date: to_birthdate):
         """Adds a user's birthday under the given date to the list.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             date (datetime.datetime): The date to set a birthday to.  Use format: `MM/DD`
         """
@@ -437,7 +437,7 @@ class Birthday(commands.Cog):
     async def unset(self, ctx: commands.Context):
         """Removes a user's birrthday from the list.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         record = await self.unset_birthday(ctx.author)
@@ -453,7 +453,7 @@ class Birthday(commands.Cog):
     async def list(self, ctx: commands.Context):
         """Returns the list of birthdays by date.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         guild: discord.Guild = ctx.guild
@@ -470,7 +470,7 @@ class Birthday(commands.Cog):
         def sorter(record: BirthdayRecord) -> datetime.datetime:
             """Sorting function for birthday records (by next available date).
 
-            Args:
+            __Args__:
                 record (BirthdayRecord): Birthday record for comparison.
 
             Returns:
@@ -527,7 +527,7 @@ class Birthday(commands.Cog):
     async def addme(self, ctx: commands.Context):
         """Gives the user the role that will be pinged on birthdays.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         guild: discord.Guild = ctx.guild
@@ -551,7 +551,7 @@ class Birthday(commands.Cog):
     async def removeme(self, ctx: commands.Context):
         """Removes from the user the role that will be pinged on birthdays.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         guild: discord.Guild = ctx.guild
@@ -576,7 +576,7 @@ class Birthday(commands.Cog):
     async def config(self, ctx: commands.Context):
         """Config options for the birthday cog.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         pass
@@ -586,7 +586,7 @@ class Birthday(commands.Cog):
     async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]):
         """Sets or displays the channel for birthday messages.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             channel (typing.Optional[discord.TextChannel]): A channel to set the outputs to.
         """
@@ -621,7 +621,7 @@ class Birthday(commands.Cog):
     async def role(self, ctx: commands.Context, role: typing.Optional[discord.Role]):
         """Sets or displays the role for birthday messages.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             role (typing.Optional[discord.Role]): A role to assign pings to.
         """
@@ -655,7 +655,7 @@ class Birthday(commands.Cog):
     async def manual(self, ctx: commands.Context):
         """Manually overrides birthdays for users.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
         """
         pass
@@ -665,7 +665,7 @@ class Birthday(commands.Cog):
     async def add(self, ctx: commands.Context, member: discord.Member, date: to_birthdate):
         """Sets a user's birthday in the birthday list.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             member (discord.Member): The member to override.
             date (date): The date to set the birthday to.
@@ -680,7 +680,7 @@ class Birthday(commands.Cog):
     async def purge(self, ctx: commands.Context, member: discord.Member):
         """Removes a user's birthday in the birthday list.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             member (discord.Member): The member to purge from the birthday list.
         """
@@ -697,7 +697,7 @@ class Birthday(commands.Cog):
     async def on_member_remove(self, member: discord.Member):
         """Deactivates a birthday when a user leaves the server.
 
-        Args:
+        __Args__:
             member (discord.Member): The leaving member.
         """
         guild = member.guild
@@ -721,7 +721,7 @@ class Birthday(commands.Cog):
     async def on_member_join(self, member: discord.Member):
         """Activates a user's birthday when they join the server. 
 
-        Args:
+        __Args__:
             member (discord.Member): The joining member.
         """
         guild = member.guild

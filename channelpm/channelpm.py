@@ -168,7 +168,7 @@ class ChannelPM(commands.Cog):
     async def message(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str = "", anonymous: bool = False):
         """Messages a user directly via mod channel.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             user (typing.Union[discord.Member, discord.User]): The user for messaging.
             message (str): Message to send the user over DM.

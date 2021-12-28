@@ -1,12 +1,17 @@
+import asyncio
 from datetime import datetime
 from enum import Enum
 from types import MethodType
 from typing import Dict, Literal
 import typing
+import sched
+import celery
+from celery import app
 import d20
 
 import discord
 from discord.errors import InvalidArgument
+from celery import Celery
 import pytz
 from redbot.core import commands
 from redbot.core import config
@@ -44,7 +49,7 @@ DEFAULT_MEMBER = {
 
 DEFAULT_GUILD = {
     "nicknamed_member_ids": [],
-    "curse_conditional": "1d20 > 1d20",
+    "curse_conditional": "1d20 >= 1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
     "curse_duration": 30 * 60  # 30 minutes
 }
@@ -179,12 +184,6 @@ class Nickname(commands.Cog):
         self.config.register_guild(**DEFAULT_GUILD)
         pass
 
-    @commands.command()
-    @commands.is_owner()
-    async def _clear_all_data(self, ctx: commands.Context, member: discord.Member):
-        await self.config.member(member).clear()
-        await ctx.send(f"Data cleared for {member.mention}.")
-
     @commands.group(aliases=["nick", "name"])
     async def nickname(self, ctx: commands.Context):
         """Locks nickname changes for a user (setting them to a set nickname until unset).
@@ -193,6 +192,12 @@ class Nickname(commands.Cog):
             ctx (commands.Context): Command Context.
         """
         pass
+
+    @nickname.command(hidden=True)
+    @commands.is_owner()
+    async def clear(self, ctx: commands.Context, member: discord.Member):
+        await self.config.member(member).clear()
+        await ctx.send(f"Data cleared for {member.mention}.")
 
     async def _set(self,
                    ctx: commands.Context,
@@ -307,9 +312,16 @@ class Nickname(commands.Cog):
 
         if entry == None:
             return
+        
 
         await ctx.send(
             f"Cursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
+
+        await asyncio.sleep(curse_duration)
+
+        await self._unset(ctx, member, "Cursed")
+
+        await ctx.send(f"{member.display_name} is no longer Cursed.")
 
         pass
 
@@ -325,7 +337,6 @@ class Nickname(commands.Cog):
         member_config = bind_member(self.config.member(member))
 
         try:
-            msg = ""
             if type == "Cursed":
                 await member_config.remove_curse()
             elif type == "Locked":

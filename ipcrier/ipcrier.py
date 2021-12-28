@@ -78,7 +78,7 @@ class ipcrier(commands.Cog):
     async def _post_to_output_channel_embed(self, player1: discord.Member, player2: typing.Optional[discord.Member]):
         """Posts the output channel message as a rich embed.
 
-        Args:
+        __Args__:
             player1 (discord.Member): The player who instigated the IP call.
             player2 (typing.Optioinal[discord.Member]): The opponent (fetched from mentions).
         """
@@ -111,7 +111,7 @@ class ipcrier(commands.Cog):
     async def _post_to_output_channel_simple(self, player1: discord.Member, player2: typing.Optional[discord.Member]):
         """Posts the output channel message as a simple text message.
 
-        Args:
+        __Args__:
             player1 (discord.Member): The player who instigated the IP call.
             player2 (typing.Optioinal[discord.Member]): The opponent (fetched from mentions).
         """
@@ -144,7 +144,7 @@ class ipcrier(commands.Cog):
     async def _post_to_output_channel(self, player1: discord.Member, player2: typing.Optional[discord.Member]):
         """Posts a user's IP address and port to an outpout channel.
 
-        Args:
+        __Args__:
             player1 (discord.Member): The player instigating the match.
             player2 (typing.Optional[discord.Member]): The other player who is in the match.
         """
@@ -157,7 +157,7 @@ class ipcrier(commands.Cog):
     async def _set(self, member: discord.Member, ip: _to_ip_address, port: _to_port):
         """Sets an IP pairing for the specific user.
 
-        Args:
+        __Args__:
             member (discord.Member): The user who owns this IP address.
             ip (to_ip_address): The IP address string.
             port (to_port): The port number.
@@ -176,7 +176,7 @@ class ipcrier(commands.Cog):
     async def _set_output_channel(self, channel: discord.TextChannel):
         """Designates a current output channel for the server.
 
-        Args:
+        __Args__:
             channel (discord.TextChannel): The channel being set to.
         """
         await self.config.guild(channel.guild).output_channel_id.set(channel.id)
@@ -185,7 +185,7 @@ class ipcrier(commands.Cog):
     async def _set_input_channel(self, channel: discord.TextChannel):
         """Designates a current input channel for the server.
 
-        Args:
+        __Args__:
             channel (discord.TextChannel): The channel being set to.
         """
         await self.config.guild(channel.guild).input_channel_id.set(channel.id)
@@ -195,7 +195,7 @@ class ipcrier(commands.Cog):
     async def ipcrier(self, ctx: commands.Context):
         """Configs any settings used by the cog.
 
-        Args:
+        __Args__:
             ctx (commands.Context): [description]
         """
         pass
@@ -205,7 +205,7 @@ class ipcrier(commands.Cog):
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not the cog is currently enabled.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             bool (typing.Optional[bool]): Whether or not the cog is enabled.
         """
@@ -250,7 +250,7 @@ class ipcrier(commands.Cog):
     async def set_output_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         """Sets the output channel to echo IP's into.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             channel (discord.TextChannel): The target channel.
         """
@@ -273,7 +273,7 @@ class ipcrier(commands.Cog):
     async def set_input_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         """Sets the input channel to read IP's from.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             channel (discord.TextChannel): The target channel.
         """
@@ -296,7 +296,7 @@ class ipcrier(commands.Cog):
     async def use_pings(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not to ping users in the echoed channel.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             bool (typing.Optional[bool]): Whether or not to ping.
         """
@@ -319,7 +319,7 @@ class ipcrier(commands.Cog):
     async def use_rich_embeds(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not to use rich embed messages for IP crier.
 
-        Args:
+        __Args__:
             ctx (commands.Context): The command context.
             bool (typing.Optional[bool]): Whether or not to use rich embeds.
         """
@@ -346,7 +346,7 @@ class ipcrier(commands.Cog):
     async def on_message(self, message: discord.Message):
         """Listens for IP posts to echo them.
 
-        Args:
+        __Args__:
             message (discord.Message): Message to scan.
         """
         if (
