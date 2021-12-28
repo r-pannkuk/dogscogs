@@ -530,9 +530,9 @@ class Nickname(commands.Cog):
                     author = guild.get_member(value["author_id"])
 
                     if value["type"] == "Cursed":
-                        time_field = datetime.utcfromtimestamp(value["expiration"])
+                        time_field = datetime.fromtimestamp(value["expiration"], tz=pytz.timezone("US/Eastern"))
                     elif value["type"] == "Locked":
-                        time_field = datetime.utcfromtimestamp(value["created_at"])
+                        time_field = datetime.fromtimestamp(value["created_at"], tz=pytz.timezone("US/Eastern"))
 
                     string = f"{member.mention} ({member.name}) was {value['type']} by {author.mention}: "
                     string += f" {'Releases on' if value['type'] == 'Cursed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
