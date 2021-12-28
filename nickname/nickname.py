@@ -98,6 +98,7 @@ def bind_member(group: config.Group):
 
     async def get_latest_curse(self):
         return await self.get_latest("Cursed")
+
     async def get_latest_lock(self):
         return await self.get_latest("Locked")
 
@@ -179,8 +180,6 @@ class Nickname(commands.Cog):
 
         self.config.register_guild(**DEFAULT_GUILD)
         pass
-                
-
 
     @commands.group(aliases=["nick", "name"])
     async def nickname(self, ctx: commands.Context):
@@ -310,7 +309,6 @@ class Nickname(commands.Cog):
 
         if entry == None:
             return
-        
 
         await ctx.send(
             f"Cursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
@@ -350,7 +348,8 @@ class Nickname(commands.Cog):
 
             return latest
         except:
-            raise PermissionError("Bot does not have permissions to edit that user's name.")
+            raise PermissionError(
+                "Bot does not have permissions to edit that user's name.")
         pass
 
     @commands.guild_only()
@@ -421,7 +420,7 @@ class Nickname(commands.Cog):
             filter(
                 lambda entry: type == None or (
                     entry["type"] == type and (
-                        entry["expiration"] == None or 
+                        entry["expiration"] == None or
                         entry["expiration"] > datetime.now().timestamp()
                     )
                 ),
@@ -429,7 +428,7 @@ class Nickname(commands.Cog):
             )
         )
 
-        if len(ailments) == 0: 
+        if len(ailments) == 0:
             return None
         else:
             msg = ""
@@ -439,9 +438,11 @@ class Nickname(commands.Cog):
             for ailment in ailments:
                 fields["target"] = member.display_name
                 fields["type"] = ailment['type']
-                fields["author"] = ctx.guild.get_member(ailment['author_id']).display_name
+                fields["author"] = ctx.guild.get_member(
+                    ailment['author_id']).display_name
                 fields["participle"] = f"{'until' if ailment['type'] == 'Cursed' else 'since'} "
-                fields["time"] = datetime.strftime(datetime.fromtimestamp(ailment['expiration' if ailment['type'] == 'Cursed' else 'created_at'], tz=pytz.timezone('US/Eastern')), '%b %d, %Y  %H:%M:%S')
+                fields["time"] = datetime.strftime(datetime.fromtimestamp(
+                    ailment['expiration' if ailment['type'] == 'Cursed' else 'created_at'], tz=pytz.timezone('US/Eastern')), '%b %d, %Y  %H:%M:%S')
                 return fields
             pass
         pass
@@ -465,7 +466,6 @@ class Nickname(commands.Cog):
             return
         await ctx.reply(f"{fields['target']} is {fields['type']} by {fields['author']} {fields['participle']} `{fields['time']}`.")
 
-
     @commands.guild_only()
     @nickname.command(usage="<member>")
     async def checklock(self, ctx: commands.Context, member: typing.Optional[discord.Member]):
@@ -477,13 +477,12 @@ class Nickname(commands.Cog):
         """
         if member is None:
             member = ctx.author
-            
+
         fields = await self.check(ctx, member, "Locked")
         if fields == None:
             await ctx.reply(f"{'You are' if member == ctx.author else f'{member.display_name} is'} not currently Locked to a nickname.")
             return
         await ctx.reply(f"{fields['target']} is {fields['type']} by {fields['author']} {fields['participle']} `{fields['time']}`.")
-
 
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
@@ -494,7 +493,6 @@ class Nickname(commands.Cog):
         __Args__:
             ctx (commands.Context): Command Context.
         """
-        return
         guild: discord.Guild = ctx.guild
         member_ids: list = await self.config.guild(guild).nicknamed_member_ids()
 
@@ -508,21 +506,43 @@ class Nickname(commands.Cog):
             member: discord.Member
             for member in [guild.get_member(id) for id in member_ids]:
                 member_config = bind_member(self.config.member(member))
-                values.append(await self.check(ctx, member))
 
-            values = list(filter(lambda x: x is not None, values))
+                nick_queue = await member_config.nick_queue()
+                nick_queue = list(filter(
+                    lambda entry: entry["type"] != "Default" and (
+                        entry["expiration"] == None or
+                        entry["expiration"] > datetime.now().timestamp()
+                    ),
+                    nick_queue)
+                )
+
+                values.extend(nick_queue)
 
             # Sort by time locked.
-            values = sorted(values, key=lambda entry: (datetime.strptime(entry["time"], '%b %d, %Y  %H:%M:%S'), entry["name"]))
+            values = sorted(values, key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"])
 
             while len(values) > 0:
                 description = ""
                 while len(values) > 0:
-                    record = values[0]
-                    member: discord.Member = record[0]
-                    last_locked: datetime = record[1]
+                    value = values[0]
+                    time_field = ""
+                    member = guild.get_member(value["target_id"])
+                    author = guild.get_member(value["author_id"])
 
-                    string = f"{member.mention} ({member.name}): {datetime.strftime(last_locked, '%b %d, %Y  %H:%M:%S')}\n"
+                    if value["type"] == "Cursed":
+                        time_field = datetime.utcfromtimestamp(value["expiration"])
+                    elif value["type"] == "Locked":
+                        time_field = datetime.utcfromtimestamp(value["created_at"])
+
+                    string = f"{member.mention} ({member.name}) was {value['type']} by {author.mention}: "
+                    string += f" {'Releases on' if value['type'] == 'Cursed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
+
+                    if value["type"] == "Cursed":
+                        string = f":skull:{string}"
+                    elif value["type"] == "Locked":
+                        string = f":lock:{string}"
+
+                    string += "\n"
 
                     if len(description) + len(string) > DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT:
                         break
@@ -545,14 +565,15 @@ class Nickname(commands.Cog):
                 title = ""
 
                 await ctx.send(embed=embed)
+                pass
         pass
 
     async def _check_member(self, member: discord.Member):
         member_config = bind_member(self.config.member(member))
 
-
         nick_queue = await member_config.nick_queue()
-        nick_queue = list(filter(lambda entry: entry["type"] == "Cursed", nick_queue))
+        nick_queue = list(
+            filter(lambda entry: entry["type"] == "Cursed", nick_queue))
         for curse in nick_queue:
             if curse["expiration"] < datetime.now().timestamp():
                 await self._unset(member, "Cursed")
@@ -561,11 +582,10 @@ class Nickname(commands.Cog):
                 async def coro():
                     await asyncio.sleep(curse["expiration"] - datetime.now().timestamp())
                     return await self._unset(member, "Cursed")
-                
-                asyncio.create_task(coro(), name="Nickname: Update Name Curses")
-                pass
-        
 
+                asyncio.create_task(
+                    coro(), name="Nickname: Update Name Curses")
+                pass
 
     async def _check_guild(self, guild: discord.Guild):
         member_ids: list = await self.config.guild(guild).nicknamed_member_ids()
@@ -577,13 +597,12 @@ class Nickname(commands.Cog):
 
             member: discord.Member
             for member in [guild.get_member(id) for id in member_ids]:
-                await self._check_member( member)
+                await self._check_member(member)
 
     @ commands.Cog.listener()
     async def on_ready(self):
         for guild in self.bot.guilds:
             await self._check_guild(guild)
-
 
     @ commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
