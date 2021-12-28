@@ -45,7 +45,9 @@ DEFAULT_MEMBER = {
 
 DEFAULT_GUILD = {
     "nicknamed_member_ids": [],
-    "curse_conditional": "1d20 >= 1d20",
+    "attacker_wins_ties": True,
+    "attacker_strength": "1d20",
+    "defender_strength": "1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
     "curse_duration": 30 * 60  # 30 minutes
 }
@@ -263,7 +265,7 @@ class Nickname(commands.Cog):
 
     @commands.guild_only()
     @nickname.command(usage="<member> <name>")
-    async def curse(self, ctx: commands.Context, member: discord.Member, *, name: str):
+    async def curse(self, ctx: commands.Context, target: discord.Member, *, name: str):
         """Attempts to curse a member with a given nickname.
 
         __Args__:
@@ -287,37 +289,68 @@ class Nickname(commands.Cog):
         await self.config.member(ctx.author).next_curse_available.set(next_available)
         cooldown_msg = f"Your ability to curse is on cooldown for {global_curse_cooldown / (60 * 60)} hours."
 
-        result = d20.roll(await self.config.guild(ctx.guild).curse_conditional())
-        if result.total == 0:
-            await ctx.reply(
-                f"You failed to curse {member.display_name} ({result.result}).  {cooldown_msg}")
-            return
-
         curse_duration = await self.config.guild(ctx.guild).curse_duration()
         expiration = datetime.now().timestamp() + curse_duration
-        original_name: str = member.display_name
+        original_name: str = target.display_name
+
+        attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
+        defender_strength = await self.config.guild(ctx.guild).defender_strength()
+
+        attacker_roll = d20.roll(attacker_strength)
+        defender_roll = d20.roll(defender_strength)
+
+        if await self.config.guild(ctx.guild).attacker_wins_ties():
+            predicate = lambda x, y: x >= y
+        else:
+            predicate = lambda x, y: x > y
+
+        result_msg = f"(Attacker: {attacker_roll.result}) vs. (Defender: {defender_roll.result})"
+
+        if attacker_roll.crit == d20.CritType.FAIL:
+            target = ctx.author
+            await ctx.reply(
+                f":skull: You critically failed your dice roll! :skull:"
+            )
+            pass
+        elif attacker_roll.crit == d20.CritType.CRIT:
+            curse_duration *= 2
+            await ctx.reply(
+                f":dart: You critically hit your dice roll! :dart:"
+            )
+            pass
+        # elif defender_roll.crit == d20.CritType.FAIL:
+        #     pass
+        # elif defender_roll.crit == d20.CritType.CRIT:
+        #     pass
+        elif predicate(attacker_roll.total, defender_roll.total) == False:
+            await ctx.reply(
+                f"You failed to curse {target.display_name} {result_msg}.  {cooldown_msg}")
+            return
 
         entry = NickQueueEntry(
             name=name,
-            target_id=member.id,
+            target_id=target.id,
             author_id=ctx.author.id,
             type="Cursed",
             created_at=datetime.now().timestamp(),
             expiration=expiration
         )
-        entry = await self._set(ctx, member, entry=entry)
+        entry = await self._set(ctx, target, entry=entry)
 
+        # Error condition if it comes back without an entry.  Resetting the timer for cursing.
         if entry == None:
+            await self.config.member(ctx.author).next_curse_available.set(datetime.now().timestamp())
+            await ctx.reply("Your curse cooldown was refunded.")
             return
 
         await ctx.send(
-            f"Cursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
+            f"{result_msg}\nCursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
 
         await asyncio.sleep(curse_duration)
 
-        await self._unset(member, "Cursed")
+        await self._unset(target, "Cursed")
 
-        await ctx.send(f"{member.display_name} is no longer Cursed.")
+        await ctx.send(f"{target.display_name} is no longer Cursed.")
 
         pass
 
