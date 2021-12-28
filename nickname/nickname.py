@@ -4,14 +4,11 @@ from enum import Enum
 from types import MethodType
 from typing import Dict, Literal
 import typing
-import sched
-import celery
 from celery import app
 import d20
 
 import discord
 from discord.errors import InvalidArgument
-from celery import Celery
 import pytz
 from redbot.core import commands
 from redbot.core import config
