@@ -4,7 +4,6 @@ from enum import Enum
 from types import MethodType
 from typing import Dict, Literal
 import typing
-from celery import app
 import d20
 
 import discord
