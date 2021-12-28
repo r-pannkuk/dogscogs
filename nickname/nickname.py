@@ -51,7 +51,7 @@ DEFAULT_GUILD = {
     "nicknamed_member_ids": [],
     "curse_conditional": "1d20 >= 1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
-    "curse_duration": 30 * 60  # 30 minutes
+    "curse_duration": 30  # 30 minutes
 }
 
 
@@ -183,6 +183,8 @@ class Nickname(commands.Cog):
 
         self.config.register_guild(**DEFAULT_GUILD)
         pass
+                
+
 
     @commands.group(aliases=["nick", "name"])
     async def nickname(self, ctx: commands.Context):
@@ -319,20 +321,20 @@ class Nickname(commands.Cog):
 
         await asyncio.sleep(curse_duration)
 
-        await self._unset(ctx, member, "Cursed")
+        await self._unset(member, "Cursed")
 
         await ctx.send(f"{member.display_name} is no longer Cursed.")
 
         pass
 
-    async def _unset(self, ctx: commands.Context, member: discord.Member, type) -> NickQueueEntry:
+    async def _unset(self, member: discord.Member, type) -> NickQueueEntry:
         """Removes a stuck nickname for a user.
 
         __Args__:
             ctx (commands.Context): Command Context
             member (discord.Member): The target member whose nickname is changing.
         """
-        guild = ctx.guild
+        guild = member.guild
 
         member_config = bind_member(self.config.member(member))
 
@@ -352,7 +354,7 @@ class Nickname(commands.Cog):
 
             return latest
         except:
-            await ctx.send(f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname.")
+            raise PermissionError("Bot does not have permissions to edit that user's name.")
         pass
 
     @commands.guild_only()
@@ -372,7 +374,7 @@ class Nickname(commands.Cog):
             return
 
         original_name = member.display_name
-        latest = await self._unset(ctx, member, "Locked")
+        latest = await self._unset(member, "Locked")
         msg = f"Removed the lock on {original_name}, returning their nickname to {member.display_name}"
         if latest != None:
             msg += f" ({latest['type']})"
@@ -397,7 +399,7 @@ class Nickname(commands.Cog):
             return
 
         original_name = member.display_name
-        latest = await self._unset(ctx, member, "Cursed")
+        latest = await self._unset(member, "Cursed")
         msg = f"Removed the curse on {original_name}, returning their nickname to {member.display_name}"
         if latest != None:
             msg += f" ({latest['type']})"
@@ -424,7 +426,7 @@ class Nickname(commands.Cog):
                 lambda entry: type == None or (
                     entry["type"] == type and (
                         entry["expiration"] == None or 
-                        entry["expiration"] < datetime.now().timestamp()
+                        entry["expiration"] > datetime.now().timestamp()
                     )
                 ),
                 ailments
@@ -548,6 +550,44 @@ class Nickname(commands.Cog):
 
                 await ctx.send(embed=embed)
         pass
+
+    async def _check_member(self, member: discord.Member):
+        member_config = bind_member(self.config.member(member))
+
+
+        nick_queue = await member_config.nick_queue()
+        nick_queue = list(filter(lambda entry: entry["type"] == "Cursed", nick_queue))
+        for curse in nick_queue:
+            if curse["expiration"] < datetime.now().timestamp():
+                await self._unset(member, "Cursed")
+                continue
+            else:
+                async def coro():
+                    await asyncio.sleep(curse["expiration"] - datetime.now().timestamp())
+                    return await self._unset(member, "Cursed")
+                
+                asyncio.create_task(coro(), name="Nickname: Update Name Curses")
+                pass
+        
+
+
+    async def _check_guild(self, guild: discord.Guild):
+        member_ids: list = await self.config.guild(guild).nicknamed_member_ids()
+
+        if len(member_ids) == 0:
+            return
+        else:
+            values = []
+
+            member: discord.Member
+            for member in [guild.get_member(id) for id in member_ids]:
+                await self._check_member( member)
+
+    @ commands.Cog.listener()
+    async def on_ready(self):
+        for guild in self.bot.guilds:
+            await self._check_guild(guild)
+
 
     @ commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
