@@ -51,7 +51,7 @@ DEFAULT_GUILD = {
     "nicknamed_member_ids": [],
     "curse_conditional": "1d20 >= 1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
-    "curse_duration": 30  # 30 minutes
+    "curse_duration": 30 * 60  # 30 minutes
 }
 
 
