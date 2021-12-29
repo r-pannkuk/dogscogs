@@ -411,6 +411,7 @@ class Nickname(commands.Cog):
         pass
 
     @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
     @nickname.command(usage="<member>")
     async def uncurse(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a cursed nickname for a user.
