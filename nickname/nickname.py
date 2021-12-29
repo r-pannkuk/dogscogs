@@ -350,7 +350,7 @@ class Nickname(commands.Cog):
 
         await self._unset(target, "Cursed")
 
-        await ctx.send(f"{ctx.author}'s Curse on {target.display_name} has ended.")
+        await ctx.send(f"{ctx.author.display_name}'s Curse on {target.display_name} has ended.")
 
         pass
 
