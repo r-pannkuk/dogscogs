@@ -113,8 +113,8 @@ class Random(commands.Cog):
                 options[i] = f"**{options[i]}**"
 
         embed = discord.Embed(
-            title=f"Choice of {number}: {', '.join(choices)}",
-            description='\n'.join(options)
+            title=f"Choice of {number}:",
+            description='\n'.join(choices)
         )
 
         return embed
