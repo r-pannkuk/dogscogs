@@ -350,7 +350,7 @@ class Nickname(commands.Cog):
 
         await self._unset(target, "Cursed")
 
-        await ctx.send(f"{target.display_name} is no longer Cursed.")
+        await ctx.send(f"{ctx.author}'s Curse on {target.display_name} has ended.")
 
         pass
 
@@ -382,7 +382,8 @@ class Nickname(commands.Cog):
             return latest
         except:
             raise PermissionError(
-                "Bot does not have permissions to edit that user's name.")
+                "Bot does not have permissions to edit that user's name."
+            )
         pass
 
     @commands.guild_only()
