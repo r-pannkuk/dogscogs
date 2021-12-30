@@ -56,7 +56,7 @@ DEFAULT_GUILD = {
     "attacker_strength": "1d20",
     "defender_strength": "1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
-    "curse_duration": 30 * 60 # 30 minutes
+    "curse_duration": 15 # 30 minutes
 }
 
 
@@ -431,9 +431,10 @@ class Nickname(commands.Cog):
 
         await member.edit(reason=f"Removing current lock on nickname.", nick=latest["name"])
 
-        member_ids = await self.config.guild(guild).nicknamed_member_ids()
-        member_ids = list(filter(lambda x: x != member.id, member_ids))
-        await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
+        if not await member_config.is_cursed() and not await member_config.is_locked():
+            member_ids = await self.config.guild(guild).nicknamed_member_ids()
+            member_ids = list(filter(lambda x: x != member.id, member_ids))
+            await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
 
         return latest
 
@@ -606,7 +607,10 @@ class Nickname(commands.Cog):
 
             # Sort by time locked.
             values = sorted(
-                values, key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"])
+                values, 
+                key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"],
+                reverse=True
+            )
 
             while len(values) > 0:
                 description = ""
@@ -623,7 +627,7 @@ class Nickname(commands.Cog):
                         time_field = datetime.fromtimestamp(
                             value["created_at"], tz=pytz.timezone("US/Eastern"))
 
-                    string = f"{member.mention} ({member.name}) was {value['type']} by {author.mention}: "
+                    string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}` by {author.mention}: "
                     string += f" {'Releases on' if value['type'] == 'Cursed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
 
                     if value["type"] == "Cursed":
