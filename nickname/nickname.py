@@ -337,7 +337,6 @@ class Nickname(commands.Cog):
         cooldown_msg = f"Your ability to curse is on cooldown for {global_curse_cooldown / (60 * 60)} hours."
 
         curse_duration = await self.config.guild(ctx.guild).curse_duration()
-        original_name: str = target.display_name
 
         attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
         defender_strength = await self.config.guild(ctx.guild).defender_strength()
@@ -371,6 +370,7 @@ class Nickname(commands.Cog):
 
         expiration = datetime.now(tz=pytz.timezone(
             "US/Eastern")).timestamp() + curse_duration
+        original_name: str = target.display_name
 
         entry = NickQueueEntry(
             name=name,
