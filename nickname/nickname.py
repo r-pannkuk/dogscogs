@@ -56,7 +56,7 @@ DEFAULT_GUILD = {
     "attacker_strength": "1d20",
     "defender_strength": "1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
-    "curse_duration": 15 # 30 minutes
+    "curse_duration": 30 * 60 # 30 minutes
 }
 
 
