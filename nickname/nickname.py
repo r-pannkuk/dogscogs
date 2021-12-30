@@ -305,7 +305,7 @@ class Nickname(commands.Cog):
         try:
             await self._set(member, entry=entry)
             await ctx.send(f"Locked {original_name}'s nickname to {name}.")
-        except PermissionError:
+        except (PermissionError, Forbidden) as e:
             await ctx.send(f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname.")
         pass
 
@@ -392,7 +392,7 @@ class Nickname(commands.Cog):
                 try:
                     await self._unset(target, "Cursed")
                     await ctx.send(f"{ctx.author.display_name}'s Curse on {target.display_name} has ended.")
-                except PermissionError:
+                except (PermissionError, Forbidden) as e:
                     await ctx.reply(f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded.")
 
             scheduler.add_job(curse_end,
@@ -404,7 +404,7 @@ class Nickname(commands.Cog):
                               ),
                               replace_existing=True
                               )
-        except PermissionError or Forbidden:
+        except (PermissionError, Forbidden) as e:
             await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
             await ctx.reply(f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded.")
             return
@@ -458,7 +458,7 @@ class Nickname(commands.Cog):
             if latest != None:
                 msg += f" ({latest['type']})"
             await ctx.send(f"{msg}.")
-        except PermissionError:
+        except (PermissionError, Forbidden) as e:
             await ctx.reply(f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname. Your curse cooldown was refunded.")
         pass
 
@@ -492,7 +492,7 @@ class Nickname(commands.Cog):
             if latest != None:
                 msg += f" ({latest['type']})"
             await ctx.send(f"{msg}.")
-        except PermissionError:
+        except (PermissionError, Forbidden) as e:
             await ctx.reply(f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname. Your curse cooldown was refunded.")
         pass
 
