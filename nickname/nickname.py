@@ -344,6 +344,8 @@ class Nickname(commands.Cog):
         attacker_roll = d20.roll(attacker_strength)
         defender_roll = d20.roll(defender_strength)
 
+        result_msg = f"(Attacker: {attacker_roll.result}) vs. (Defender: {defender_roll.result})\n"
+
         prefix = ""
 
         if await self.config.guild(ctx.guild).attacker_wins_ties():
@@ -365,7 +367,7 @@ class Nickname(commands.Cog):
         #     pass
         elif predicate(attacker_roll.total, defender_roll.total) == False:
             await ctx.reply(
-                f"You failed to curse {target.display_name}.  {cooldown_msg}")
+                f":x: {result_msg}You failed to curse {target.display_name}.  {cooldown_msg}")
             return
 
         expiration = datetime.now(tz=pytz.timezone(
@@ -386,7 +388,7 @@ class Nickname(commands.Cog):
             await self._set(target, entry=entry)
 
             await ctx.send(
-                f"{prefix}Cursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
+                f"{prefix}:white_check_mark: {result_msg}Cursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
 
             async def curse_end():
                 try:
