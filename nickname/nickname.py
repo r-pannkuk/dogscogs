@@ -296,7 +296,7 @@ class Nickname(commands.Cog):
         """
         original_name: str = member.display_name
         entry = NickQueueEntry(
-            name=name,
+            name=name.strip("\"\'"),
             target_id=member.id,
             author_id=ctx.author.id,
             type="Locked",
@@ -375,7 +375,7 @@ class Nickname(commands.Cog):
         original_name: str = target.display_name
 
         entry = NickQueueEntry(
-            name=name,
+            name=name.strip("\"\'"),
             target_id=target.id,
             author_id=ctx.author.id,
             type="Cursed",
