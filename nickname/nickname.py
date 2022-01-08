@@ -138,7 +138,7 @@ def bind_member(group: config.Group):
             if len(found) == 0:
                 raise InvalidArgument("ID was not found.")
             entry = found[0]
-        if id not in entry:
+        if 'id' not in entry:
             return
 
         job = scheduler.get_job(str(entry["id"]))
