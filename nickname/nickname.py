@@ -294,9 +294,10 @@ class Nickname(commands.Cog):
             member (discord.Member): The target member whose nickname is changing.
             name (str): The name to set for the user.
         """
+        name = name.strip("\"\'")
         original_name: str = member.display_name
         entry = NickQueueEntry(
-            name=name.strip("\"\'"),
+            name=name,
             target_id=member.id,
             author_id=ctx.author.id,
             type="Locked",
@@ -319,6 +320,7 @@ class Nickname(commands.Cog):
             member (discord.Member): The target member to be afflicted.
             name (str): The name to set for the user.
         """
+        name = name.strip("\"\'")
         next_curse_available = await self.config.member(ctx.author).next_curse_available()
 
         if next_curse_available != None and next_curse_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
@@ -375,7 +377,7 @@ class Nickname(commands.Cog):
         original_name: str = target.display_name
 
         entry = NickQueueEntry(
-            name=name.strip("\"\'"),
+            name=name,
             target_id=target.id,
             author_id=ctx.author.id,
             type="Cursed",
