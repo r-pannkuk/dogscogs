@@ -1,4 +1,5 @@
 import random
+from types import SimpleNamespace
 from typing import Literal
 import typing
 import urllib
@@ -230,6 +231,18 @@ class Welcomer(commands.Cog):
         else:
             return await self._create_simple(channel, obj, member)
 
+    async def _template(self, channel, obj):
+        member = SimpleNamespace(**{
+            "display_name": MEMBER_NAME_TOKEN,
+            "guild": SimpleNamespace(**{
+                "name": SERVER_NAME_TOKEN,
+                "member_count": MEMBER_COUNT_TOKEN
+            }),
+            "avatar_url": self.bot.user.avatar_url,
+            "mention": "$MEMBER_MENTION$"
+        })
+        return await self._create(channel, obj, member)
+
     @commands.group(name="welcomer")
     @commands.mod_or_permissions(manage_roles=True)
     async def settings(self, ctx: commands.Context):
@@ -396,6 +409,14 @@ class Welcomer(commands.Cog):
         await self.config.guild(ctx.guild).greeting.set(greeting)
         pass
 
+    @greeting.command(name="template")
+    async def greeting_template(self, ctx: commands.Context):
+        """Generates a template of what the greeting message will look like.
+        """
+        greeting = await self.config.guild(ctx.guild).greeting()
+        await self._template(ctx.channel, greeting)
+        pass
+
     @settings.group(aliases=["leave"])
     async def departure(self, ctx: commands.Context):
         """Commands for configuring the server departure messages.
@@ -533,6 +554,14 @@ class Welcomer(commands.Cog):
         departure = await self.config.guild(ctx.guild).departure()
         departure = await self._footer(ctx, departure, footer)
         await self.config.guild(ctx.guild).departure.set(departure)
+        pass
+
+    @departure.command(name="template")
+    async def departure_template(self, ctx: commands.Context):
+        """Generates a template of what the departure message will look like.
+        """
+        departure = await self.config.guild(ctx.guild).departure()
+        await self._template(ctx.channel, departure)
         pass
 
     @ commands.Cog.listener()
