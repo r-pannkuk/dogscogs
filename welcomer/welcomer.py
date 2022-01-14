@@ -122,6 +122,9 @@ class Welcomer(commands.Cog):
                 "Couldn't find the message at the given index.")
 
         str = obj["messages"].pop(int)
+        if len(obj["messages"]) == 0:
+            str += f"\n\nYou must have at least one message before {obj['name']} will fire."
+        
         await ctx.send(f"Removed the following string to {obj['name']}:\n{str}")
         return obj
 
@@ -223,8 +226,7 @@ class Welcomer(commands.Cog):
 
     async def _create(self, channel: discord.TextChannel, obj, member: discord.Member):
         if len(obj["messages"]) < 1:
-            raise InvalidArgument(
-                f'There is no option available in the list for {obj["name"]}.')
+            return
 
         if obj["use_embed"]:
             return await self._create_embed(channel, obj, member)
@@ -476,7 +478,7 @@ class Welcomer(commands.Cog):
         -- ``{MEMBER_COUNT_TOKEN}`` - The server member count
 
         Args: 
-        \tentry (str): The new departure message to be used at random.
+        \t\tentry (str): The new departure message to be used at random.
         """)
     async def departure_add(self, ctx: commands.Context, *, entry: str):
         """Adds a new departure message for use in the server.
