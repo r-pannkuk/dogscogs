@@ -748,7 +748,7 @@ class Nickname(commands.Cog):
 
         # Check if nickname isn't locked.
         if not await member_config.is_locked() and not await member_config.is_cursed():
-            member_config.replace_original(member.display_name)
+            await member_config.replace_original(member.display_name)
             return
 
         # Check if nickname was changed to the locked nickname.
