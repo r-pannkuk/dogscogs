@@ -350,6 +350,14 @@ class Nickname(commands.Cog):
 
         prefix = ""
 
+        bot_role : discord.Role = ctx.guild.me.top_role
+        target_role : discord.Role = target.top_role
+
+        if bot_role.position < target_role.position or target.guild_permissions.administrator:
+            await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
+            await ctx.reply(f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded.")
+            return
+
         if await self.config.guild(ctx.guild).attacker_wins_ties():
             def predicate(x, y): return x >= y
         else:
@@ -397,6 +405,7 @@ class Nickname(commands.Cog):
                     await self._unset(target, "Cursed")
                     await ctx.send(f"{ctx.author.display_name}'s Curse on {target.display_name} has ended.")
                 except (PermissionError, Forbidden) as e:
+                    await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
                     await ctx.reply(f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded.")
 
             scheduler.add_job(curse_end,
