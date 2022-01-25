@@ -986,9 +986,10 @@ class Welcomer(commands.Cog):
         hello = await self.config.guild(message.guild).hello()
 
         if hello["enabled"]:
+            content = message.content.lower().split()
             if any([
-                t in message.content.lower() and
-                message.content.lower().index(t) > -1
+                t in content and
+                content.index(t) > -1
                 for t in hello["triggers"]
             ]):
                 if (
