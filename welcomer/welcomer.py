@@ -1,10 +1,14 @@
+from datetime import datetime, timedelta
 import random
+from re import match
+import re
 from types import SimpleNamespace
 from typing import Literal
 import typing
 import urllib
 
 import discord
+import d20
 from discord.errors import InvalidArgument
 from urllib.request import urlopen, urlretrieve
 from urllib.error import HTTPError, URLError
@@ -42,6 +46,36 @@ DEFAULT_GUILD = {
         ],
         "embed_image_url": "",
         "footer": f"You are member #{MEMBER_COUNT_TOKEN}!"
+    },
+    "hello": {
+        "name": "Hello messages",
+        "enabled": True,
+        "use_embed": False,
+        "color": discord.Color.dark_gold().to_rgb(),
+        "title": "",
+        "messages": [
+            f"Hello, {MEMBER_NAME_TOKEN}.",
+            f"Hi, {MEMBER_NAME_TOKEN}.",
+            f"Salutations, {MEMBER_NAME_TOKEN}.",
+            f"Konnichiwa, {MEMBER_NAME_TOKEN}.",
+            f"Hello there, {MEMBER_NAME_TOKEN}.",
+            f"Shut up, {MEMBER_NAME_TOKEN}."
+        ],
+        "embed_image_url": "",
+        "footer": "",
+        "cooldown_minutes": "1d30",
+        "current_cooldown": 0,
+        "last_trigger_timestamp": 0,
+        "chance": 0.1,
+        "always_list": [
+            934068329482698762
+        ],
+        "triggers": [
+            "hello",
+            "hi",
+            "salutations",
+            "konnichiwa"
+        ]
     },
     "departure": {
         "name": "Departure messages",
@@ -124,7 +158,7 @@ class Welcomer(commands.Cog):
         str = obj["messages"].pop(int)
         if len(obj["messages"]) == 0:
             str += f"\n\nYou must have at least one message before {obj['name']} will fire."
-        
+
         await ctx.send(f"Removed the following string to {obj['name']}:\n{str}")
         return obj
 
@@ -208,7 +242,8 @@ class Welcomer(commands.Cog):
         embed.colour = discord.Color.from_rgb(*obj["color"])
 
         if obj["footer"] is not None and obj["footer"] != "":
-            embed.set_footer(text=replace_tokens(obj["footer"], member), icon_url=member.avatar_url)
+            embed.set_footer(text=replace_tokens(
+                obj["footer"], member), icon_url=member.avatar_url)
 
         if obj["embed_image_url"] is not None and obj["embed_image_url"] != "":
             embed.set_thumbnail(url=obj["embed_image_url"])
@@ -248,20 +283,20 @@ class Welcomer(commands.Cog):
     @commands.group(name="welcomer")
     @commands.mod_or_permissions(manage_roles=True)
     async def settings(self, ctx: commands.Context):
-        """Settings for controlling the server welcome and departure messages.
+        """Settings for controlling the server greeting and departure messages.
         """
         pass
 
     @settings.command()
     async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel] = None):
-        """Sets or displays the current channel for welcome / departure announcements.
+        """Sets or displays the current channel for greeting / departure announcements.
 
         Args:
             channel (discord.TextChannel): (Optional) The text channel for announcing.
         """
         if channel:
             await self.config.guild(ctx.guild).channel_id.set(channel.id)
-            await ctx.send(f"Now broadcasting welcome and departure messages to {channel.mention}.")
+            await ctx.send(f"Now broadcasting greeting and departure messages to {channel.mention}.")
             return
         else:
             channel_id = await self.config.guild(ctx.guild).channel_id()
@@ -350,7 +385,7 @@ class Welcomer(commands.Cog):
         """Removes a greeting message for use in the server.
 
         Args: 
-            index (int): The index of the greeting message to remove (use `welcomer greeting list` to verify the correct index).
+            index (int): The index of the greeting message to remove (use `greetingr greeting list` to verify the correct index).
         """
         greeting = await self.config.guild(ctx.guild).greeting()
         greeting = await self._remove(ctx, greeting, index)
@@ -417,6 +452,344 @@ class Welcomer(commands.Cog):
         """
         greeting = await self.config.guild(ctx.guild).greeting()
         await self._template(ctx.channel, greeting)
+        pass
+
+    @settings.group()
+    async def hello(self, ctx: commands.Context):
+        """Commands for configuring the server hello messages.
+        """
+        pass
+
+    @hello.command(name="toggle")
+    async def hello_toggle(self, ctx: commands.Context):
+        """Toggles the hello functionality for the bot.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._toggle(ctx, hello)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="enable")
+    async def hello_enable(self, ctx: commands.Context):
+        """Enables hello messages for the server.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._enable(ctx, hello)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="disable")
+    async def hello_disable(self, ctx: commands.Context):
+        """Disables hello messages for the server.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._disable(ctx, hello)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="enabled")
+    async def hello_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets or shows the status of hello messages for the server.
+
+        Args: 
+            bool (bool): (Optional) True / False
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._enabled(ctx, hello, bool)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="list")
+    async def hello_list(self, ctx: commands.Context):
+        """Gets the list of random hello messages for the server.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._list(ctx, hello)
+        pass
+
+    @hello.command(name="add", help=f"""Adds a new hello message for use in the server.  Use the following escaped strings for values:
+        -- ``{MEMBER_NAME_TOKEN}`` - The target member's name
+        -- ``{SERVER_NAME_TOKEN}`` - The server name
+        -- ``{MEMBER_COUNT_TOKEN}`` - The server member count
+
+        Args: 
+        \t\tentry (str): The new hello message to be used at random.
+        """)
+    async def hello_add(self, ctx: commands.Context, *, entry: str):
+        """Adds a new hello message for use in the server.
+
+        Args: 
+            entry (str): The new hello message to be used at random.
+        """
+        entry = entry.strip("\"\'")
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._add(ctx, hello, entry)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="remove")
+    async def hello_remove(self, ctx: commands.Context, index: int):
+        """Removes a hello message for use in the server.
+
+        Args: 
+            index (int): The index of the hello message to remove (use `greetingr hello list` to verify the correct index).
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._remove(ctx, hello, index)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="useembed")
+    async def hello_use_embed(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets hello message type to Embeds or Simple.
+
+        Args: 
+            bool (bool): (Optional) True / False
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._use_embed(ctx, hello, bool)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="image", aliases=["thumbnail"])
+    async def hello_image(self, ctx: commands.Context, *, url: typing.Optional[str] = None):
+        """Sets the hello message image thumbnail used in Rich Embed hello messages.
+
+        Args: 
+            url (str): (Optional) A valid URL to the thumbnail image desired.
+        """
+        if url is not None:
+            url = url.strip("\"\'")
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._image(ctx, hello, url)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="title")
+    async def hello_title(self, ctx: commands.Context, *, title: typing.Optional[str] = None):
+        """Sets the hello message title used in Rich Embed hello messages.
+
+        Args: 
+            title (str): (Optional) The title string to use in hello messages.
+        """
+        if title is not None:
+            title = title.strip("\"\'")
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._title(ctx, hello, title)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="footer")
+    async def hello_footer(self, ctx: commands.Context, *, footer: typing.Optional[str] = None):
+        """Sets the hello message footer used in Rich Embed hello messages.
+
+        Args: 
+            title (str): (Optional) The footer string to use in hello messages.
+        """
+        if footer is not None:
+            footer = footer.strip("\"\'")
+        hello = await self.config.guild(ctx.guild).hello()
+        hello = await self._footer(ctx, hello, footer)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+    @hello.command(name="template")
+    async def hello_template(self, ctx: commands.Context):
+        """Generates a template of what the hello message will look like.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        await self._template(ctx.channel, hello)
+        pass
+
+    @hello.command(name="cooldown")
+    async def hello_cooldown(self, ctx: commands.Context, *, cooldown: typing.Optional[str]):
+        """Sets the cooldown used by the greeter.
+
+        Args:
+            cooldown (str): The cooldown amount; either a number or an RNG dice amount (1d30 for random within 30 minutes).
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+
+        if cooldown is not None:
+            try:
+                parsed = d20.parse(cooldown)
+            except d20.RollSyntaxError as e:
+                await ctx.send("ERROR: Please enter a valid cooldown using dice notation or a number.")
+                return
+
+            hello["cooldown_minutes"] = cooldown
+
+            # Moving the cooldown to whatever the new amount is.
+            if hello["current_cooldown"] > datetime.now().timestamp():
+                hello["current_cooldown"] = (datetime.fromtimestamp(
+                    hello["last_trigger_timestamp"]) + timedelta(minutes=d20.roll(cooldown).total)).timestamp()
+
+            await self.config.guild(ctx.guild).hello.set(hello)
+
+            await ctx.send(f"Set the cooldown to greet users to {cooldown} minutes.")
+        else:
+            await ctx.send(f"The chance to greet users is currently {hello['cooldown_minutes']} minutes.")
+        pass
+
+    def to_percent(argument):
+        try:
+            if argument[-1] == '%':
+                return float(argument[:-1]) / 100
+            return float(argument)
+        except:
+            return None
+
+    @hello.command(name="chance")
+    async def hello_chance(self, ctx: commands.Context, *, chance: typing.Optional[to_percent]):
+        """Sets the random chance that the greeter will go off.
+
+        Args:
+            chance (float): A number between 0.00 and 1.00
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+
+        if chance is not None:
+            if chance <= 0 or chance > 1.0:
+                await ctx.send("ERROR: Chance must be between (0, 1]")
+                return
+
+            hello["chance"] = chance
+            await self.config.guild(ctx.guild).hello.set(hello)
+
+            await ctx.send(f"Set the chance to greet users to {chance * 100}%.")
+        else:
+            await ctx.send(f"The chance to greet users is currently {hello['chance'] * 100}%.")
+        pass
+
+    @hello.group(name="always")
+    async def hello_always(self, ctx: commands.Context):
+        """Sets the list of users who will always receive hello messages.
+        """
+        pass
+
+    @hello_always.command(name="list")
+    async def hello_always_list(self, ctx: commands.Context):
+        """Gets the list of random hello messages for the server.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        always_list = hello["always_list"]
+        guild: discord.Guild = ctx.guild
+        embed = discord.Embed()
+        embed.title = "Forced to greet the following users:"
+
+        users = []
+
+        for i in range(len(always_list)):
+            member: discord.Member = guild.get_member(always_list[i])
+
+            if member is None:
+                continue
+
+            users.append(f"[{i}] {member.mention}")
+
+        embed.description = '\n'.join(users)
+
+        await ctx.send(embed=embed)
+        pass
+
+    @hello_always.command(name="add")
+    async def hello_always_add(self, ctx: commands.Context, *, member: discord.Member):
+        """Adds a user to always have hello messages sent to them.
+
+        Args: 
+            member (discord.Member): The member to always greet.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+
+        if member.id in hello["always_list"]:
+            await ctx.send(f"{member.display_name} is already on the always-greet list.")
+            return
+
+        hello["always_list"].append(member.id)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        await ctx.send(f"Added user {member.display_name} to the list of always-greeted members.")
+        pass
+
+    @hello_always.command(name="remove")
+    async def hello_always_remove(self, ctx: commands.Context, *, member: discord.Member):
+        """Removes a user from always being greeted.
+
+        Args: 
+            member (discord.Member): The member to remove.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+
+        if member.id not in hello["always_list"]:
+            await ctx.send(f"{member.display_name} is not on the always-greet list.")
+            return
+
+        hello["always_list"].remove(member.id)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        await ctx.send(f"Removed {member.display_name} from the list of always-greeted members.")
+        pass
+
+    @hello.group(name="triggers")
+    async def hello_triggers(self, ctx: commands.Context):
+        """Sets the list of trigger phrases to generate hello messages.
+        """
+        pass
+
+    @hello_triggers.command(name="list")
+    async def hello_triggers_list(self, ctx: commands.Context):
+        """Gets the list of random hello messages for the server.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        triggers = hello["triggers"]
+        guild: discord.Guild = ctx.guild
+        embed = discord.Embed()
+        embed.title = "Hello Trigger Phrases:"
+
+        phrases = []
+
+        for i in range(len(triggers)):
+            phrase = triggers[i]
+
+            phrases.append(f"[{i}] {phrase}")
+
+        embed.description = '\n'.join(phrases)
+
+        await ctx.send(embed=embed)
+        pass
+
+    @hello_triggers.command(name="add")
+    async def hello_triggers_add(self, ctx: commands.Context, *, phrase: str):
+        """Adds a phrase which will trigger Hello messages.
+
+        Args: 
+            phrase (str): The phrase to add for triggering.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+
+        if phrase.lower() in hello["triggers"]:
+            await ctx.send(f"``{phrase}`` is already triggering hello phrases.")
+            return
+
+        hello["triggers"].append(phrase.lower())
+        await self.config.guild(ctx.guild).hello.set(hello)
+        await ctx.send(f"Added ``{phrase}`` to the list of hello triggers.")
+        pass
+
+    @hello_triggers.command(name="remove")
+    async def hello_triggers_remove(self, ctx: commands.Context, *, phrase: str):
+        """Removes a phrase from triggering hello messages.
+
+        Args: 
+            phrase (str): The triggering phrase.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+
+        if phrase.lower() not in hello["triggers"]:
+            await ctx.send(f"``{phrase}`` is not on the triggers list.")
+            return
+
+        hello["triggers"].remove(phrase.lower())
+        await self.config.guild(ctx.guild).hello.set(hello)
+        await ctx.send(f"Removed ``{phrase}`` to the list of triggers for hello messages.")
         pass
 
     @settings.group(aliases=["leave"])
@@ -497,7 +870,7 @@ class Welcomer(commands.Cog):
         """Removes a departure message for use in the server.
 
         Args: 
-            index (int): The index of the departure message to remove (use `welcomer departure list` to verify the correct index).
+            index (int): The index of the departure message to remove (use `greetingr departure list` to verify the correct index).
         """
         departure = await self.config.guild(ctx.guild).departure()
         departure = await self._remove(ctx, departure, index)
@@ -598,4 +971,42 @@ class Welcomer(commands.Cog):
 
             if channel is not None:
                 await self._create(channel, departure, member)
+        pass
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Listens for hello triggers and rolls a chance to trigger a response.
+
+        Args:
+            message (discord.Message): The discord message listened to.
+        """
+        if message.author.bot:
+            return
+
+        hello = await self.config.guild(message.guild).hello()
+
+        if hello["enabled"]:
+            if any([
+                t in message.content.lower() and
+                message.content.lower().index(t) > -1
+                for t in hello["triggers"]
+            ]):
+                if (
+                    message.author.id in hello["always_list"] and
+                    (datetime.now() - timedelta(minutes=1)
+                     ).timestamp() > hello["last_trigger_timestamp"]
+                ):
+                    is_firing = True
+                else:
+                    is_firing = (
+                        random.random() < hello["chance"] and
+                        datetime.now().timestamp() > hello["current_cooldown"]
+                    )
+
+                if is_firing:
+                    await self._create(message.channel, hello, message.author)
+                    hello["current_cooldown"] = (datetime.now(
+                    ) + timedelta(minutes=d20.roll(hello["cooldown_minutes"]).total)).timestamp()
+                    hello["last_trigger_timestamp"] = datetime.now().timestamp()
+                    await self.config.guild(message.guild).hello.set(hello)
         pass
