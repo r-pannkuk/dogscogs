@@ -22,6 +22,7 @@ scheduler = AsyncIOScheduler(timezone="US/Eastern")
 
 DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
 DISCORD_MAX_MESSAGE_SIZE_LIMIT = 2000
+DISCORD_MAX_NICK_LENGTH = 32
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -198,7 +199,7 @@ def bind_member(group: config.Group):
         if to_be_replaced == None:
             to_be_replaced = NickQueueEntry(
                 name="",
-                target_id=to_be_replaced["target_id"],
+                target_id=self.identifier_data.uuid,
                 author_id=None,
                 created_at=0
             )
@@ -330,6 +331,10 @@ class Nickname(commands.Cog):
             ), '%b %d, %Y  %H:%M:%S')
             await ctx.reply(
                 f"You aren't yet available to curse again.  Next available curse is at ``{formatted_time}``.")
+            return
+
+        if len(name) > DISCORD_MAX_NICK_LENGTH:
+            await ctx.reply(f"That name is too long to curse a user with.")
             return
 
         global_curse_cooldown = await self.config.guild(ctx.guild).curse_cooldown()
