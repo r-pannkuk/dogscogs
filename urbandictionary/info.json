@@ -1,0 +1,21 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "UrbanDictionary",
+    "short": "Looks up definitions on urban dictionary.",
+    "description": "Looks up definitions on urban dictionary.",
+    "end_user_data_statement": "This cog does not persistently store any data or metadata about users.",
+    "author": [
+        "Klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "urbandictionary",
+        "urban",
+        "dictionary"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
