@@ -62,6 +62,11 @@ class UrbanDictionary(commands.Cog):
 
     @commands.command(usage="<term>", aliases=["ud", "urbandict"])
     async def urbandictionary(self, ctx: commands.Context, term):
+        """Searches for the given term on Urban Dictionary and returns results.
+
+        Args:
+            term (str): The term to search against.
+        """
         self.currentLookup : typing.List[udpy.UrbanDefinition] = self.client.get_definition(term)
         self.currentIndex = 0
         self.currentMessage : discord.Message = await ctx.channel.send(embed=self.get_embed())
