@@ -1,12 +1,14 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
+import re
 from types import MethodType
 from typing import Dict, Literal
 import typing
 from apscheduler.job import Job
 import d20
 import uuid
+from time import strptime
 
 import discord
 from discord.errors import Forbidden, InvalidArgument
@@ -212,6 +214,52 @@ def bind_member(group: config.Group):
     group.replace_original = MethodType(replace_original, group)
     return group
 
+def duration_string(hours : int, minutes : int, seconds : int) -> str:
+    """Converts hours, minutes, and seconds into a string duration.
+
+    Args:
+        hours (int): Integer number of hours.
+        minutes (int): Integer number of minutes.
+        seconds (int): Integer number of seconds.
+
+    Returns:
+        str: The completed string composing of the duration.
+    """
+    hour_string = ""
+    minute_string = ""
+    second_string = ""
+    
+    if hours > 0:
+        hour_string = f"{hours}"
+        minute_string = f":{minutes:02}"
+        second_string = f":{seconds:02}"
+    elif minutes > 0:
+        minute_string = f"{minutes}"
+        second_string = f":{seconds:02}"
+    else:
+        second_string = f"{seconds} seconds"
+
+    return f"{hour_string}{minute_string}{second_string}"
+
+def parse_duration_string(input: str) -> int:
+    """Parses a duration string into the number of seconds it composes.
+
+    Args:
+        input (str): The input string to parse.
+
+    Returns:
+        int: The number of seconds in duration that string is.
+    """
+    if(re.match("^[\\d]+:[0-5][0-9]:[0-5][0-9]$", input)):
+        hours, rest = input.split(':', 1)
+        t = strptime(rest, "%M:%S")
+        return int(hours) * 60 * 60 + t.tm_min * 60 + t.tm_sec
+    elif(re.match("^[0-9]?[0-9]:[0-5][0-9]$", input)):
+        t = strptime(input, "%M:%S")
+        return t.tm_min * 60 + t.tm_sec
+    else:
+        raise InvalidArgument("Could not parse the duration.")
+
 
 class Nickname(commands.Cog):
     """
@@ -341,9 +389,13 @@ class Nickname(commands.Cog):
         next_available = datetime.now(tz=pytz.timezone(
             "US/Eastern")).timestamp() + global_curse_cooldown
         await self.config.member(ctx.author).next_curse_available.set(next_available)
-        cooldown_msg = f"Your ability to curse is on cooldown for {global_curse_cooldown / (60 * 60)} hours."
 
         curse_duration = await self.config.guild(ctx.guild).curse_duration()
+        
+        seconds = int(global_curse_cooldown) % 60
+        minutes = int(global_curse_cooldown / 60) % 60
+        hours = int(global_curse_cooldown / 60 / 60)
+        cooldown_msg = f"Your ability to curse is on cooldown for {duration_string(hours, minutes, seconds)}."
 
         attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
         defender_strength = await self.config.guild(ctx.guild).defender_strength()
@@ -402,8 +454,12 @@ class Nickname(commands.Cog):
         try:
             await self._set(target, entry=entry)
 
+            seconds = int(curse_duration) % 60
+            minutes = int(curse_duration / 60) % 60
+            hours = int(curse_duration / 60 / 60)
+
             await ctx.send(
-                f"{prefix}:white_check_mark: {result_msg}Cursed {original_name}'s nickname to {name} for {curse_duration / (60)} minutes.  {cooldown_msg}")
+                f"{prefix}:white_check_mark: {result_msg}Cursed {original_name}'s nickname to {name} for {duration_string(hours, minutes, seconds)}.  {cooldown_msg}")
 
             async def curse_end():
                 try:
@@ -675,6 +731,76 @@ class Nickname(commands.Cog):
 
                 await ctx.send(embed=embed)
                 pass
+        pass
+
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @nickname.command()
+    async def cooldown(self, ctx: commands.Context, cooldown_sec: typing.Optional[typing.Union[int, str]] = None):
+        """Sets or displays the current curse attempt cooldown.
+
+        Args:
+            cooldown_sec (typing.Optional[int], optional): The amount (in seconds) that the curse cooldown should be set to.
+        """
+        guild : discord.Guild = ctx.guild
+
+        if cooldown_sec == None:
+            cooldown_sec = await self.config.guild(guild).curse_cooldown()
+            pass
+        else:
+            if isinstance(cooldown_sec, str):
+                try:
+                    cooldown_sec = parse_duration_string(cooldown_sec)
+                except(InvalidArgument):
+                    await ctx.send("Unable to parse cooldown input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)")
+                    return
+
+            await self.config.guild(guild).curse_cooldown.set(cooldown_sec)
+
+            upper_bound = datetime.now(tz=pytz.timezone("US/Eastern")).timestamp() + cooldown_sec
+
+            for member in guild.members:
+                next_available : datetime = await self.config.member(member).next_curse_available()
+
+                if next_available != None and next_available > upper_bound:
+                    await self.config.member(member).next_curse_available.set(upper_bound)
+            pass
+
+        seconds = cooldown_sec % 60
+        minutes = int(cooldown_sec / 60) % 60
+        hours = int(cooldown_sec / 60 / 60)
+
+        await ctx.send(f"Curse attempt cooldown currently set to {duration_string(hours, minutes, seconds)}.")
+        pass
+
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @nickname.command()
+    async def duration(self, ctx: commands.Context, duration_sec: typing.Optional[typing.Union[int, str]] = None):
+        """Sets or displays the current curse duration.
+
+        Args:
+            duration_sec (typing.Optional[typing.Union[int, str]], optional): The amount (in `HH:MM:SS` or integer) that the curse duration should be set to.
+        """
+        if duration_sec == None:
+            duration_sec = await self.config.guild(ctx.guild).curse_duration()
+            pass
+        else:
+            if isinstance(duration_sec, str):
+                try:
+                    duration_sec = parse_duration_string(duration_sec)
+                except(InvalidArgument):
+                    await ctx.send("Unable to parse duration input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)")
+                    return
+            
+            await self.config.guild(ctx.guild).curse_duration.set(duration_sec)
+            pass
+
+        seconds = duration_sec % 60
+        minutes = int(duration_sec / 60) % 60
+        hours = int(duration_sec / 60 / 60)
+
+        await ctx.send(f"Curse duration currently set to {duration_string(hours, minutes, seconds)}.")
         pass
 
     async def _check_member(self, member: discord.Member):
