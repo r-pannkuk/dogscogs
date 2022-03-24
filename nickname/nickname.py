@@ -1,6 +1,8 @@
 import asyncio
 from datetime import datetime
 from enum import Enum
+from functools import partial
+import random
 import re
 from types import MethodType
 from typing import Dict, Literal
@@ -25,6 +27,7 @@ scheduler = AsyncIOScheduler(timezone="US/Eastern")
 DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
 DISCORD_MAX_MESSAGE_SIZE_LIMIT = 2000
 DISCORD_MAX_NICK_LENGTH = 32
+COLLATERAL_LIST_SIZE = 20
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -59,7 +62,7 @@ DEFAULT_GUILD = {
     "attacker_strength": "1d20",
     "defender_strength": "1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
-    "curse_duration": 30 * 60 # 30 minutes
+    "curse_duration": 30 * 60  # 30 minutes
 }
 
 
@@ -214,7 +217,8 @@ def bind_member(group: config.Group):
     group.replace_original = MethodType(replace_original, group)
     return group
 
-def duration_string(hours : int, minutes : int, seconds : int) -> str:
+
+def duration_string(hours: int, minutes: int, seconds: int) -> str:
     """Converts hours, minutes, and seconds into a string duration.
 
     Args:
@@ -228,7 +232,7 @@ def duration_string(hours : int, minutes : int, seconds : int) -> str:
     hour_string = ""
     minute_string = ""
     second_string = ""
-    
+
     if hours > 0:
         hour_string = f"{hours}"
         minute_string = f":{minutes:02}"
@@ -240,6 +244,7 @@ def duration_string(hours : int, minutes : int, seconds : int) -> str:
         second_string = f"{seconds} seconds"
 
     return f"{hour_string}{minute_string}{second_string}"
+
 
 def parse_duration_string(input: str) -> int:
     """Parses a duration string into the number of seconds it composes.
@@ -391,7 +396,7 @@ class Nickname(commands.Cog):
         await self.config.member(ctx.author).next_curse_available.set(next_available)
 
         curse_duration = await self.config.guild(ctx.guild).curse_duration()
-        
+
         seconds = int(global_curse_cooldown) % 60
         minutes = int(global_curse_cooldown / 60) % 60
         hours = int(global_curse_cooldown / 60 / 60)
@@ -403,12 +408,12 @@ class Nickname(commands.Cog):
         attacker_roll = d20.roll(attacker_strength)
         defender_roll = d20.roll(defender_strength)
 
-        result_msg = f"(Attacker: {attacker_roll.result}) vs. (Defender: {defender_roll.result})\n"
+        result_msg = f"(Attacker: {attacker_roll.result}) vs. (Defender: {defender_roll.result})"
 
         prefix = ""
 
-        bot_role : discord.Role = ctx.guild.me.top_role
-        target_role : discord.Role = target.top_role
+        bot_role: discord.Role = ctx.guild.me.top_role
+        target_role: discord.Role = target.top_role
 
         if bot_role.position < target_role.position or target.guild_permissions.administrator:
             await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
@@ -420,68 +425,111 @@ class Nickname(commands.Cog):
         else:
             def predicate(x, y): return x > y
 
+        cursed_users: typing.List[discord.Member] = []
+
+        seconds = int(curse_duration) % 60
+        minutes = int(curse_duration / 60) % 60
+        hours = int(curse_duration / 60 / 60)
+
         if attacker_roll.crit == d20.CritType.FAIL:
-            target = ctx.author
+            cursed_users.append(ctx.author)
             prefix += f":skull: Oh no, something went wrong... :skull:\n"
             pass
         elif attacker_roll.crit == d20.CritType.CRIT:
             curse_duration *= 2
             prefix += f":dart: Your curse feels extra potent! :dart:\n"
             pass
-        # elif defender_roll.crit == d20.CritType.FAIL:
+
+        # if defender_roll.crit == d20.CritType.FAIL:
         #     pass
-        # elif defender_roll.crit == d20.CritType.CRIT:
-        #     pass
-        elif predicate(attacker_roll.total, defender_roll.total) == False:
-            await ctx.reply(
-                f":x: {result_msg}You failed to curse {target.display_name}.  {cooldown_msg}")
-            return
+        if defender_roll.crit == d20.CritType.CRIT:
+            prefix += f":shield: {target.display_name} shielded against the blow"
+            collateral_list: typing.List[discord.Member] = []
+            fetched: typing.List[discord.Message] = await ctx.channel.history(limit=200).flatten()
+            potentials: typing.List[discord.Member] = set(
+                [msg.author for msg in fetched])
+            collateral_list.extend([
+                t for t in potentials
+                if t.id != target.id
+                and t.id != ctx.author.id
+                and not t.bot
+            ])
+            collateral_list = collateral_list[0:20]
+
+            if len(collateral_list) > 0:
+                new_target = random.choice(collateral_list)
+                cursed_users.append(new_target)
+                prefix += f"...and it ended up hitting {new_target.display_name} ({new_target.mention}) by mistake"
+                pass
+
+            if attacker_roll.crit == d20.CritType.CRIT and predicate(attacker_roll.total, defender_roll.total):
+                prefix += f"...but {ctx.author.display_name}'s attack was too powerful"
+                cursed_users.append(target)
+
+            prefix += "!\n"
+        elif predicate(attacker_roll.total, defender_roll.total):
+            cursed_users.append(target)
+        else:
+            prefix += f"You failed to curse {target.display_name}.\n"
 
         expiration = datetime.now(tz=pytz.timezone(
             "US/Eastern")).timestamp() + curse_duration
-        original_name: str = target.display_name
 
-        entry = NickQueueEntry(
-            name=name,
-            target_id=target.id,
-            author_id=ctx.author.id,
-            type="Cursed",
-            created_at=datetime.now(
-                tz=pytz.timezone("US/Eastern")).timestamp(),
-            expiration=expiration
-        )
+        if predicate(attacker_roll.total, defender_roll.total):
+            prefix += f":white_check_mark: {result_msg}\n"
+        else:
+            prefix += f":x: {result_msg}\n"
 
-        try:
-            await self._set(target, entry=entry)
+        async def curse_end(v):
+            try:
+                await self._unset(v, "Cursed")
+                await ctx.send(f"{ctx.author.display_name}'s Curse on {v.display_name} has ended.")
+            except (PermissionError, Forbidden) as e:
+                await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
+                await ctx.reply(f"ERROR: Bot does not have permission to edit {v.display_name}'s nickname. Please reach out to a mod uncurse your name.")
+        
+        for victim in cursed_users:
+            original_name: str = victim.display_name
 
-            seconds = int(curse_duration) % 60
-            minutes = int(curse_duration / 60) % 60
-            hours = int(curse_duration / 60 / 60)
+            entry = NickQueueEntry(
+                name=name,
+                target_id=victim.id,
+                author_id=ctx.author.id,
+                type="Cursed",
+                created_at=datetime.now(
+                    tz=pytz.timezone("US/Eastern")).timestamp(),
+                expiration=expiration
+            )
 
-            await ctx.send(
-                f"{prefix}:white_check_mark: {result_msg}Cursed {original_name}'s nickname to {name} for {duration_string(hours, minutes, seconds)}.  {cooldown_msg}")
+            try:
+                await self._set(victim, entry=entry)
 
-            async def curse_end():
-                try:
-                    await self._unset(target, "Cursed")
-                    await ctx.send(f"{ctx.author.display_name}'s Curse on {target.display_name} has ended.")
-                except (PermissionError, Forbidden) as e:
+
+                scheduler.add_job(
+                    # Need to use partial here as it keeps sending the same user
+                    partial(curse_end, victim),
+                    id=str(entry["id"]),
+                    trigger='date',
+                    next_run_time=datetime.fromtimestamp(
+                        expiration,
+                        tz=pytz.timezone("US/Eastern")
+                    ),
+                    replace_existing=True
+                )
+
+                jobs = scheduler.get_jobs()
+
+                prefix += f"Cursed {original_name}'s nickname to {name} for {duration_string(hours, minutes, seconds)}.\n"
+
+            except (PermissionError, Forbidden) as e:
+                if target.id == victim.id:
                     await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
-                    await ctx.reply(f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded.")
+                    await ctx.reply(f"ERROR: Bot does not have permission to edit {victim.display_name}'s nickname. Your curse cooldown was refunded.")
+                    return
+                else:
+                    continue
 
-            scheduler.add_job(curse_end,
-                              id=str(entry["id"]),
-                              trigger='date',
-                              next_run_time=datetime.fromtimestamp(
-                                  expiration,
-                                  tz=pytz.timezone("US/Eastern")
-                              ),
-                              replace_existing=True
-                              )
-        except (PermissionError, Forbidden) as e:
-            await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
-            await ctx.reply(f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded.")
-            return
+        await ctx.send(f"{prefix}{cooldown_msg}")
         pass
 
     async def _unset(self,
@@ -679,7 +727,7 @@ class Nickname(commands.Cog):
 
             # Sort by time locked.
             values = sorted(
-                values, 
+                values,
                 key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"],
                 reverse=True
             )
@@ -742,7 +790,7 @@ class Nickname(commands.Cog):
         Args:
             cooldown_sec (typing.Optional[int], optional): The amount (in seconds) that the curse cooldown should be set to.
         """
-        guild : discord.Guild = ctx.guild
+        guild: discord.Guild = ctx.guild
 
         if cooldown_sec == None:
             cooldown_sec = await self.config.guild(guild).curse_cooldown()
@@ -757,10 +805,11 @@ class Nickname(commands.Cog):
 
             await self.config.guild(guild).curse_cooldown.set(cooldown_sec)
 
-            upper_bound = datetime.now(tz=pytz.timezone("US/Eastern")).timestamp() + cooldown_sec
+            upper_bound = datetime.now(tz=pytz.timezone(
+                "US/Eastern")).timestamp() + cooldown_sec
 
             for member in guild.members:
-                next_available : datetime = await self.config.member(member).next_curse_available()
+                next_available: datetime = await self.config.member(member).next_curse_available()
 
                 if next_available != None and next_available > upper_bound:
                     await self.config.member(member).next_curse_available.set(upper_bound)
@@ -792,7 +841,7 @@ class Nickname(commands.Cog):
                 except(InvalidArgument):
                     await ctx.send("Unable to parse duration input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)")
                     return
-            
+
             await self.config.guild(ctx.guild).curse_duration.set(duration_sec)
             pass
 
@@ -814,7 +863,12 @@ class Nickname(commands.Cog):
 
         async def undo_curse():
             await self._unset(member, "Cursed")
-            await member.send(f"{guild.get_member(curse['author_id']).display_name}'s Curse on you has ended.")
+            try:
+                await member.send(f"{guild.get_member(curse['author_id']).display_name}'s Curse on you has ended.")
+            except(discord.errors.HTTPException) as e:
+                print(f"Attempted to send a message and failed to DM (could be bot?):\n{curse}")
+                pass
+
 
         for curse in nick_queue:
             if curse["expiration"] < datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
