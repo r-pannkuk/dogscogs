@@ -487,7 +487,7 @@ class Nickname(commands.Cog):
             except (PermissionError, Forbidden) as e:
                 await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
                 await ctx.reply(f"ERROR: Bot does not have permission to edit {v.display_name}'s nickname. Please reach out to a mod uncurse your name.")
-        
+
         for victim in cursed_users:
             original_name: str = victim.display_name
 
@@ -503,7 +503,6 @@ class Nickname(commands.Cog):
 
             try:
                 await self._set(victim, entry=entry)
-
 
                 scheduler.add_job(
                     # Need to use partial here as it keeps sending the same user
@@ -702,17 +701,13 @@ class Nickname(commands.Cog):
         guild: discord.Guild = ctx.guild
         member_ids: list = await self.config.guild(guild).nicknamed_member_ids()
 
-        if len(member_ids) == 0:
-            await ctx.send("No members currently have locked nicknames.")
-        else:
-            title = f"Cursed or Locked Nicknames"
+        values = []
 
-            values = []
-
-            member: discord.Member
-            for member in [guild.get_member(id) for id in member_ids]:
-                member_config = bind_member(self.config.member(member))
-
+        member: discord.Member
+        for id in member_ids:
+            if guild.get_member(id) is not None:
+                member_config = bind_member(
+                    self.config.member(guild.get_member(id)))
                 nick_queue = await member_config.nick_queue()
                 nick_queue = list(filter(
                     lambda entry: entry["type"] != "Default" and (
@@ -724,61 +719,69 @@ class Nickname(commands.Cog):
                 )
 
                 values.extend(nick_queue)
+            else:
+                pass
 
-            # Sort by time locked.
-            values = sorted(
-                values,
-                key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"],
-                reverse=True
-            )
+        if len(values) == 0:
+            await ctx.send("No members currently have locked nicknames.")
+            return
 
+        # Sort by time locked.
+        values = sorted(
+            values,
+            key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"],
+            reverse=True
+        )
+
+        title = f"Cursed or Locked Nicknames"
+
+        while len(values) > 0:
+            description = ""
             while len(values) > 0:
-                description = ""
-                while len(values) > 0:
-                    value = values[0]
-                    time_field = ""
-                    member = guild.get_member(value["target_id"])
-                    author = guild.get_member(value["author_id"])
+                value = values[0]
+                time_field = ""
+                member = guild.get_member(value["target_id"])
+                author = guild.get_member(value["author_id"])
 
-                    if value["type"] == "Cursed":
-                        time_field = datetime.fromtimestamp(
-                            value["expiration"], tz=pytz.timezone("US/Eastern"))
-                    elif value["type"] == "Locked":
-                        time_field = datetime.fromtimestamp(
-                            value["created_at"], tz=pytz.timezone("US/Eastern"))
+                if value["type"] == "Cursed":
+                    time_field = datetime.fromtimestamp(
+                        value["expiration"], tz=pytz.timezone("US/Eastern"))
+                elif value["type"] == "Locked":
+                    time_field = datetime.fromtimestamp(
+                        value["created_at"], tz=pytz.timezone("US/Eastern"))
 
-                    string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}` by {author.mention}: "
-                    string += f" {'Releases on' if value['type'] == 'Cursed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
+                string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}` by {author.mention}: "
+                string += f" {'Releases on' if value['type'] == 'Cursed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
 
-                    if value["type"] == "Cursed":
-                        string = f":skull:{string}"
-                    elif value["type"] == "Locked":
-                        string = f":lock:{string}"
+                if value["type"] == "Cursed":
+                    string = f":skull:{string}"
+                elif value["type"] == "Locked":
+                    string = f":lock:{string}"
 
-                    string += "\n"
+                string += "\n"
 
-                    if len(description) + len(string) > DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT:
-                        break
+                if len(description) + len(string) > DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT:
+                    break
 
-                    description += string
+                description += string
 
-                    values.pop(0)
+                values.pop(0)
 
-                if len(description) == 0:
-                    await ctx.send(f"Something went wrong.")
-                    await self.bot.send_to_owners(f"""`nickname: Failed to generate nickname list.
+            if len(description) == 0:
+                await ctx.send(f"Something went wrong.")
+                await self.bot.send_to_owners(f"""`nickname: Failed to generate nickname list.
                     -- guild: {guild.name} <{guild.id}>
                     -- nickname_list: {values}`""")
 
-                embed = discord.Embed(
-                    title=title,
-                    description=description
-                )
+            embed = discord.Embed(
+                title=title,
+                description=description
+            )
 
-                title = ""
+            title = ""
 
-                await ctx.send(embed=embed)
-                pass
+            await ctx.send(embed=embed)
+            pass
         pass
 
     @commands.guild_only()
@@ -866,9 +869,9 @@ class Nickname(commands.Cog):
             try:
                 await member.send(f"{guild.get_member(curse['author_id']).display_name}'s Curse on you has ended.")
             except(discord.errors.HTTPException) as e:
-                print(f"Attempted to send a message and failed to DM (could be bot?):\n{curse}")
+                print(
+                    f"Attempted to send a message and failed to DM (could be bot?):\n{curse}")
                 pass
-
 
         for curse in nick_queue:
             if curse["expiration"] < datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
