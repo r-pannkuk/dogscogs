@@ -214,12 +214,12 @@ class Random(commands.Cog):
                 if parsed.expr.set[i].annotation != None:
                     parsed.expr.set[i].annotation += "\n"
                 pass
-            await ctx.send(embed=discord.Embed(
+            await ctx.reply(embed=discord.Embed(
                 title=f":game_die: Result: {parsed.total}",
                 description=parsed.result
             ))
         except d20.errors.TooManyRolls as e:
-            await ctx.send("ERROR: Unable to perform that many rolls.")
+            await ctx.reply("ERROR: Unable to perform that many rolls.")
         except (d20.errors.RollSyntaxError, d20.errors.RollValueError) as e:
             errormsg = f"Unable to process ``{e.got}``.  Please use one of:\n* "
 
