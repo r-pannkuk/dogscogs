@@ -297,9 +297,33 @@ class Nickname(commands.Cog):
 
     @nickname.command(hidden=True)
     @commands.is_owner()
-    async def clear(self, ctx: commands.Context, member: discord.Member):
+    async def clear(self, ctx: commands.Context, member: discord.Member, verbose: typing.Optional[bool] = True):
         await self.config.member(member).clear()
-        await ctx.send(f"Data cleared for {member.mention}.")
+        if verbose:
+            await ctx.send(f"Data cleared for {member.mention}.")
+
+    @nickname.command(hidden=True)
+    @commands.is_owner()
+    async def clearall(self, ctx: commands.Context):
+        guild : discord.Guild = ctx.guild
+        for member in guild.members:
+            await self.clear(ctx, member, verbose=False)
+        await ctx.send(f"Data cleared for {len(guild.members)} members.")
+
+    @nickname.command(hidden=True)
+    @commands.is_owner()
+    async def clearcd(self, ctx: commands.Context, member: discord.Member, verbose: typing.Optional[bool] = True):
+        await self.config.member(member).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
+        if verbose:
+            await ctx.send(f"Cooldown reset for {member.mention}.")
+
+    @nickname.command(hidden=True)
+    @commands.is_owner()
+    async def clearcdsall(self, ctx: commands.Context):
+        guild : discord.Guild = ctx.guild
+        for member in guild.members:
+            await self.clearcd(ctx, member, verbose=False)
+        await ctx.send(f"Cooldown reset for {len(guild.members)} members.")
 
     async def _set(self,
                    member: discord.Member,
