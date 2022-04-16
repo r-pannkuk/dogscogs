@@ -451,10 +451,6 @@ class Nickname(commands.Cog):
 
         cursed_users: typing.List[discord.Member] = []
 
-        seconds = int(curse_duration) % 60
-        minutes = int(curse_duration / 60) % 60
-        hours = int(curse_duration / 60 / 60)
-
         if attacker_roll.crit == d20.CritType.FAIL:
             cursed_users.append(ctx.author)
             prefix += f":skull: Oh no, something went wrong... :skull:\n"
@@ -495,6 +491,10 @@ class Nickname(commands.Cog):
             cursed_users.append(target)
         else:
             prefix += f"You failed to curse {target.display_name}.\n"
+
+        seconds = int(curse_duration) % 60
+        minutes = int(curse_duration / 60) % 60
+        hours = int(curse_duration / 60 / 60)
 
         expiration = datetime.now(tz=pytz.timezone(
             "US/Eastern")).timestamp() + curse_duration
