@@ -235,7 +235,7 @@ class Random(commands.Cog):
             expected = list(set(expected))
 
             errormsg += '\n* '.join(expected)
-            await ctx.send(errormsg)
+            await ctx.reply(errormsg)
         pass
 
     @commands.command(aliases=["8ball"])
