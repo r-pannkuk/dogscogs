@@ -295,14 +295,14 @@ class Nickname(commands.Cog):
         """
         pass
 
-    @nickname.command(hidden=True)
+    @nickname.command()
     @commands.is_owner()
     async def clear(self, ctx: commands.Context, member: discord.Member, verbose: typing.Optional[bool] = True):
         await self.config.member(member).clear()
         if verbose:
             await ctx.send(f"Data cleared for {member.mention}.")
 
-    @nickname.command(hidden=True)
+    @nickname.command()
     @commands.is_owner()
     async def clearall(self, ctx: commands.Context):
         guild : discord.Guild = ctx.guild
@@ -310,14 +310,14 @@ class Nickname(commands.Cog):
             await self.clear(ctx, member, verbose=False)
         await ctx.send(f"Data cleared for {len(guild.members)} members.")
 
-    @nickname.command(hidden=True)
+    @nickname.command()
     @commands.is_owner()
     async def clearcd(self, ctx: commands.Context, member: discord.Member, verbose: typing.Optional[bool] = True):
         await self.config.member(member).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
         if verbose:
             await ctx.send(f"Cooldown reset for {member.mention}.")
 
-    @nickname.command(hidden=True)
+    @nickname.command()
     @commands.is_owner()
     async def clearcdsall(self, ctx: commands.Context):
         guild : discord.Guild = ctx.guild
