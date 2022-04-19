@@ -891,7 +891,8 @@ class Nickname(commands.Cog):
         async def undo_curse():
             await self._unset(member, "Cursed")
             try:
-                await member.send(f"{guild.get_member(curse['author_id']).display_name}'s Curse on you has ended.")
+                # await member.send(f"{guild.get_member(curse['author_id']).display_name}'s Curse on you has ended.")
+                pass
             except(discord.errors.HTTPException) as e:
                 print(
                     f"Attempted to send a message and failed to DM (could be bot?):\n{curse}")
