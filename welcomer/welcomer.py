@@ -3,7 +3,7 @@ import random
 from re import match
 import re
 from types import SimpleNamespace
-from typing import Literal
+from typing import Literal, Optional, Tuple, Union
 import typing
 import urllib
 
@@ -15,15 +15,19 @@ from urllib.error import HTTPError, URLError
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
+from sqlalchemy import false
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 MEMBER_NAME_TOKEN = "$MEMBER_NAME$"
 SERVER_NAME_TOKEN = "$SERVER_NAME$"
 MEMBER_COUNT_TOKEN = "$MEMBER_COUNT$"
+ACTION_TOKEN = "$ACTION$"
 
 
-def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[bool] = False):
+def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[bool] = False, token: typing.Optional[str] = None):
+    if token is not None:
+        return text.replace(token, )
     return text.replace(
         MEMBER_NAME_TOKEN, member.display_name if not use_mentions else member.mention
     ).replace(
@@ -81,14 +85,26 @@ DEFAULT_GUILD = {
         "name": "Departure messages",
         "enabled": False,
         "use_embed": False,
-        "color": discord.Color.dark_red().to_rgb(),
+        "color": discord.Color.darker_grey().to_rgb(),
         "title": "",
         "messages": [
             f"**{MEMBER_NAME_TOKEN}** has left us.  Press :regional_indicator_f: to pay respects."
         ],
         "embed_image_url": "",
         "footer": ""
-    }
+    },
+    "kick_or_ban": {
+        "name": "Kick / Ban messages",
+        "enabled": False,
+        "use_embed": False,
+        "color": discord.Color.dark_red().to_rgb(),
+        "title": "",
+        "messages": [
+            f"**{MEMBER_NAME_TOKEN}** was {ACTION_TOKEN}ed.  They deserved it."
+        ],
+        "embed_image_url": "",
+        "footer": ""
+    },
 }
 
 
@@ -104,6 +120,7 @@ class Welcomer(commands.Cog):
             identifier=260288776360820736,
             force_registration=True,
         )
+        self._ban_cache = {}
 
         self.config.register_guild(**DEFAULT_GUILD)
         pass
@@ -241,12 +258,24 @@ class Welcomer(commands.Cog):
             random.choice(obj["messages"]), member)
         embed.colour = discord.Color.from_rgb(*obj["color"])
 
-        if obj["footer"] is not None and obj["footer"] != "":
+        if "footer" in obj and obj["footer"] != "":
             embed.set_footer(text=replace_tokens(
                 obj["footer"], member), icon_url=member.avatar_url)
 
-        if obj["embed_image_url"] is not None and obj["embed_image_url"] != "":
+        if "embed_image_url" in obj and obj["embed_image_url"] != "":
             embed.set_thumbnail(url=obj["embed_image_url"])
+
+        if "action" in obj and obj["action"] != "":
+            embed.description = embed.description.replace(
+                ACTION_TOKEN, obj["action"])
+
+        if "perp" in obj:
+            embed.add_field(
+                name=f"{obj['action'].capitalize()}ed by:", value=obj['perp'].mention, inline=True)
+
+            if "reason" in obj and obj["reason"] != "":
+                embed.add_field(
+                    name="Reason:", value=obj["reason"], inline=True)
 
         await channel.send(embed=embed)
         return obj
@@ -302,9 +331,15 @@ class Welcomer(commands.Cog):
             channel_id = await self.config.guild(ctx.guild).channel_id()
             if channel_id is None:
                 await ctx.send(f"There is no channel currently set for broadcasting greeting and departure messages!")
-            else:
-                channel = ctx.guild.get_channel(channel_id)
-                await ctx.send(f"Currently broadcasting greeting and departure messages to {channel.mention}.")
+                return
+            
+            channel = ctx.guild.get_channel(channel_id)
+            
+            if channel is None:
+                await ctx.send(f"There is no channel currently set for broadcasting greeting and departure messages!")
+                return
+
+            await ctx.send(f"Currently broadcasting greeting and departure messages to {channel.mention}.")
             return
 
     @settings.group(aliases=["welcome"])
@@ -344,7 +379,7 @@ class Welcomer(commands.Cog):
     async def greeting_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
         """Sets or shows the status of greeting messages for the server.
 
-        Args: 
+        Args:
             bool (bool): (Optional) True / False
         """
         greeting = await self.config.guild(ctx.guild).greeting()
@@ -365,13 +400,13 @@ class Welcomer(commands.Cog):
         -- ``{SERVER_NAME_TOKEN}`` - The server name
         -- ``{MEMBER_COUNT_TOKEN}`` - The server member count
 
-        Args: 
+        Args:
         \tentry (str): The new greeting message to be used at random.
         """)
     async def greeting_add(self, ctx: commands.Context, *, entry: str):
         """Adds a new greeting message for use in the server.
 
-        Args: 
+        Args:
             entry (str): The new greeting message to be used at random.
         """
         entry = entry.strip("\"\'")
@@ -384,7 +419,7 @@ class Welcomer(commands.Cog):
     async def greeting_remove(self, ctx: commands.Context, index: int):
         """Removes a greeting message for use in the server.
 
-        Args: 
+        Args:
             index (int): The index of the greeting message to remove (use `greetingr greeting list` to verify the correct index).
         """
         greeting = await self.config.guild(ctx.guild).greeting()
@@ -396,7 +431,7 @@ class Welcomer(commands.Cog):
     async def greeting_use_embed(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
         """Sets greeting message type to Embeds or Simple.
 
-        Args: 
+        Args:
             bool (bool): (Optional) True / False
         """
         greeting = await self.config.guild(ctx.guild).greeting()
@@ -408,7 +443,7 @@ class Welcomer(commands.Cog):
     async def greeting_image(self, ctx: commands.Context, *, url: typing.Optional[str] = None):
         """Sets the greeting message image thumbnail used in Rich Embed greeting messages.
 
-        Args: 
+        Args:
             url (str): (Optional) A valid URL to the thumbnail image desired.
         """
         if url is not None:
@@ -422,7 +457,7 @@ class Welcomer(commands.Cog):
     async def greeting_title(self, ctx: commands.Context, *, title: typing.Optional[str] = None):
         """Sets the greeting message title used in Rich Embed greeting messages.
 
-        Args: 
+        Args:
             title (str): (Optional) The title string to use in greeting messages.
         """
         if title is not None:
@@ -436,7 +471,7 @@ class Welcomer(commands.Cog):
     async def greeting_footer(self, ctx: commands.Context, *, footer: typing.Optional[str] = None):
         """Sets the greeting message footer used in Rich Embed greeting messages.
 
-        Args: 
+        Args:
             title (str): (Optional) The footer string to use in greeting messages.
         """
         if footer is not None:
@@ -491,7 +526,7 @@ class Welcomer(commands.Cog):
     async def hello_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
         """Sets or shows the status of hello messages for the server.
 
-        Args: 
+        Args:
             bool (bool): (Optional) True / False
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -512,13 +547,13 @@ class Welcomer(commands.Cog):
         -- ``{SERVER_NAME_TOKEN}`` - The server name
         -- ``{MEMBER_COUNT_TOKEN}`` - The server member count
 
-        Args: 
+        Args:
         \t\tentry (str): The new hello message to be used at random.
         """)
     async def hello_add(self, ctx: commands.Context, *, entry: str):
         """Adds a new hello message for use in the server.
 
-        Args: 
+        Args:
             entry (str): The new hello message to be used at random.
         """
         entry = entry.strip("\"\'")
@@ -531,7 +566,7 @@ class Welcomer(commands.Cog):
     async def hello_remove(self, ctx: commands.Context, index: int):
         """Removes a hello message for use in the server.
 
-        Args: 
+        Args:
             index (int): The index of the hello message to remove (use `greetingr hello list` to verify the correct index).
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -543,7 +578,7 @@ class Welcomer(commands.Cog):
     async def hello_use_embed(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
         """Sets hello message type to Embeds or Simple.
 
-        Args: 
+        Args:
             bool (bool): (Optional) True / False
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -555,7 +590,7 @@ class Welcomer(commands.Cog):
     async def hello_image(self, ctx: commands.Context, *, url: typing.Optional[str] = None):
         """Sets the hello message image thumbnail used in Rich Embed hello messages.
 
-        Args: 
+        Args:
             url (str): (Optional) A valid URL to the thumbnail image desired.
         """
         if url is not None:
@@ -569,7 +604,7 @@ class Welcomer(commands.Cog):
     async def hello_title(self, ctx: commands.Context, *, title: typing.Optional[str] = None):
         """Sets the hello message title used in Rich Embed hello messages.
 
-        Args: 
+        Args:
             title (str): (Optional) The title string to use in hello messages.
         """
         if title is not None:
@@ -583,7 +618,7 @@ class Welcomer(commands.Cog):
     async def hello_footer(self, ctx: commands.Context, *, footer: typing.Optional[str] = None):
         """Sets the hello message footer used in Rich Embed hello messages.
 
-        Args: 
+        Args:
             title (str): (Optional) The footer string to use in hello messages.
         """
         if footer is not None:
@@ -696,7 +731,7 @@ class Welcomer(commands.Cog):
     async def hello_always_add(self, ctx: commands.Context, *, member: discord.Member):
         """Adds a user to always have hello messages sent to them.
 
-        Args: 
+        Args:
             member (discord.Member): The member to always greet.
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -714,7 +749,7 @@ class Welcomer(commands.Cog):
     async def hello_always_remove(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a user from always being greeted.
 
-        Args: 
+        Args:
             member (discord.Member): The member to remove.
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -760,7 +795,7 @@ class Welcomer(commands.Cog):
     async def hello_triggers_add(self, ctx: commands.Context, *, phrase: str):
         """Adds a phrase which will trigger Hello messages.
 
-        Args: 
+        Args:
             phrase (str): The phrase to add for triggering.
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -778,7 +813,7 @@ class Welcomer(commands.Cog):
     async def hello_triggers_remove(self, ctx: commands.Context, *, phrase: str):
         """Removes a phrase from triggering hello messages.
 
-        Args: 
+        Args:
             phrase (str): The triggering phrase.
         """
         hello = await self.config.guild(ctx.guild).hello()
@@ -829,7 +864,7 @@ class Welcomer(commands.Cog):
     async def departure_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
         """Sets or shows the status of departure messages for the server.
 
-        Args: 
+        Args:
             bool (bool): (Optional) True / False
         """
         departure = await self.config.guild(ctx.guild).departure()
@@ -850,13 +885,13 @@ class Welcomer(commands.Cog):
         -- ``{SERVER_NAME_TOKEN}`` - The server name
         -- ``{MEMBER_COUNT_TOKEN}`` - The server member count
 
-        Args: 
+        Args:
         \t\tentry (str): The new departure message to be used at random.
         """)
     async def departure_add(self, ctx: commands.Context, *, entry: str):
         """Adds a new departure message for use in the server.
 
-        Args: 
+        Args:
             entry (str): The new departure message to be used at random.
         """
         entry = entry.strip("\"\'")
@@ -869,7 +904,7 @@ class Welcomer(commands.Cog):
     async def departure_remove(self, ctx: commands.Context, index: int):
         """Removes a departure message for use in the server.
 
-        Args: 
+        Args:
             index (int): The index of the departure message to remove (use `greetingr departure list` to verify the correct index).
         """
         departure = await self.config.guild(ctx.guild).departure()
@@ -881,7 +916,7 @@ class Welcomer(commands.Cog):
     async def departure_use_embed(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
         """Sets departure message type to Embeds or Simple.
 
-        Args: 
+        Args:
             bool (bool): (Optional) True / False
         """
         departure = await self.config.guild(ctx.guild).departure()
@@ -893,7 +928,7 @@ class Welcomer(commands.Cog):
     async def departure_image(self, ctx: commands.Context, *, url: typing.Optional[str] = None):
         """Sets the departure message image thumbnail used in Rich Embed departure messages.
 
-        Args: 
+        Args:
             url (str): (Optional) A valid URL to the thumbnail image desired.
         """
         if url is not None:
@@ -907,7 +942,7 @@ class Welcomer(commands.Cog):
     async def departure_title(self, ctx: commands.Context, *, title: typing.Optional[str] = None):
         """Sets the departure message title used in Rich Embed departure messages.
 
-        Args: 
+        Args:
             title (str): (Optional) The title string to use in departure messages.
         """
         if title is not None:
@@ -921,7 +956,7 @@ class Welcomer(commands.Cog):
     async def departure_footer(self, ctx: commands.Context, *, footer: typing.Optional[str] = None):
         """Sets the departure message footer used in Rich Embed departure messages.
 
-        Args: 
+        Args:
             title (str): (Optional) The footer string to use in departure messages.
         """
         if footer is not None:
@@ -939,6 +974,183 @@ class Welcomer(commands.Cog):
         await self._template(ctx.channel, departure)
         pass
 
+    @settings.group(aliases=["ban"])
+    async def kick(self, ctx: commands.Context):
+        """Commands for configuring the server departure messages.
+        """
+        pass
+
+    @kick.command(name="toggle")
+    async def kick_toggle(self, ctx: commands.Context):
+        """Toggles the kick / ban message functionality for the bot.
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._toggle(ctx, kick_or_ban)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="enable")
+    async def kick_enable(self, ctx: commands.Context):
+        """Enables kick / ban messages for the server.
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._enable(ctx, kick_or_ban)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="disable")
+    async def kick_disable(self, ctx: commands.Context):
+        """Disables kick / ban messages for the server.
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._disable(ctx, kick_or_ban)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="enabled")
+    async def kick_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets or shows the status of kick / ban messages for the server.
+
+        Args:
+            bool (bool): (Optional) True / False
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._enabled(ctx, kick_or_ban, bool)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="list")
+    async def kick_list(self, ctx: commands.Context):
+        """Gets the list of random kick / ban messages for the server.
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._list(ctx, kick_or_ban)
+        pass
+
+    @kick.command(name="add", help=f"""Adds a new kick / ban message for use in the server.  Use the following escaped strings for values:
+        -- ``{MEMBER_NAME_TOKEN}`` - The target member's name
+        -- ``{SERVER_NAME_TOKEN}`` - The server name
+        -- ``{MEMBER_COUNT_TOKEN}`` - The server member count
+
+        Args:
+        \t\tentry (str): The new kick / ban message to be used at random.
+        """)
+    async def kick_add(self, ctx: commands.Context, *, entry: str):
+        """Adds a new kick / ban message for use in the server.
+
+        Args:
+            entry (str): The new kick / ban message to be used at random.
+        """
+        entry = entry.strip("\"\'")
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._add(ctx, kick_or_ban, entry)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="remove")
+    async def kick_remove(self, ctx: commands.Context, index: int):
+        """Removes a kick / ban message for use in the server.
+
+        Args:
+            index (int): The index of the kick / ban message to remove (use `greetinger kick list` to verify the correct index).
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._remove(ctx, kick_or_ban, index)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="useembed")
+    async def kick_use_embed(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets kick / ban message type to Embeds or Simple.
+
+        Args:
+            bool (bool): (Optional) True / False
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._use_embed(ctx, kick_or_ban, bool)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="image", aliases=["thumbnail"])
+    async def kick_image(self, ctx: commands.Context, *, url: typing.Optional[str] = None):
+        """Sets the kick / ban message image thumbnail used in Rich Embed kick / ban messages.
+
+        Args:
+            url (str): (Optional) A valid URL to the thumbnail image desired.
+        """
+        if url is not None:
+            url = url.strip("\"\'")
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._image(ctx, kick_or_ban, url)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="title")
+    async def kick_title(self, ctx: commands.Context, *, title: typing.Optional[str] = None):
+        """Sets the kick / ban message title used in Rich Embed kick / ban messages.
+
+        Args:
+            title (str): (Optional) The title string to use in kick / ban messages.
+        """
+        if title is not None:
+            title = title.strip("\"\'")
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._title(ctx, kick_or_ban, title)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="footer")
+    async def kick_footer(self, ctx: commands.Context, *, footer: typing.Optional[str] = None):
+        """Sets the kick / ban message footer used in Rich Embed kick / ban messages.
+
+        Args:
+            title (str): (Optional) The footer string to use in kick / ban messages.
+        """
+        if footer is not None:
+            footer = footer.strip("\"\'")
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban = await self._footer(ctx, kick_or_ban, footer)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
+        pass
+
+    @kick.command(name="template")
+    async def kick_template(self, ctx: commands.Context):
+        """Generates a template of what the kick / ban message will look like.
+        """
+        kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
+        kick_or_ban["action"] = "kick"
+        kick_or_ban["perp"] = ctx.bot.user
+        kick_or_ban["reason"] = "Reason for kicking."
+        await self._template(ctx.channel, kick_or_ban)
+        pass
+
+    async def create_if_enabled(self, member: discord.Member, obj):
+        guild = member.guild
+
+        if obj["enabled"]:        
+            channel_id = await self.config.guild(guild).channel_id()
+            channel = guild.get_channel(channel_id)
+
+            if channel is not None:
+                await self._create(channel, obj, member)
+
+    async def get_audit_log_reason(
+        self,
+        guild: discord.Guild,
+        target: Union[discord.abc.GuildChannel, discord.Member, discord.Role],
+        action: discord.AuditLogAction,
+    ) -> Tuple[Optional[discord.abc.User], Optional[str]]:
+        perp = None
+        reason = None
+        if guild.me.guild_permissions.view_audit_log:
+            async for log in guild.audit_logs(limit=5, action=action):
+                if log.target.id == target.id:
+                    perp = log.user
+                    if log.reason:
+                        reason = log.reason
+                    break
+        return perp, reason
+
     @ commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         """Fires greeting messages if enabled.
@@ -948,30 +1160,70 @@ class Welcomer(commands.Cog):
         """
         greeting = await self.config.guild(member.guild).greeting()
 
-        if greeting["enabled"]:
-            channel_id = await self.config.guild(member.guild).channel_id()
-            channel = member.guild.get_channel(channel_id)
+        await self.create_if_enabled(member, greeting)
 
-            if channel is not None:
-                await self._create(channel, greeting, member)
         pass
 
     @commands.Cog.listener()
     async def on_member_remove(self, member: discord.Member):
-        """Fires departure messages if enabled.
+        """Fires departure or kick / ban messages if enabled.
 
         __Args__:
             member (discord.Member): Affected member.
         """
-        departure = await self.config.guild(member.guild).departure()
+        guild = member.guild
 
-        if departure["enabled"]:
-            channel_id = await self.config.guild(member.guild).channel_id()
-            channel = member.guild.get_channel(channel_id)
+        if guild.id in self._ban_cache and member.id in self._ban_cache[guild.id]:
+            perp, reason = await self.get_audit_log_reason(
+                guild, member, discord.AuditLogAction.ban
+            )
+        else:
+            perp, reason = await self.get_audit_log_reason(
+                guild, member, discord.AuditLogAction.kick
+            )
 
-            if channel is not None:
-                await self._create(channel, departure, member)
+        if perp is not None: 
+            kick_or_ban = await self.config.guild(guild).kick_or_ban()
+            kick_or_ban["perp"] = perp
+            kick_or_ban["reason"] = reason
+
+            if guild.id in self._ban_cache and member.id in self._ban_cache[guild.id]:
+                kick_or_ban["action"] = 'ban'
+                pass
+            else:
+                kick_or_ban["action"] = 'kick'
+                pass
+            
+            await self.create_if_enabled(member, kick_or_ban)
+            return
+
+        departure = await self.config.guild(guild).departure()
+
+        await self.create_if_enabled(member, departure)
+
         pass
+
+    @commands.Cog.listener()
+    async def on_member_ban(self, guild: discord.Guild, member: discord.Member):
+        """
+        This is only used to track that the user was banned and not kicked/removed
+        """
+        if guild.id not in self._ban_cache:
+            self._ban_cache[guild.id] = [member.id]
+        else:
+            self._ban_cache[guild.id].append(member.id)
+
+    
+
+    @commands.Cog.listener()
+    async def on_member_unban(self, guild: discord.Guild, member: discord.Member):
+        """
+        This is only used to track that the user was banned and not kicked/removed
+        """
+        if guild.id in self._ban_cache:
+            if member.id in self._ban_cache[guild.id]:
+                self._ban_cache[guild.id].remove(member.id)
+
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
