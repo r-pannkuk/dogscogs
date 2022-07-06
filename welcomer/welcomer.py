@@ -266,7 +266,11 @@ class Welcomer(commands.Cog):
 
         if "action" in obj and obj["action"] != "":
             embed.description = embed.description.replace(
-                ACTION_TOKEN, obj["action"])
+                ACTION_TOKEN, obj["action"]
+            )
+            embed.title = embed.title.replace(
+                ACTION_TOKEN, obj["action"]
+            )
 
         if "perp" in obj:
             embed.add_field(
