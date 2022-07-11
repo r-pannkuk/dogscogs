@@ -218,9 +218,13 @@ class Gulag(commands.Cog):
         await group.gulag_role_id.set(gulag_role.id)
 
         for role in current_roles:
-            await member.remove_roles(role,
-                                      atomic=True,
-                                      reason=await self.config.guild(guild).gulag_reason())
+            try:
+                await member.remove_roles(role,
+                                        atomic=True,
+                                        reason=await self.config.guild(guild).gulag_reason())
+            except:
+                print(f"Couldn't remove role {role.name}")
+                pass
 
         await member.add_roles(gulag_role,
                                atomic=True,
@@ -283,13 +287,20 @@ class Gulag(commands.Cog):
                     str += attachment.url + '\n'
 
                 if len(log) + len(str) > DISCORD_MAX_MESSAGE_SIZE_LIMIT:
-                    await log_channel.send(log)
+                    try:
+                        await log_channel.send(log)
+                    except:
+                        print(f"Couldn't send to channel: {log_channel.name}")
+                        break
                     log = str
                 else:
                     log += str
 
             if len(log) > 0:
-                await log_channel.send(log)
+                try:
+                    await log_channel.send(log)
+                except:
+                    print(f"Couldn't send to channel: {log_channel.name}")
         # END OF DUMB LOGGING THING THAT SHOULD BE AN EVENT
 
         restore_role_ids = await group.restore_role_ids()
@@ -310,7 +321,11 @@ class Gulag(commands.Cog):
             role = guild.get_role(r)
 
             if role != None or role == guild.default_role:
-                await member.add_roles(role, atomic=True)
+                try:
+                    await member.add_roles(role, atomic=True)
+                except:
+                    print(f"Couldn't add role {role.name}")
+                    pass
         pass
 
     @commands.mod_or_permissions(manage_roles=True)
