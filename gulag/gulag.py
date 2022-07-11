@@ -137,9 +137,10 @@ class Gulag(commands.Cog):
             name=channel_name,
         )
 
-        await channel.set_permissions(target=guild.me, overwrites={
-            guild.me: discord.PermissionOverwrite(manage_channels=True, read_messages=True)
-        })
+        await channel.set_permissions(guild.me,
+                                      read_messages=True,
+                                      send_messages=True,
+                                      manage_channels=True)
 
         await self.config.channel(channel).is_gulag_channel.set(True)
         await self.config.channel(channel).user_id.set(member.id)
@@ -200,7 +201,8 @@ class Gulag(commands.Cog):
 
         existing_restoration_roles = await group.restore_role_ids() or list()
         restricted_date = await group.restricted_date()
-        current_roles = [r for r in member.roles if r != guild.default_role] + [guild.get_role(id) for id in existing_restoration_roles]
+        current_roles = [r for r in member.roles if r != guild.default_role] + \
+            [guild.get_role(id) for id in existing_restoration_roles]
 
         # Overwrite permissions for this specific role for communication.
         await gulag_channel.set_permissions(target=member, overwrite=discord.PermissionOverwrite(
@@ -574,25 +576,25 @@ class Gulag(commands.Cog):
         old_role_id = await self.config.guild_from_id(guild.id).gulag_role_id()
 
         if target is None:
-            name : str = await self.config.guild_from_id(guild.id).gulag_role_name()
+            name: str = await self.config.guild_from_id(guild.id).gulag_role_name()
             target = name
         elif isinstance(target, discord.Role):
             name = target.name
         elif isinstance(target, int):
-            found_role : discord.Role = guild.get_role(int(target))
+            found_role: discord.Role = guild.get_role(int(target))
             if found_role is not None:
                 name = found_role.name
                 target = found_role
             else:
                 name = target
-        elif isinstance(target, str):        
+        elif isinstance(target, str):
             name = target
 
         if old_role_id is not None:
-            old_role : discord.Role = guild.get_role(old_role_id)
+            old_role: discord.Role = guild.get_role(old_role_id)
 
             if old_role is not None:
-                
+
                 if await self.config.role(old_role).is_bot_created() and old_role.name != name:
                     await old_role.delete(reason="New gulag role is being set, and this was created by the bot.")
                 else:
@@ -604,7 +606,7 @@ class Gulag(commands.Cog):
             ]
 
             if len(roles) > 0:
-                target : discord.Role = roles.pop(0)
+                target: discord.Role = roles.pop(0)
             else:
                 target: discord.Role = await self.create_gulag_role(guild, target)
 
@@ -813,7 +815,8 @@ class Gulag(commands.Cog):
                 return
 
             gulag_channel_id = await self.config.member(member).gulag_channel_id()
-            gulag_channel : discord.TextChannel = guild.get_channel(gulag_channel_id)
+            gulag_channel: discord.TextChannel = guild.get_channel(
+                gulag_channel_id)
 
             if gulag_channel is None:
                 return
