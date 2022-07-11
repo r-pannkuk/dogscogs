@@ -134,7 +134,10 @@ class Gulag(commands.Cog):
 
         channel = await guild.create_text_channel(
             category=category,
-            name=channel_name
+            name=channel_name,
+            overwrites={
+                guild.me: discord.PermissionOverwrite(manage_channels=True)
+            }
         )
 
         await self.config.channel(channel).is_gulag_channel.set(True)
