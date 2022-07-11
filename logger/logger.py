@@ -153,10 +153,10 @@ class Logger(commands.Cog):
             logger_channel = guild.get_channel(logger_channel_id)
             channel_set_message = f"Logs will be displayed in {logger_channel.mention}."
 
-        if bool is None:
+        if bool == None:
             status = "**ENABLED**" if is_enabled else "**DISABLED**"
             if is_enabled:
-                if logger_channel_id is None:
+                if logger_channel_id == None:
                     status += f".  {channel_unset_message}"
                 else:
                     status += f".  {channel_set_message}"
@@ -169,7 +169,7 @@ class Logger(commands.Cog):
             str = f"Now logging message edits and deletions."
             logger_channel_id = await self.config.guild_from_id(guild.id).logger_channel_id()
 
-            if logger_channel_id is None:
+            if logger_channel_id == None:
                 str += f" {channel_unset_message}"
             else:
                 str += f"  {channel_set_message}"
@@ -206,7 +206,7 @@ class Logger(commands.Cog):
         guild: discord.Guild = ctx.guild
         is_links_enabled = await self.config.guild_from_id(guild.id).is_links_enabled()
 
-        if bool is None:
+        if bool == None:
             status = "**ENABLED**" if is_links_enabled else "**DISABLED**"
             await ctx.channel.send(f"Links in log messages are currently {status}")
             return
@@ -233,9 +233,9 @@ class Logger(commands.Cog):
         if logger_channel_id is not None:
             logger_channel = guild.get_channel(logger_channel_id)
 
-        if channel is None:
+        if channel == None:
 
-            if logger_channel is None:
+            if logger_channel == None:
                 await ctx.channel.send(f'Logger channel currently not set. Please specify a channel name.')
             else:
                 await ctx.channel.send(f'Logger channel currently set to {logger_channel.mention}.')
@@ -259,7 +259,7 @@ class Logger(commands.Cog):
         """
         guild: discord.Guild = ctx.guild
 
-        if name is None:
+        if name == None:
             name = await self.config.guild_from_id(guild.id).logger_channel_name()
 
         channels: typing.List[discord.Guild] = [
@@ -291,7 +291,7 @@ class Logger(commands.Cog):
         guild: discord.Guild = ctx.guild
         formatted_inline = await self.config.guild_from_id(guild.id).formatted_inline()
 
-        if bool is None:
+        if bool == None:
             format = "inline" if formatted_inline else "quote"
             await ctx.channel.send(f"Currently using {format} formatting for logs.")
             return
@@ -321,11 +321,11 @@ class Logger(commands.Cog):
             logger_channel: discord.TextChannel = guild.get_channel(
                 logger_channel_id)
 
-            if payload.before is None or payload.before.author is None:
+            if payload.before == None or payload.before.author == None or payload.before.author.id == None:
                 return
 
             author = await self.bot.get_or_fetch_member(guild, payload.before.author.id)
-            if author is None:
+            if author == None:
                 author = await self.bot.get_or_fetch_user(payload.before.author.id)
 
             if author.bot:

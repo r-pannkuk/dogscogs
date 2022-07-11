@@ -93,7 +93,7 @@ class Gulag(commands.Cog):
                 category = await guild.create_category(
                     name=await self.config.guild(guild).category_name(),
                     position=len(guild.categories),
-                    reason=await self.config.guild(guild).category_creation_reason()
+                    reason=await self.config.guild(guild).category_creation_reason(),
                 )
 
             await self.config.guild(guild).category_id.set(category.id)
@@ -135,10 +135,11 @@ class Gulag(commands.Cog):
         channel = await guild.create_text_channel(
             category=category,
             name=channel_name,
-            overwrites={
-                guild.me: discord.PermissionOverwrite(manage_channels=True)
-            }
         )
+
+        await channel.set_permissions(target=guild.me, overwrites={
+            guild.me: discord.PermissionOverwrite(manage_channels=True, read_messages=True)
+        })
 
         await self.config.channel(channel).is_gulag_channel.set(True)
         await self.config.channel(channel).user_id.set(member.id)
