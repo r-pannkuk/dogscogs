@@ -102,7 +102,8 @@ DEFAULT_GUILD = {
             "based.",
             "based?",
             "based..."
-            "...based"
+            "...based",
+            "b-based"
         ]
     },
     "departure": {
@@ -1305,9 +1306,10 @@ class Welcomer(commands.Cog):
         based = await self.config.guild(message.guild).based()
 
         if based["enabled"]:
-            content = message.content.lower()
+            content : str = message.content.lower()
             if any([
-                content == t
+                content == t or
+                (len(content.split()) > 1 and content.split()[1] == t)
                 for t in based["triggers"]
             ]):
                 if (
