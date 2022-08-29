@@ -91,7 +91,7 @@ DEFAULT_GUILD = {
         ],
         "embed_image_url": "",
         "footer": "",
-        "cooldown_minutes": "0d30",
+        "cooldown_minutes": "3d4",
         "current_cooldown": 0,
         "last_trigger_timestamp": 0,
         "chance": 1,
@@ -99,6 +99,10 @@ DEFAULT_GUILD = {
         ],
         "triggers": [
             "based",
+            "based.",
+            "based?",
+            "based..."
+            "...based"
         ]
     },
     "departure": {
@@ -1303,8 +1307,7 @@ class Welcomer(commands.Cog):
         if based["enabled"]:
             content = message.content.lower()
             if any([
-                t in content and
-                content.index(t) > -1
+                content == t
                 for t in based["triggers"]
             ]):
                 if (
