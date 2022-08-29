@@ -80,6 +80,27 @@ DEFAULT_GUILD = {
             "konnichiwa"
         ]
     },
+    "based": {
+        "name": "Meme based responder",
+        "enabled": True,
+        "use_embed": False,
+        "color": discord.Color.dark_gold().to_rgb(),
+        "title": "",
+        "messages": [
+            f"Based on what?",
+        ],
+        "embed_image_url": "",
+        "footer": "",
+        "cooldown_minutes": "0d30",
+        "current_cooldown": 0,
+        "last_trigger_timestamp": 0,
+        "chance": 1,
+        "always_list": [
+        ],
+        "triggers": [
+            "based",
+        ]
+    },
     "departure": {
         "name": "Departure messages",
         "enabled": False,
@@ -1265,4 +1286,43 @@ class Welcomer(commands.Cog):
                     ) + timedelta(minutes=d20.roll(hello["cooldown_minutes"]).total)).timestamp()
                     hello["last_trigger_timestamp"] = datetime.now().timestamp()
                     await self.config.guild(message.guild).hello.set(hello)
+        pass
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Listens for meme triggers and rolls a chance to trigger a response.
+
+        Args:
+            message (discord.Message): The discord message listened to.
+        """
+        if message.author.bot:
+            return
+
+        based = await self.config.guild(message.guild).based()
+
+        if based["enabled"]:
+            content = message.content.lower()
+            if any([
+                t in content and
+                content.index(t) > -1
+                for t in based["triggers"]
+            ]):
+                if (
+                    message.author.id in based["always_list"] and
+                    (datetime.now() - timedelta(minutes=1)
+                     ).timestamp() > based["last_trigger_timestamp"]
+                ):
+                    is_firing = True
+                else:
+                    is_firing = (
+                        random.random() < based["chance"] and
+                        datetime.now().timestamp() > based["current_cooldown"]
+                    )
+
+                if is_firing:
+                    await self._create(message.channel, based, message.author)
+                    based["current_cooldown"] = (datetime.now(
+                    ) + timedelta(minutes=d20.roll(based["cooldown_minutes"]).total)).timestamp()
+                    based["last_trigger_timestamp"] = datetime.now().timestamp()
+                    await self.config.guild(message.guild).hello.set(based)
         pass
