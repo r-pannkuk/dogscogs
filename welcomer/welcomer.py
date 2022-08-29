@@ -1327,5 +1327,5 @@ class Welcomer(commands.Cog):
                     based["current_cooldown"] = (datetime.now(
                     ) + timedelta(minutes=d20.roll(based["cooldown_minutes"]).total)).timestamp()
                     based["last_trigger_timestamp"] = datetime.now().timestamp()
-                    await self.config.guild(message.guild).hello.set(based)
+                    await self.config.guild(message.guild).based.set(based)
         pass
