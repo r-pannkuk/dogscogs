@@ -41,7 +41,8 @@ class UrbanDictionary(commands.Cog):
             footer=f""
         )
         embed.set_thumbnail(url=URBAN_DICTIONARY_THUMBNAIL)
-        embed.add_field(name="Example:", value=definition.example, inline=True)
+        if definition.example:
+            embed.add_field(name="Example:", value=definition.example, inline=True)
         embed.set_footer(text=f"{self.currentIndex + 1}/{len(self.currentLookup)}       👍 {definition.upvotes} | 👎 {definition.downvotes}")
         return embed
         pass
