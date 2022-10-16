@@ -12,6 +12,7 @@ import d20
 from discord.errors import InvalidArgument
 from urllib.request import urlopen, urlretrieve
 from urllib.error import HTTPError, URLError
+import pytz
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -361,9 +362,9 @@ class Welcomer(commands.Cog):
             if channel_id is None:
                 await ctx.send(f"There is no channel currently set for broadcasting greeting and departure messages!")
                 return
-            
+
             channel = ctx.guild.get_channel(channel_id)
-            
+
             if channel is None:
                 await ctx.send(f"There is no channel currently set for broadcasting greeting and departure messages!")
                 return
@@ -1156,7 +1157,7 @@ class Welcomer(commands.Cog):
     async def create_if_enabled(self, member: discord.Member, obj):
         guild = member.guild
 
-        if obj["enabled"]:        
+        if obj["enabled"]:
             channel_id = await self.config.guild(guild).channel_id()
             channel = guild.get_channel(channel_id)
 
@@ -1173,7 +1174,9 @@ class Welcomer(commands.Cog):
         reason = None
         if guild.me.guild_permissions.view_audit_log:
             async for log in guild.audit_logs(limit=5, action=action):
-                if log.target.id == target.id:
+                if log.target.id == target.id and (
+                    pytz.UTC.localize(log.created_at) > (datetime.now(tz=pytz.timezone("UTC")) - timedelta(0, 5))
+                ):
                     perp = log.user
                     if log.reason:
                         reason = log.reason
@@ -1211,7 +1214,7 @@ class Welcomer(commands.Cog):
                 guild, member, discord.AuditLogAction.kick
             )
 
-        if perp is not None: 
+        if perp is not None:
             kick_or_ban = await self.config.guild(guild).kick_or_ban()
             kick_or_ban["perp"] = perp
             kick_or_ban["reason"] = reason
@@ -1222,7 +1225,7 @@ class Welcomer(commands.Cog):
             else:
                 kick_or_ban["action"] = 'kick'
                 pass
-            
+
             await self.create_if_enabled(member, kick_or_ban)
             return
 
@@ -1242,8 +1245,6 @@ class Welcomer(commands.Cog):
         else:
             self._ban_cache[guild.id].append(member.id)
 
-    
-
     @commands.Cog.listener()
     async def on_member_unban(self, guild: discord.Guild, member: discord.Member):
         """
@@ -1252,7 +1253,6 @@ class Welcomer(commands.Cog):
         if guild.id in self._ban_cache:
             if member.id in self._ban_cache[guild.id]:
                 self._ban_cache[guild.id].remove(member.id)
-
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -1306,7 +1306,7 @@ class Welcomer(commands.Cog):
         based = await self.config.guild(message.guild).based()
 
         if based["enabled"]:
-            content : str = message.content.lower()
+            content: str = message.content.lower()
             if any([
                 content == t or
                 (len(content.split()) > 1 and content.split()[1] == t)
