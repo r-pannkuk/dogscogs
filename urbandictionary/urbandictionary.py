@@ -29,9 +29,9 @@ class UrbanDictionary(commands.Cog):
         )
 
         self.client = udpy.UrbanClient()
-        self.currentLookup : typing.List[udpy.UrbanDefinition] = []
-        self.currentIndex : int = 0
-        self.currentMessage : discord.Message = None
+        self.currentLookup: typing.List[udpy.UrbanDefinition] = []
+        self.currentIndex: int = 0
+        self.currentMessage: discord.Message = None
 
     def get_embed(self):
         definition = self.currentLookup[self.currentIndex]
@@ -42,11 +42,13 @@ class UrbanDictionary(commands.Cog):
         )
         embed.set_thumbnail(url=URBAN_DICTIONARY_THUMBNAIL)
         if definition.example:
-            embed.add_field(name="Example:", value=definition.example, inline=True)
-        embed.set_footer(text=f"{self.currentIndex + 1}/{len(self.currentLookup)}       👍 {definition.upvotes} | 👎 {definition.downvotes}")
+            embed.add_field(name="Example:",
+                            value=definition.example, inline=True)
+        embed.set_footer(
+            text=f"{self.currentIndex + 1}/{len(self.currentLookup)}       👍 {definition.upvotes} | 👎 {definition.downvotes}")
         return embed
         pass
-    
+
     async def get_prev_definition(self):
         self.currentIndex -= 1
         if self.currentIndex < 0:
@@ -68,15 +70,21 @@ class UrbanDictionary(commands.Cog):
         Args:
             term (str): The term to search against.
         """
-        self.currentLookup : typing.List[udpy.UrbanDefinition] = self.client.get_definition(term)
+        definitions: typing.List[udpy.UrbanDefinition] = self.client.get_definition(term)
+
+        if len(definitions) == 0:
+            await ctx.channel.send(f"Unable to find definition for: `{term}`.")
+            return
+
+        self.currentLookup = definitions
         self.currentIndex = 0
-        self.currentMessage : discord.Message = await ctx.channel.send(embed=self.get_embed())
+        self.currentMessage: discord.Message = await ctx.channel.send(embed=self.get_embed())
         await self.currentMessage.add_reaction(PREV_DEFINITION_EMOJI)
         await self.currentMessage.add_reaction(NEXT_DEFINITION_EMOJI)
         pass
-    
+
     @commands.Cog.listener()
-    async def on_reaction_add(self, reaction : discord.Reaction, user : discord.User):
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
         if user.bot == True:
             return
         if self.currentMessage == None:
@@ -85,7 +93,7 @@ class UrbanDictionary(commands.Cog):
             return
 
         await reaction.remove(user)
-        
+
         if reaction.emoji == PREV_DEFINITION_EMOJI:
             await self.get_prev_definition()
             pass
