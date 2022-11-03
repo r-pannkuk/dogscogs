@@ -346,6 +346,16 @@ class Welcomer(commands.Cog):
         """
         pass
 
+    
+
+    @settings.command()
+    @commands.is_owner()
+    async def clear(self, ctx: commands.Context, verbose: typing.Optional[bool] = True):
+        guild : discord.Guild = ctx.guild
+        await self.config.guild(guild).clear()
+        if verbose:
+            await ctx.send(f"Data cleared for {guild.name}.")
+
     @settings.command()
     async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel] = None):
         """Sets or displays the current channel for greeting / departure announcements.
@@ -1291,17 +1301,6 @@ class Welcomer(commands.Cog):
                     ) + timedelta(minutes=d20.roll(hello["cooldown_minutes"]).total)).timestamp()
                     hello["last_trigger_timestamp"] = datetime.now().timestamp()
                     await self.config.guild(message.guild).hello.set(hello)
-        pass
-
-    @commands.Cog.listener()
-    async def on_message(self, message: discord.Message):
-        """Listens for meme triggers and rolls a chance to trigger a response.
-
-        Args:
-            message (discord.Message): The discord message listened to.
-        """
-        if message.author.bot:
-            return
 
         based = await self.config.guild(message.guild).based()
 
