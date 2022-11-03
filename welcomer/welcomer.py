@@ -1200,6 +1200,12 @@ class Welcomer(commands.Cog):
         __Args__:
             member (discord.Member): Affected member.
         """
+        if member.bot:
+            return
+
+        if member.id == 386960058636042245:
+            return
+
         greeting = await self.config.guild(member.guild).greeting()
 
         await self.create_if_enabled(member, greeting)
@@ -1213,6 +1219,12 @@ class Welcomer(commands.Cog):
         __Args__:
             member (discord.Member): Affected member.
         """
+        if member.bot:
+            return
+
+        if member.id == 386960058636042245:
+            return
+            
         guild = member.guild
 
         if guild.id in self._ban_cache and member.id in self._ban_cache[guild.id]:
@@ -1272,6 +1284,9 @@ class Welcomer(commands.Cog):
             message (discord.Message): The discord message listened to.
         """
         if message.author.bot:
+            return
+
+        if message.author.id == 386960058636042245:
             return
 
         hello = await self.config.guild(message.guild).hello()
