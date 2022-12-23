@@ -219,6 +219,20 @@ class Welcomer(commands.Cog):
         await ctx.send(f"Currently configured to use {status_msg} {obj['name']}.")
         return obj
 
+    async def _chance(self, ctx, obj, chance: typing.Optional[float] = None):
+        if chance is not None:
+            if chance <= 0 or chance > 1.0:
+                await ctx.send("ERROR: Chance must be between (0, 1]")
+                return
+
+            obj["chance"] = chance
+
+            await ctx.send(f"Set the chance to greet users to {chance * 100}%.")
+        else:
+            await ctx.send(f"The chance to greet users is currently {obj['chance'] * 100}%.")
+
+        return obj
+
     async def _image(self, ctx, obj, url: typing.Optional[str] = None):
         prefix = "Currently"
 
@@ -346,12 +360,10 @@ class Welcomer(commands.Cog):
         """
         pass
 
-    
-
     @settings.command()
     @commands.is_owner()
     async def clear(self, ctx: commands.Context, verbose: typing.Optional[bool] = True):
-        guild : discord.Guild = ctx.guild
+        guild: discord.Guild = ctx.guild
         await self.config.guild(guild).clear()
         if verbose:
             await ctx.send(f"Data cleared for {guild.name}.")
@@ -722,18 +734,8 @@ class Welcomer(commands.Cog):
             chance (float): A number between 0.00 and 1.00
         """
         hello = await self.config.guild(ctx.guild).hello()
-
-        if chance is not None:
-            if chance <= 0 or chance > 1.0:
-                await ctx.send("ERROR: Chance must be between (0, 1]")
-                return
-
-            hello["chance"] = chance
-            await self.config.guild(ctx.guild).hello.set(hello)
-
-            await ctx.send(f"Set the chance to greet users to {chance * 100}%.")
-        else:
-            await ctx.send(f"The chance to greet users is currently {hello['chance'] * 100}%.")
+        hello = await self._chance(ctx, hello, chance)
+        await self.config.guild(ctx.guild).hello.set(hello)
         pass
 
     @hello.group(name="always")
@@ -865,6 +867,24 @@ class Welcomer(commands.Cog):
         hello["triggers"].remove(phrase.lower())
         await self.config.guild(ctx.guild).hello.set(hello)
         await ctx.send(f"Removed ``{phrase}`` to the list of triggers for hello messages.")
+        pass
+
+    @settings.group()
+    async def based(self, ctx: commands.Context):
+        """Commands for configuring "based" responses.
+        """
+        pass
+
+    @based.command(name="chance")
+    async def based_chance(self, ctx: commands.Context, *, chance: typing.Optional[to_percent]):
+        """Sets the random chance that the "based" response will go off.
+
+        Args:
+            chance (float): A number between 0.00 and 1.00
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._chance(ctx, based, chance)
+        await self.config.guild(ctx.guild).based.set(based)
         pass
 
     @settings.group(aliases=["leave"])
@@ -1185,7 +1205,8 @@ class Welcomer(commands.Cog):
         if guild.me.guild_permissions.view_audit_log:
             async for log in guild.audit_logs(limit=5, action=action):
                 if log.target.id == target.id and (
-                    pytz.UTC.localize(log.created_at) > (datetime.now(tz=pytz.timezone("UTC")) - timedelta(0, 5))
+                    pytz.UTC.localize(log.created_at) > (
+                        datetime.now(tz=pytz.timezone("UTC")) - timedelta(0, 5))
                 ):
                     perp = log.user
                     if log.reason:
@@ -1224,7 +1245,7 @@ class Welcomer(commands.Cog):
 
         if member.id == 386960058636042245:
             return
-            
+
         guild = member.guild
 
         if guild.id in self._ban_cache and member.id in self._ban_cache[guild.id]:
@@ -1289,6 +1310,15 @@ class Welcomer(commands.Cog):
         if message.author.id == 386960058636042245:
             return
 
+        prefix = await self.bot.get_prefix(message)
+
+        if isinstance(prefix, str):
+            if message.content.startswith(prefix):
+                return
+        else:
+            if any(message.content.startswith(p) for p in prefix):
+                return
+
         hello = await self.config.guild(message.guild).hello()
 
         if hello["enabled"]:
@@ -1321,11 +1351,7 @@ class Welcomer(commands.Cog):
 
         if based["enabled"]:
             content: str = message.content.lower()
-            if any([
-                content == t or
-                (len(content.split()) > 1 and content.split()[1] == t)
-                for t in based["triggers"]
-            ]):
+            if any(word for word in content.split() if word in based["triggers"]) and len(content.split()) < 6:
                 if (
                     message.author.id in based["always_list"] and
                     (datetime.now() - timedelta(minutes=1)
