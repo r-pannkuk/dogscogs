@@ -276,12 +276,15 @@ class ChannelPM(commands.Cog):
 
             member : discord.Member = guild.get_member(message.author.id)
 
+            private_message = ""
+
             if member is None:
                 member = message.author
-                name = f"{message.author.name}#{message.author.discriminator}"
+                private_message = f"**{message.author.name}#{message.author.discriminator}** : "
             else:
-                name = f"{member.display_name}"
+                private_message = f"**{member.display_name}** ({message.author.name}#{message.author.discriminator}) : "
 
-            private_message = f"**{name}**: {message.content}"
+            private_message += message.content
+
             await channel.send(private_message)
         return
