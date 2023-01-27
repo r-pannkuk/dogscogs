@@ -66,6 +66,7 @@ class Random(commands.Cog):
             force_registration=True,
         )
 
+        """This sets up the default structure for a new guild."""
         self.config.register_guild(**DEFAULT_GUILD)
 
         pass
