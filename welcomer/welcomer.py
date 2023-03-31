@@ -107,6 +107,32 @@ DEFAULT_GUILD = {
             "b-based"
         ]
     },
+    "gg": {
+        "name": "Respond to good game messages",
+        "enabled": True,
+        "use_embed": False,
+        "color": discord.Color.dark_gold().to_rgb(),
+        "title": "",
+        "messages": [
+            "Didn't seem very good to me."
+        ],
+        "embed_image_url": "",
+        "footer": "",
+        "cooldown_minutes": "1d0",
+        "current_cooldown": 0,
+        "last_trigger_timestamp": 0,
+        "chance": 1,
+        "always_list": [
+        ],
+        "triggers": [
+            "ggs",
+            "gg",
+            "good games",
+            "good game",
+            "thanks for playing",
+            "thanks for the games",
+        ]
+    },
     "departure": {
         "name": "Departure messages",
         "enabled": False,
@@ -869,23 +895,103 @@ class Welcomer(commands.Cog):
         await ctx.send(f"Removed ``{phrase}`` to the list of triggers for hello messages.")
         pass
 
+    ##########################   GG   ###############################
+
     @settings.group()
-    async def based(self, ctx: commands.Context):
-        """Commands for configuring "based" responses.
+    async def gg(self, ctx: commands.Context):
+        """Commands for configuring the good games messages.
         """
         pass
 
-    @based.command(name="chance")
-    async def based_chance(self, ctx: commands.Context, *, chance: typing.Optional[to_percent]):
-        """Sets the random chance that the "based" response will go off.
+    @gg.command(name="toggle")
+    async def gg_toggle(self, ctx: commands.Context):
+        """Toggles the good games functionality for the bot.
+        """
+        gg = await self.config.guild(ctx.guild).gg()
+        gg = await self._toggle(ctx, gg)
+        await self.config.guild(ctx.guild).gg.set(gg)
+        pass
+
+    @gg.command(name="enable")
+    async def gg_enable(self, ctx: commands.Context):
+        """Enables good games messages for the server.
+        """
+        gg = await self.config.guild(ctx.guild).gg()
+        gg = await self._enable(ctx, gg)
+        await self.config.guild(ctx.guild).gg.set(gg)
+        pass
+
+    @gg.command(name="disable")
+    async def gg_disable(self, ctx: commands.Context):
+        """Disables good games messages for the server.
+        """
+        gg = await self.config.guild(ctx.guild).gg()
+        gg = await self._disable(ctx, gg)
+        await self.config.guild(ctx.guild).gg.set(gg)
+        pass
+
+    @gg.command(name="enabled")
+    async def gg_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets or shows the status of good games messages for the server.
 
         Args:
-            chance (float): A number between 0.00 and 1.00
+            bool (bool): (Optional) True / False
+        """
+        gg = await self.config.guild(ctx.guild).gg()
+        gg = await self._enabled(ctx, gg, bool)
+        await self.config.guild(ctx.guild).gg.set(gg)
+        pass
+
+    ####################################################################
+
+    ########################## BASED ###############################
+
+    @settings.group()
+    async def based(self, ctx: commands.Context):
+        """Commands for configuring the based departure messages.
+        """
+        pass
+
+    @based.command(name="toggle")
+    async def based_toggle(self, ctx: commands.Context):
+        """Toggles the based functionality for the bot.
         """
         based = await self.config.guild(ctx.guild).based()
-        based = await self._chance(ctx, based, chance)
+        based = await self._toggle(ctx, based)
         await self.config.guild(ctx.guild).based.set(based)
         pass
+
+    @based.command(name="enable")
+    async def based_enable(self, ctx: commands.Context):
+        """Enables based messages for the server.
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._enable(ctx, based)
+        await self.config.guild(ctx.guild).based.set(based)
+        pass
+
+    @based.command(name="disable")
+    async def based_disable(self, ctx: commands.Context):
+        """Disables based messages for the server.
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._disable(ctx, based)
+        await self.config.guild(ctx.guild).based.set(based)
+        pass
+
+    @based.command(name="enabled")
+    async def based_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets or shows the status of based messages for the server.
+
+        Args:
+            bool (bool): (Optional) True / False
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._enabled(ctx, based, bool)
+        await self.config.guild(ctx.guild).based.set(based)
+        pass
+
+    ####################################################################
 
     @settings.group(aliases=["leave"])
     async def departure(self, ctx: commands.Context):
@@ -1370,4 +1476,28 @@ class Welcomer(commands.Cog):
                     ) + timedelta(minutes=d20.roll(based["cooldown_minutes"]).total)).timestamp()
                     based["last_trigger_timestamp"] = datetime.now().timestamp()
                     await self.config.guild(message.guild).based.set(based)
+
+        gg = await self.config.guild(message.guild).gg()
+
+        if gg["enabled"]:
+            content: str = message.content.lower()
+            if any(word for word in content.split() if word in gg["triggers"]) and len(content.split()) < 6:
+                if (
+                    message.author.id in gg["always_list"] and
+                    (datetime.now() - timedelta(minutes=1)
+                     ).timestamp() > gg["last_trigger_timestamp"]
+                ):
+                    is_firing = True
+                else:
+                    is_firing = (
+                        random.random() < gg["chance"] and
+                        datetime.now().timestamp() > gg["current_cooldown"]
+                    )
+
+                if is_firing:
+                    await self._create(message.channel, gg, message.author)
+                    gg["current_cooldown"] = (datetime.now(
+                    ) + timedelta(minutes=d20.roll(gg["cooldown_minutes"]).total)).timestamp()
+                    gg["last_trigger_timestamp"] = datetime.now().timestamp()
+                    await self.config.guild(message.guild).gg.set(gg)
         pass
