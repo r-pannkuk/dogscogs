@@ -421,11 +421,37 @@ class Welcomer(commands.Cog):
 
     @settings.command()
     @commands.is_owner()
-    async def clear(self, ctx: commands.Context, verbose: typing.Optional[bool] = True):
+    async def clear_all(self, ctx: commands.Context, verbose: typing.Optional[bool] = True):
+        """Clears all data. WARNING: Irreversible.
+
+        Args:
+            verbose (typing.Optional[bool], optional): Verbose output. Defaults to True.
+        """
         guild: discord.Guild = ctx.guild
         await self.config.guild(guild).clear()
         if verbose:
             await ctx.send(f"Data cleared for {guild.name}.")
+
+    
+    @settings.command()
+    @commands.is_owner()
+    async def clear_specific(self, ctx: commands.Context, config_type: str, verbose: typing.Optional[bool] = True):
+        """Clears specific data for a config. WARNING: Irreversible.
+
+        Args:
+            config (str): The type of config to clear.
+        """
+        config_type = config_type.lower()
+
+        if config_type not in DEFAULT_GUILD.keys():
+            await ctx.send(f"Invalid config type provided, please choose from: `{DEFAULT_GUILD.keys()}`")
+            return
+        
+        guild: discord.Guild = ctx.guild
+        config = DEFAULT_GUILD[config_type]
+        await self.config.guild(guild).get_attr(config_type).set(config)
+        if verbose:
+            await ctx.send(f"Data reset for {config_type} in {guild.name}.")
 
     @settings.command()
     async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel] = None):
