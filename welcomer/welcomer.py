@@ -117,8 +117,8 @@ DEFAULT_GUILD = {
             f"There are no good games, only bad games. Keep that in mind {MEMBER_NAME_TOKEN}.",
             f"{MEMBER_NAME_TOKEN}, please use \"bgs\" or \"bad games\" instead. Consider this a warning.",
             f"User {MEMBER_NAME_TOKEN} has been warned for their misuse of post-set formalities.",
-            f"You've just violated our #hisouten netplay etiquette. Please refer to <#704429138273894410> and do not make the same mistake again. This is a warning.",
-            f"This behavior is not acceptable. Please refer to <#704429138273894410>.",
+            f"You've just violated our #hisouten netplay etiquette. Please refer to <#1091515229084581939> and do not make the same mistake again. This is a warning.",
+            f"This behavior is not acceptable. Please refer to <#1091515229084581939>.",
             f"{MEMBER_NAME_TOKEN}, you've used a banned phrase. Further violation will not be condoned.",
         ],
         "embed_image_url": "",
@@ -145,8 +145,8 @@ DEFAULT_GUILD = {
         "messages": [
             f"{MEMBER_NAME_TOKEN} - DO NOT THANK YOUR OPPONENT FOR WASTING YOUR TIME.",
             f"{MEMBER_NAME_TOKEN}, if you have time to be thankful, you should use it insulting your opponent.",
-            f"You've just violated our #hisouten netplay etiquette. Please refer to <#704429138273894410> and do not make the same mistake again. This is a warning.",
-            f"This behavior is not acceptable. Please refer to <#704429138273894410>.",
+            f"You've just violated our #hisouten netplay etiquette. Please refer to <#1091515229084581939> and do not make the same mistake again. This is a warning.",
+            f"This behavior is not acceptable. Please refer to <#1091515229084581939>.",
             f"{MEMBER_NAME_TOKEN}, you've used a banned phrase. Further violation will not be condoned.",
         ],
         "embed_image_url": "",
@@ -1486,7 +1486,7 @@ class Welcomer(commands.Cog):
             content = message.content.lower().split()
             if any([
                 t in content and
-                content.index(t) > -1
+                content.find(t) > -1
                 for t in hello["triggers"]
             ]):
                 if (
@@ -1526,7 +1526,13 @@ class Welcomer(commands.Cog):
                     ) or
                         any([
                             t in content and
-                            content.index(t) > -1
+                            (
+                                content.find(t) == 0 or
+                                (
+                                    content.find(t) > -1 and
+                                    content[content.find(t) - 1] in [' ', '\n', '\t', ',', '.']
+                                )
+                            )
                             for t in config["triggers"]
                         ])
                 ):
