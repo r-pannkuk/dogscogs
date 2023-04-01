@@ -109,16 +109,21 @@ DEFAULT_GUILD = {
     },
     "gg": {
         "name": "Respond to good game messages",
-        "enabled": True,
+        "enabled": False,
         "use_embed": False,
         "color": discord.Color.dark_gold().to_rgb(),
         "title": "",
         "messages": [
-            "Didn't seem very good to me."
+            f"There are no good games, only bad games. Keep that in mind {MEMBER_NAME_TOKEN}.",
+            f"{MEMBER_NAME_TOKEN}, please use \"bgs\" or \"bad games\" instead. Consider this a warning.",
+            f"User {MEMBER_NAME_TOKEN} has been warned for their misuse of post-set formalities.",
+            f"You've just violated our #hisouten netplay etiquette. Please refer to <#704429138273894410> and do not make the same mistake again. This is a warning.",
+            f"This behavior is not acceptable. Please refer to <#704429138273894410>.",
+            f"{MEMBER_NAME_TOKEN}, you've used a banned phrase. Further violation will not be condoned.",
         ],
         "embed_image_url": "",
         "footer": "",
-        "cooldown_minutes": "1d0",
+        "cooldown_minutes": "1d1 - 1",
         "current_cooldown": 0,
         "last_trigger_timestamp": 0,
         "chance": 1,
@@ -129,8 +134,36 @@ DEFAULT_GUILD = {
             "gg",
             "good games",
             "good game",
+        ]
+    },
+    "thanks": {
+        "name": "Respond to thanks for playing messages",
+        "enabled": False,
+        "use_embed": False,
+        "color": discord.Color.dark_gold().to_rgb(),
+        "title": "",
+        "messages": [
+            f"{MEMBER_NAME_TOKEN} - DO NOT THANK YOUR OPPONENT FOR WASTING YOUR TIME.",
+            f"{MEMBER_NAME_TOKEN}, if you have time to be thankful, you should use it insulting your opponent.",
+            f"You've just violated our #hisouten netplay etiquette. Please refer to <#704429138273894410> and do not make the same mistake again. This is a warning.",
+            f"This behavior is not acceptable. Please refer to <#704429138273894410>.",
+            f"{MEMBER_NAME_TOKEN}, you've used a banned phrase. Further violation will not be condoned.",
+        ],
+        "embed_image_url": "",
+        "footer": "",
+        "cooldown_minutes": "1d1 - 1",
+        "current_cooldown": 0,
+        "last_trigger_timestamp": 0,
+        "chance": 1,
+        "always_list": [
+        ],
+        "triggers": [
             "thanks for playing",
+            "thank you for playing",
+            "ty for playing",
             "thanks for the games",
+            "thank you for the games",
+            "ty for the games",
         ]
     },
     "departure": {
@@ -895,21 +928,52 @@ class Welcomer(commands.Cog):
         await ctx.send(f"Removed ``{phrase}`` to the list of triggers for hello messages.")
         pass
 
+    ########################## BASED ###############################
+
+    @settings.group()
+    async def based(self, ctx: commands.Context):
+        """Commands for configuring the based departure messages.
+        """
+        pass
+
+    @based.command(name="enable")
+    async def based_enable(self, ctx: commands.Context):
+        """Enables based messages for the server.
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._enable(ctx, based)
+        await self.config.guild(ctx.guild).based.set(based)
+        pass
+
+    @based.command(name="disable")
+    async def based_disable(self, ctx: commands.Context):
+        """Disables based messages for the server.
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._disable(ctx, based)
+        await self.config.guild(ctx.guild).based.set(based)
+        pass
+
+    @based.command(name="enabled")
+    async def based_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets or shows the status of based messages for the server.
+
+        Args:
+            bool (bool): (Optional) True / False
+        """
+        based = await self.config.guild(ctx.guild).based()
+        based = await self._enabled(ctx, based, bool)
+        await self.config.guild(ctx.guild).based.set(based)
+        pass
+
+    ####################################################################
+
     ##########################   GG   ###############################
 
     @settings.group()
     async def gg(self, ctx: commands.Context):
         """Commands for configuring the good games messages.
         """
-        pass
-
-    @gg.command(name="toggle")
-    async def gg_toggle(self, ctx: commands.Context):
-        """Toggles the good games functionality for the bot.
-        """
-        gg = await self.config.guild(ctx.guild).gg()
-        gg = await self._toggle(ctx, gg)
-        await self.config.guild(ctx.guild).gg.set(gg)
         pass
 
     @gg.command(name="enable")
@@ -944,51 +1008,42 @@ class Welcomer(commands.Cog):
 
     ####################################################################
 
-    ########################## BASED ###############################
+    ########################## THANKS ###############################
 
-    @settings.group()
-    async def based(self, ctx: commands.Context):
-        """Commands for configuring the based departure messages.
+    @settings.group(aliases=["ty"])
+    async def thanks(self, ctx: commands.Context):
+        """Commands for configuring the thanks departure messages.
         """
         pass
 
-    @based.command(name="toggle")
-    async def based_toggle(self, ctx: commands.Context):
-        """Toggles the based functionality for the bot.
+    @thanks.command(name="enable")
+    async def thanks_enable(self, ctx: commands.Context):
+        """Enables thanks messages for the server.
         """
-        based = await self.config.guild(ctx.guild).based()
-        based = await self._toggle(ctx, based)
-        await self.config.guild(ctx.guild).based.set(based)
+        thanks = await self.config.guild(ctx.guild).thanks()
+        thanks = await self._enable(ctx, thanks)
+        await self.config.guild(ctx.guild).thanks.set(thanks)
         pass
 
-    @based.command(name="enable")
-    async def based_enable(self, ctx: commands.Context):
-        """Enables based messages for the server.
+    @thanks.command(name="disable")
+    async def thanks_disable(self, ctx: commands.Context):
+        """Disables thanks messages for the server.
         """
-        based = await self.config.guild(ctx.guild).based()
-        based = await self._enable(ctx, based)
-        await self.config.guild(ctx.guild).based.set(based)
+        thanks = await self.config.guild(ctx.guild).thanks()
+        thanks = await self._disable(ctx, thanks)
+        await self.config.guild(ctx.guild).thanks.set(thanks)
         pass
 
-    @based.command(name="disable")
-    async def based_disable(self, ctx: commands.Context):
-        """Disables based messages for the server.
-        """
-        based = await self.config.guild(ctx.guild).based()
-        based = await self._disable(ctx, based)
-        await self.config.guild(ctx.guild).based.set(based)
-        pass
-
-    @based.command(name="enabled")
-    async def based_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
-        """Sets or shows the status of based messages for the server.
+    @thanks.command(name="enabled")
+    async def thanks_enabled(self, ctx: commands.Context, bool: typing.Optional[bool] = None):
+        """Sets or shows the status of thanks messages for the server.
 
         Args:
             bool (bool): (Optional) True / False
         """
-        based = await self.config.guild(ctx.guild).based()
-        based = await self._enabled(ctx, based, bool)
-        await self.config.guild(ctx.guild).based.set(based)
+        thanks = await self.config.guild(ctx.guild).thanks()
+        thanks = await self._enabled(ctx, thanks, bool)
+        await self.config.guild(ctx.guild).thanks.set(thanks)
         pass
 
     ####################################################################
@@ -1453,51 +1508,50 @@ class Welcomer(commands.Cog):
                     hello["last_trigger_timestamp"] = datetime.now().timestamp()
                     await self.config.guild(message.guild).hello.set(hello)
 
-        based = await self.config.guild(message.guild).based()
+        meme_checks = {
+            "based": await self.config.guild(message.guild).based(),
+            "gg": await self.config.guild(message.guild).gg(),
+            "thanks": await self.config.guild(message.guild).thanks(),
+        }
 
-        if based["enabled"]:
-            content: str = message.content.lower()
-            if any(word for word in content.split() if word in based["triggers"]) and len(content.split()) < 6:
+        for key, config in meme_checks.items():
+            if config["enabled"]:
+                content: str = message.content.lower()
                 if (
-                    message.author.id in based["always_list"] and
-                    (datetime.now() - timedelta(minutes=1)
-                     ).timestamp() > based["last_trigger_timestamp"]
+                    (
+                        any([
+                            word for word in content.split()
+                            if word in config["triggers"]
+                        ]) and len(content.split()) < 6
+                    ) or
+                        any([
+                            t in content and
+                            content.index(t) > -1
+                            for t in config["triggers"]
+                        ])
                 ):
-                    is_firing = True
-                else:
-                    is_firing = (
-                        random.random() < based["chance"] and
-                        datetime.now().timestamp() > based["current_cooldown"]
-                    )
+                    if key == "gg" or key == "thanks":
+                        if random.random() < 0.05:  # 5% chance to trigger a special message.
+                            await message.reply(f"`[WARNING]` This is your final warning, {message.author.mention}.")
+                            return
+                    if (
+                        message.author.id in config["always_list"] and
+                        (datetime.now() - timedelta(minutes=1)
+                         ).timestamp() > config["last_trigger_timestamp"]
+                    ):
+                        is_firing = True
+                    else:
+                        is_firing = (
+                            random.random() < config["chance"] and
+                            datetime.now().timestamp(
+                            ) > config["current_cooldown"]
+                        )
 
-                if is_firing:
-                    await self._create(message.channel, based, message.author)
-                    based["current_cooldown"] = (datetime.now(
-                    ) + timedelta(minutes=d20.roll(based["cooldown_minutes"]).total)).timestamp()
-                    based["last_trigger_timestamp"] = datetime.now().timestamp()
-                    await self.config.guild(message.guild).based.set(based)
-
-        gg = await self.config.guild(message.guild).gg()
-
-        if gg["enabled"]:
-            content: str = message.content.lower()
-            if any(word for word in content.split() if word in gg["triggers"]) and len(content.split()) < 6:
-                if (
-                    message.author.id in gg["always_list"] and
-                    (datetime.now() - timedelta(minutes=1)
-                     ).timestamp() > gg["last_trigger_timestamp"]
-                ):
-                    is_firing = True
-                else:
-                    is_firing = (
-                        random.random() < gg["chance"] and
-                        datetime.now().timestamp() > gg["current_cooldown"]
-                    )
-
-                if is_firing:
-                    await self._create(message.channel, gg, message.author)
-                    gg["current_cooldown"] = (datetime.now(
-                    ) + timedelta(minutes=d20.roll(gg["cooldown_minutes"]).total)).timestamp()
-                    gg["last_trigger_timestamp"] = datetime.now().timestamp()
-                    await self.config.guild(message.guild).gg.set(gg)
+                    if is_firing:
+                        await self._create(message.channel, config, message.author)
+                        config["current_cooldown"] = (datetime.now(
+                        ) + timedelta(minutes=d20.roll(config["cooldown_minutes"]).total)).timestamp()
+                        config["last_trigger_timestamp"] = datetime.now().timestamp()
+                        await self.config.guild(message.guild).get_attr(key).set(config)
+                        return
         pass
