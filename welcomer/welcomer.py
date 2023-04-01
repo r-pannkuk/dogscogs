@@ -992,6 +992,38 @@ class Welcomer(commands.Cog):
         await self.config.guild(ctx.guild).based.set(based)
         pass
 
+    
+
+    @based.command(name="cooldown")
+    async def based_cooldown(self, ctx: commands.Context, *, cooldown: typing.Optional[str]):
+        """Sets the cooldown used by the 'based' meme responder.
+
+        Args:
+            cooldown (str): The cooldown amount; either a number or an RNG dice amount (1d30 for random within 30 minutes).
+        """
+        based = await self.config.guild(ctx.guild).based()
+
+        if cooldown is not None:
+            try:
+                parsed = d20.parse(cooldown)
+            except d20.RollSyntaxError as e:
+                await ctx.send("ERROR: Please enter a valid cooldown using dice notation or a number.")
+                return
+
+            based["cooldown_minutes"] = cooldown
+
+            # Moving the cooldown to whatever the new amount is.
+            if based["current_cooldown"] > datetime.now().timestamp():
+                based["current_cooldown"] = (datetime.fromtimestamp(
+                    based["last_trigger_timestamp"]) + timedelta(minutes=d20.roll(cooldown).total)).timestamp()
+
+            await self.config.guild(ctx.guild).based.set(based)
+
+            await ctx.send(f"Set the cooldown to meme users to {cooldown} minutes.")
+        else:
+            await ctx.send(f"The chance to meme users is currently {based['cooldown_minutes']} minutes.")
+        pass
+
     ####################################################################
 
     ##########################   GG   ###############################
