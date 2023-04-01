@@ -1544,7 +1544,7 @@ class Welcomer(commands.Cog):
             content = message.content.lower().split()
             if any([
                 t in content and
-                content.find(t) > -1
+                content.index(t) > -1
                 for t in hello["triggers"]
             ]):
                 if (
