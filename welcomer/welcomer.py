@@ -1598,6 +1598,10 @@ class Welcomer(commands.Cog):
                         if random.random() < 0.05:  # 5% chance to trigger a special message.
                             await message.reply(f"`[WARNING]` This is your final warning, {message.author.mention}.")
                             return
+                    if key == 'based':
+                        if len(content.split()) > 6 or content.find("based on") > -1 or content.find("based of") > -1 or content.find("based at") > -1:
+                            continue
+
                     if (
                         message.author.id in config["always_list"] and
                         (datetime.now() - timedelta(minutes=1)
