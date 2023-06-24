@@ -12,7 +12,6 @@ from redbot.core.config import Config
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
-    "enabled": True,
     "output_channel_id": None,
 }
 
@@ -142,34 +141,6 @@ class HostCrier(commands.Cog):
         # TODO: Replace this with the proper end user data removal handling.
         await self.config.clear_all()
         await ctx.send('Done')
-
-    
-    @hostcrier.command()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
-        """Sets whether or not the cog is currently enabled.
-
-        __Args__:
-            ctx (commands.Context): The command context.
-            bool (typing.Optional[bool]): Whether or not the cog is enabled.
-        """
-        if bool != None:
-            await self.config.guild(ctx.guild).enabled.set(bool)
-            if bool:
-                output_string = f"Host Crier is now `ENABLED`."
-            else:
-                output_string = f"Host Crier is now `DISABLED`."
-        else:
-            bool = await self.config.guild(ctx.guild).enabled()
-            
-            if bool:
-                output_string = f"Host Crier is currently `ENABLED`.\n"
-            else:
-                output_string = f"Host Crier is currently `DISABLED`."
-        
-        await ctx.send(output_string)
-        pass
-
 
     @hostcrier.command()
     @commands.mod_or_permissions(manage_channels=True)
