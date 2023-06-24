@@ -92,7 +92,8 @@ class HostCrier(commands.Cog):
             embed.description += f"**Message**: " + text
 
         if(creation_info):
-            embed.timestamp = datetime.now().astimezone(tz=pytz.timezone("US/Eastern"))
+            # embed.timestamp = datetime.now().astimezone(tz=pytz.timezone("US/Eastern"))
+            pass
 
         return await channel.send(embed=embed)
     
