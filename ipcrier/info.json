@@ -1,5 +1,5 @@
 {
-    "name": "ipcrier",
+    "name": "IPCrier",
     "short": "Echoes any IP's found into a designated channel.",
     "description": "Will echo any IP's found in the format `<abc.def.ghi.jkl:port>` into a designated channel.",
     "end_user_data_statement": "This cog stores data associated with each user's IP if they provide it.",
