@@ -218,6 +218,9 @@ class HostCrier(commands.Cog):
         
         if text is None:
             text = await self.config.member(ctx.author).message_text()
+        elif len(text) > 100:
+            await ctx.reply('Message output is too long; please limit it to 100 characters.')
+            return
         else:
             await self.config.member(ctx.author).message_text.set(text)
 

@@ -81,7 +81,7 @@ class Freezer(commands.Cog):
         """Freezes a specific category channel, or all channels in the server.
 
         Args:
-            category (typing.Optional[FreezerEntryType]): A cateogry channel to limit reordering in.
+            category (typing.Optional[FreezerEntryType]): A category channel to limit reordering in.
         """
         freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
         guild: discord.Guild = ctx.guild
