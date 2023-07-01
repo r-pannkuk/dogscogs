@@ -38,9 +38,9 @@ def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[b
 
 
 DEFAULT_GUILD = {
-    "channel_id": None,
     "greeting": {
         "name": "Greeting messages",
+        "channel_ids": [],
         "enabled": False,
         "use_embed": True,
         "color": discord.Color.dark_green().to_rgb(),
@@ -53,6 +53,7 @@ DEFAULT_GUILD = {
     },
     "hello": {
         "name": "Hello messages",
+        "channel_ids": [],
         "enabled": True,
         "use_embed": False,
         "color": discord.Color.dark_gold().to_rgb(),
@@ -168,6 +169,7 @@ DEFAULT_GUILD = {
     },
     "departure": {
         "name": "Departure messages",
+        "channel_ids": [],
         "enabled": False,
         "use_embed": False,
         "color": discord.Color.darker_grey().to_rgb(),
@@ -180,6 +182,7 @@ DEFAULT_GUILD = {
     },
     "kick_or_ban": {
         "name": "Kick / Ban messages",
+        "channel_ids": [],
         "enabled": False,
         "use_embed": False,
         "color": discord.Color.dark_red().to_rgb(),
@@ -262,6 +265,40 @@ class Welcomer(commands.Cog):
             str += f"\n\nYou must have at least one message before {obj['name']} will fire."
 
         await ctx.send(f"Removed the following string to {obj['name']}:\n{str}")
+        return obj
+    
+    async def _list_channel(self, ctx, obj):
+        embed = discord.Embed()
+        embed.title = f"Channels for {obj['name'].lower()}:"
+
+        channels = []
+        channel_ids = obj['channel_ids']
+
+        for i in range(len(channel_ids)):
+            try:
+                channel : discord.TextChannel = await self.bot.fetch_channel(channel_ids[i])
+                channels.append(f"[{i}] {channel.mention}")
+            except:
+                channel_ids.remove(channel_ids[i])
+                continue
+
+        embed.description = '\n'.join(channels)
+
+        obj['channel_ids'] = sorted(channel_ids)
+
+        await ctx.send(embed=embed)
+        return obj
+    
+    async def _add_channel(self, ctx, obj, channel: discord.TextChannel):
+        obj["channel_ids"] = list(set(obj["channel_ids"] + [channel.id]))
+        await ctx.send(f"Added {channel.mention} to the {obj['name']} channel list.")
+        await self._list_channel(ctx, obj)
+        return obj
+    
+    async def _remove_channel(self, ctx, obj, channel: discord.TextChannel):
+        obj["channel_ids"].discard(channel.id)
+        await ctx.send(f"Removed {channel.mention} from the {obj['name']} channel list.")
+        await self._list_channel(ctx, obj)
         return obj
 
     async def _use_embed(self, ctx, obj, bool: typing.Optional[bool] = None):
@@ -453,32 +490,6 @@ class Welcomer(commands.Cog):
         if verbose:
             await ctx.send(f"Data reset for {config_type} in {guild.name}.")
 
-    @settings.command()
-    async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel] = None):
-        """Sets or displays the current channel for greeting / departure announcements.
-
-        Args:
-            channel (discord.TextChannel): (Optional) The text channel for announcing.
-        """
-        if channel:
-            await self.config.guild(ctx.guild).channel_id.set(channel.id)
-            await ctx.send(f"Now broadcasting greeting and departure messages to {channel.mention}.")
-            return
-        else:
-            channel_id = await self.config.guild(ctx.guild).channel_id()
-            if channel_id is None:
-                await ctx.send(f"There is no channel currently set for broadcasting greeting and departure messages!")
-                return
-
-            channel = ctx.guild.get_channel(channel_id)
-
-            if channel is None:
-                await ctx.send(f"There is no channel currently set for broadcasting greeting and departure messages!")
-                return
-
-            await ctx.send(f"Currently broadcasting greeting and departure messages to {channel.mention}.")
-            return
-
     @settings.group(aliases=["welcome"])
     async def greeting(self, ctx: commands.Context):
         """Commands for configuring the server greeting messages.
@@ -524,6 +535,51 @@ class Welcomer(commands.Cog):
         await self.config.guild(ctx.guild).greeting.set(greeting)
         pass
 
+    @greeting.group(name="channel")
+    async def greeting_channel(self, ctx: commands.Context):
+        """Sets or displays the current channel for greeting announcements.
+        """
+        return
+    
+    
+    @greeting_channel.command(name='list')
+    async def greeting_channel_list(self, ctx: commands.Context):
+        """Lists the current channels for this module.
+
+        Args:
+            ctx (commands.Context): _description_
+        """
+        greeting = await self.config.guild(ctx.guild).greeting()
+        await self._list_channel(ctx, greeting)
+        await self.config.guild(ctx.guild).greeting.set(greeting)
+        pass
+        
+    @greeting_channel.command(name='add')
+    async def greeting_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Adds a channel to the channel list when sending greeting messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to add.
+        """
+        greeting = await self.config.guild(ctx.guild).greeting()
+        await self._add_channel(ctx, greeting, channel)
+        await self.config.guild(ctx.guild).greeting.set(greeting)
+        pass
+        
+    @greeting_channel.command(name='remove')
+    async def greeting_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Removes a channel from the channel list when sending greeting messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to remove.
+        """
+        greeting = await self.config.guild(ctx.guild).greeting()
+        await self._remove_channel(ctx, greeting, channel)
+        await self.config.guild(ctx.guild).greeting.set(greeting)
+        pass
+
     @greeting.command(name="list")
     async def greeting_list(self, ctx: commands.Context):
         """Gets the list of random greeting messages for the server.
@@ -557,7 +613,7 @@ class Welcomer(commands.Cog):
         """Removes a greeting message for use in the server.
 
         Args:
-            index (int): The index of the greeting message to remove (use `greetingr greeting list` to verify the correct index).
+            index (int): The index of the greeting message to remove (use `welcomer greeting list` to verify the correct index).
         """
         greeting = await self.config.guild(ctx.guild).greeting()
         greeting = await self._remove(ctx, greeting, index)
@@ -671,6 +727,49 @@ class Welcomer(commands.Cog):
         await self.config.guild(ctx.guild).hello.set(hello)
         pass
 
+    @hello.group(name="channel")
+    async def hello_channel(self, ctx: commands.Context):
+        """Sets or displays the current channel for hello announcements.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        await self._list_channel(ctx, hello)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        return
+    
+    @hello_channel.command(name='list')
+    async def hello_channel_list(self, ctx: commands.Context):
+        hello = await self.config.guild(ctx.guild).hello()
+        await self._list_channel(ctx, hello)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+        
+    @hello_channel.command(name='add')
+    async def hello_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Adds a channel to the channel list when sending hello messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to add.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        await self._add_channel(ctx, hello, channel)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+        
+    @hello_channel.command(name='remove')
+    async def hello_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Removes a channel from the channel list when sending hello messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to remove.
+        """
+        hello = await self.config.guild(ctx.guild).hello()
+        await self._remove_channel(ctx, hello, channel)
+        await self.config.guild(ctx.guild).hello.set(hello)
+        pass
+
+
     @hello.command(name="list")
     async def hello_list(self, ctx: commands.Context):
         """Gets the list of random hello messages for the server.
@@ -704,7 +803,7 @@ class Welcomer(commands.Cog):
         """Removes a hello message for use in the server.
 
         Args:
-            index (int): The index of the hello message to remove (use `greetingr hello list` to verify the correct index).
+            index (int): The index of the hello message to remove (use `welcomer hello list` to verify the correct index).
         """
         hello = await self.config.guild(ctx.guild).hello()
         hello = await self._remove(ctx, hello, index)
@@ -1151,6 +1250,50 @@ class Welcomer(commands.Cog):
         await self.config.guild(ctx.guild).departure.set(departure)
         pass
 
+    @departure.group(name="channel")
+    async def departure_channel(self, ctx: commands.Context):
+        """Sets or displays the current channel for departure announcements.
+        """
+        return
+    
+    @departure_channel.command(name='list')
+    async def departure_channel_list(self, ctx: commands.Context):
+        """Lists the current channels for this module.
+
+        Args:
+            ctx (commands.Context): _description_
+        """
+        departure = await self.config.guild(ctx.guild).departure()
+        await self._list_channel(ctx, departure)
+        await self.config.guild(ctx.guild).departure.set(departure)
+        pass
+        
+    @departure_channel.command(name='add')
+    async def departure_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Adds a channel to the channel list when sending departure messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to add.
+        """
+        departure = await self.config.guild(ctx.guild).departure()
+        await self._add_channel(ctx, departure, channel)
+        await self.config.guild(ctx.guild).departure.set(departure)
+        pass
+        
+    @departure_channel.command(name='remove')
+    async def departure_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Removes a channel from the channel list when sending departure messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to remove.
+        """
+        departure = await self.config.guild(ctx.guild).departure()
+        await self._remove_channel(ctx, departure, channel)
+        await self.config.guild(ctx.guild).departure.set(departure)
+        pass
+
     @departure.command(name="list")
     async def departure_list(self, ctx: commands.Context):
         """Gets the list of random departure messages for the server.
@@ -1184,7 +1327,7 @@ class Welcomer(commands.Cog):
         """Removes a departure message for use in the server.
 
         Args:
-            index (int): The index of the departure message to remove (use `greetingr departure list` to verify the correct index).
+            index (int): The index of the departure message to remove (use `welcomer departure list` to verify the correct index).
         """
         departure = await self.config.guild(ctx.guild).departure()
         departure = await self._remove(ctx, departure, index)
@@ -1298,6 +1441,51 @@ class Welcomer(commands.Cog):
         await self.config.guild(ctx.guild).kick_or_ban.set(kick_or_ban)
         pass
 
+    @kick.group(name="channel")
+    async def kick_channel(self, ctx: commands.Context):
+        """Sets or displays the current channel for kick announcements.
+        """
+        return
+    
+    
+    @kick_channel.command(name='list')
+    async def kick_channel_list(self, ctx: commands.Context):
+        """Lists the current channels for this module.
+
+        Args:
+            ctx (commands.Context): _description_
+        """
+        kick = await self.config.guild(ctx.guild).kick_or_ban()
+        await self._list_channel(ctx, kick)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick)
+        pass
+        
+    @kick_channel.command(name='add')
+    async def kick_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Adds a channel to the channel list when sending kick messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to add.
+        """
+        kick = await self.config.guild(ctx.guild).kick_or_ban()
+        await self._add_channel(ctx, kick, channel)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick)
+        pass
+        
+    @kick_channel.command(name='remove')
+    async def kick_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
+        """Removes a channel from the channel list when sending kick messages.
+
+        Args:
+            ctx (commands.Context): Command context
+            channel (discord.TextChannel): The channel to remove.
+        """
+        kick = await self.config.guild(ctx.guild).kick_or_ban()
+        await self._remove_channel(ctx, kick, channel)
+        await self.config.guild(ctx.guild).kick_or_ban.set(kick)
+        pass
+
     @kick.command(name="list")
     async def kick_list(self, ctx: commands.Context):
         """Gets the list of random kick / ban messages for the server.
@@ -1331,7 +1519,7 @@ class Welcomer(commands.Cog):
         """Removes a kick / ban message for use in the server.
 
         Args:
-            index (int): The index of the kick / ban message to remove (use `greetinger kick list` to verify the correct index).
+            index (int): The index of the kick / ban message to remove (use `welcomer kick list` to verify the correct index).
         """
         kick_or_ban = await self.config.guild(ctx.guild).kick_or_ban()
         kick_or_ban = await self._remove(ctx, kick_or_ban, index)
@@ -1407,11 +1595,12 @@ class Welcomer(commands.Cog):
         guild = member.guild
 
         if obj["enabled"]:
-            channel_id = await self.config.guild(guild).channel_id()
-            channel = guild.get_channel(channel_id)
+            channel_ids = obj['channel_ids']
+            for channel_id in channel_ids:
+                channel = guild.get_channel(channel_id)
 
-            if channel is not None:
-                await self._create(channel, obj, member)
+                if channel is not None:
+                    await self._create(channel, obj, member)
 
     async def get_audit_log_reason(
         self,
