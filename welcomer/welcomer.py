@@ -53,7 +53,6 @@ DEFAULT_GUILD = {
     },
     "hello": {
         "name": "Hello messages",
-        "channel_ids": [],
         "enabled": True,
         "use_embed": False,
         "color": discord.Color.dark_gold().to_rgb(),
@@ -724,48 +723,6 @@ class Welcomer(commands.Cog):
         """
         hello = await self.config.guild(ctx.guild).hello()
         hello = await self._enabled(ctx, hello, bool)
-        await self.config.guild(ctx.guild).hello.set(hello)
-        pass
-
-    @hello.group(name="channel")
-    async def hello_channel(self, ctx: commands.Context):
-        """Sets or displays the current channel for hello announcements.
-        """
-        hello = await self.config.guild(ctx.guild).hello()
-        await self._list_channel(ctx, hello)
-        await self.config.guild(ctx.guild).hello.set(hello)
-        return
-    
-    @hello_channel.command(name='list')
-    async def hello_channel_list(self, ctx: commands.Context):
-        hello = await self.config.guild(ctx.guild).hello()
-        await self._list_channel(ctx, hello)
-        await self.config.guild(ctx.guild).hello.set(hello)
-        pass
-        
-    @hello_channel.command(name='add')
-    async def hello_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
-        """Adds a channel to the channel list when sending hello messages.
-
-        Args:
-            ctx (commands.Context): Command context
-            channel (discord.TextChannel): The channel to add.
-        """
-        hello = await self.config.guild(ctx.guild).hello()
-        await self._add_channel(ctx, hello, channel)
-        await self.config.guild(ctx.guild).hello.set(hello)
-        pass
-        
-    @hello_channel.command(name='remove')
-    async def hello_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
-        """Removes a channel from the channel list when sending hello messages.
-
-        Args:
-            ctx (commands.Context): Command context
-            channel (discord.TextChannel): The channel to remove.
-        """
-        hello = await self.config.guild(ctx.guild).hello()
-        await self._remove_channel(ctx, hello, channel)
         await self.config.guild(ctx.guild).hello.set(hello)
         pass
 

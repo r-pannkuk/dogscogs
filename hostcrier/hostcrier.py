@@ -1,9 +1,11 @@
+import asyncio
 from datetime import datetime
 import re
 from typing import Literal
 import typing
 
 import discord
+from discord.ext import tasks
 import pytz
 from redbot.core import commands
 from redbot.core.bot import Red
@@ -13,6 +15,7 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
     "output_channel_id": None,
+    "cleanup_interval_mins": 120,
 }
 
 DEFAULT_MEMBER = {
@@ -21,6 +24,7 @@ DEFAULT_MEMBER = {
     "message_text": None,
     "message_id": None,
     "channel_id": None,
+    "host_cleanup_fn": None,
 }
 
 REGEX_IP_ADDRESS = "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
@@ -97,7 +101,7 @@ class HostCrier(commands.Cog):
 
         return await channel.send(embed=embed)
     
-    async def _delete_previous(self, host: discord.Member):
+    async def _check_previous(self, host: discord.Member, success, missing_error, channel_error, message_error):
         config = self.config.member(host)
         
         channel_id = await config.channel_id()
@@ -107,21 +111,36 @@ class HostCrier(commands.Cog):
         await config.message_id.set(None)
         
         if channel_id is None or message_id is None:
-            return 'You don\'t have a recorded host message active, IDIOT!'
+            return await missing_error()
 
         try:
             channel : discord.TextChannel = await self.bot.fetch_channel(channel_id)
         except:
-            return 'The original channel doesn\'t exist anymore.'
+            return await channel_error()
         
         if channel:
             try:
                 message : discord.Message = await channel.fetch_message(message_id)
-                await message.delete()
             except:
-                return 'The host message was already deleted.'
+                return await message_error()
 
-        return 'Host message removed.'
+        return await success(message)
+    
+    async def _delete_previous(self, host: discord.Member):
+        async def missing_error():
+            return 'You don\'t have a recorded host message active, IDIOT!'
+        
+        async def channel_error():
+            return 'The original channel doesn\'t exist anymore.'
+        
+        async def message_error():
+            return 'The host message was already deleted.'
+
+        async def success(message: discord.Message):
+            await message.delete()
+            return 'Host message removed.'
+        
+        return await self._check_previous(host, success, missing_error, channel_error, message_error)
 
 
     @commands.group()
@@ -164,6 +183,33 @@ class HostCrier(commands.Cog):
                 return
         
         await ctx.send(f"Echoing hosts into {channel.mention}.")
+        pass
+
+    
+
+    @hostcrier.command()
+    @commands.mod_or_permissions(manage_channels=True)
+    async def interval(self, ctx: commands.Context, mins: typing.Optional[int]):
+        """Sets the interval at which messages auto delete in minutes.
+
+        Args:
+            ctx (commands.Context): Command Context
+            mins (typing.Optional[int]): The number of minutes inbetween checks.
+        """
+        interval = await self.config.guild(ctx.guild).cleanup_interval_mins()
+
+        if mins is not None:
+            if mins < 1:
+                await ctx.send(f"That doesn't make any sense, please use your brain and submit a valid interval.")
+                return
+            
+            await self.config.guild(ctx.guild).cleanup_interval_mins.set(mins)
+            interval = mins
+        elif interval is None:
+            await ctx.send(f"Auto-delete interval is not set, please set one using ``hostcrier interval <mins>``")
+            return
+        
+        await ctx.send(f"Auto-deleting host messages after {interval} minute{'s' if interval > 1 else ''}.")
         pass
 
 
@@ -235,7 +281,7 @@ class HostCrier(commands.Cog):
         except:
             await ctx.reply('Channel was not found, please contact a mod for help.')
             return
-        
+
         await self._delete_previous(ctx.author)
 
         message = await self._output_message(channel, ctx.author)
@@ -245,6 +291,21 @@ class HostCrier(commands.Cog):
 
         await ctx.reply(message.jump_url)
 
+        @tasks.loop(seconds=30)
+        async def host_check():
+            cleanup_interval_mins = await self.config.guild(ctx.guild).cleanup_interval_mins()
+
+            if datetime.utcnow().timestamp() > message.created_at.timestamp() + 60 * cleanup_interval_mins:
+                try:
+                    if await channel.fetch_message(message.id) is not None:
+                        await ctx.send(f"Hey idiot, you're not hosting anymore, are you? {ctx.author.mention}")
+                except:
+                    pass
+                finally:
+                    host_check.cancel()
+                return            
+
+        host_check.start()
         pass
 
     @commands.command()
