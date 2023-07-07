@@ -229,7 +229,7 @@ class HostCrier(commands.Cog):
         pass
 
 
-    @commands.command()
+    @commands.hybrid_command()
     async def hostgr(self, ctx: commands.Context, full_ip: typing.Optional[str], *, text: typing.Optional[str]):
         """Hosts a game for the given user under their IP with the stated message.
 
@@ -295,7 +295,7 @@ class HostCrier(commands.Cog):
         async def host_check():
             cleanup_interval_mins = await self.config.guild(ctx.guild).cleanup_interval_mins()
 
-            if datetime.utcnow().timestamp() > message.created_at.timestamp() + 60 * cleanup_interval_mins:
+            if datetime.utcnow().timestamp() > message.created_at.timestamp() + 60 * 1000 * cleanup_interval_mins:
                 try:
                     if await channel.fetch_message(message.id) is not None:
                         await ctx.send(f"Hey idiot, you're not hosting anymore, are you? {ctx.author.mention}")

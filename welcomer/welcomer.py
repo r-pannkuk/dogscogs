@@ -9,32 +9,17 @@ import urllib
 
 import discord
 import d20
-from discord.errors import InvalidArgument
 from urllib.request import urlopen, urlretrieve
 from urllib.error import HTTPError, URLError
 import pytz
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
+from utils.converters.percent import Percent
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
-MEMBER_NAME_TOKEN = "$MEMBER_NAME$"
-SERVER_NAME_TOKEN = "$SERVER_NAME$"
-MEMBER_COUNT_TOKEN = "$MEMBER_COUNT$"
-ACTION_TOKEN = "$ACTION$"
-
-
-def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[bool] = False, token: typing.Optional[str] = None):
-    if token is not None:
-        return text.replace(token, )
-    return text.replace(
-        MEMBER_NAME_TOKEN, member.display_name if not use_mentions else member.mention
-    ).replace(
-        SERVER_NAME_TOKEN, member.guild.name
-    ).replace(
-        MEMBER_COUNT_TOKEN, str(member.guild.member_count)
-    )
+from utils.tokenizer import SERVER_NAME_TOKEN, MEMBER_COUNT_TOKEN, MEMBER_NAME_TOKEN, ACTION_TOKEN, replace_tokens, to_percent
 
 
 DEFAULT_GUILD = {
@@ -256,7 +241,7 @@ class Welcomer(commands.Cog):
 
     async def _remove(self, ctx, obj, int):
         if int >= len(obj["messages"]):
-            raise InvalidArgument(
+            raise commands.BadArgument(
                 "Couldn't find the message at the given index.")
 
         str = obj["messages"].pop(int)
@@ -859,16 +844,8 @@ class Welcomer(commands.Cog):
             await ctx.send(f"The chance to greet users is currently {hello['cooldown_minutes']} minutes.")
         pass
 
-    def to_percent(argument):
-        try:
-            if argument[-1] == '%':
-                return float(argument[:-1]) / 100
-            return float(argument)
-        except:
-            return None
-
     @hello.command(name="chance")
-    async def hello_chance(self, ctx: commands.Context, *, chance: typing.Optional[to_percent]):
+    async def hello_chance(self, ctx: commands.Context, *, chance: typing.Optional[Percent]):
         """Sets the random chance that the greeter will go off.
 
         Args:
@@ -1570,7 +1547,7 @@ class Welcomer(commands.Cog):
         if guild.me.guild_permissions.view_audit_log:
             async for log in guild.audit_logs(limit=5, action=action):
                 if log.target.id == target.id and (
-                    pytz.UTC.localize(log.created_at) > (
+                    log.created_at > (
                         datetime.now(tz=pytz.timezone("UTC")) - timedelta(0, 5))
                 ):
                     perp = log.user
