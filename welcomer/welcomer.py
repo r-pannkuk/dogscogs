@@ -997,17 +997,28 @@ class Welcomer(commands.Cog):
         """Removes a phrase from triggering hello messages.
 
         Args:
-            phrase (str): The triggering phrase.
+            phrase (str | int): The triggering phrase.
         """
         hello = await self.config.guild(ctx.guild).hello()
 
-        if phrase.lower() not in hello["triggers"]:
-            await ctx.send(f"``{phrase}`` is not on the triggers list.")
-            return
+        try:
+            phrase = int(phrase)
 
-        hello["triggers"].remove(phrase.lower())
+            if phrase >= len(hello["triggers"]):
+                await ctx.send(f"``{phrase}`` is out of range.")
+                return
+            
+            removed_phrase = hello["triggers"].pop(phrase)
+        
+        except:
+            if phrase.lower() not in hello["triggers"]:
+                await ctx.send(f"``{phrase}`` is not on the triggers list.")
+                return
+
+            removed_phrase = hello["triggers"].remove(phrase.lower())
+        
         await self.config.guild(ctx.guild).hello.set(hello)
-        await ctx.send(f"Removed ``{phrase}`` to the list of triggers for hello messages.")
+        await ctx.send(f"Removed ``{removed_phrase}`` to the list of triggers for hello messages.")
         pass
 
     ########################## BASED ###############################

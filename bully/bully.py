@@ -40,7 +40,7 @@ RequestType = typing.Literal["discord_deleted_user",
 
 DEFAULT_GUILD = {
     "enabled": True,
-    "reasons": [
+    "responses": [
         f"Shut up, {MEMBER_NAME_TOKEN}.",
         f"Fuck you, {MEMBER_NAME_TOKEN}.",
         f"Don't be rude.",
@@ -96,7 +96,6 @@ class Bully(commands.Cog):
         pass
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Enable or disable this functionality.
 
@@ -118,7 +117,6 @@ class Bully(commands.Cog):
         pass
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
     async def timeout(self, ctx: commands.Context, timeout: typing.Optional[float]):
         """Sets a timeout value for kicking users for a durationi.
 
@@ -139,7 +137,6 @@ class Bully(commands.Cog):
         pass
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
     async def cooldown(self, ctx: commands.Context, *, minutes: typing.Optional[str]):
         """Sets the cooldown for triggering bully responses.
 
@@ -170,7 +167,6 @@ class Bully(commands.Cog):
     
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
     async def chance(self, ctx: commands.Context, chance: typing.Optional[Percent]):
         """Sets the random chance that the greeter will go off.
 
@@ -187,6 +183,226 @@ class Bully(commands.Cog):
             await ctx.send(f"Set the chance to bully users to {chance * 100}%.")
         else:
             await ctx.send(f"The chance to bully users is currently {await self.config.guild(ctx.guild).chance() * 100}%.")
+        pass
+
+    @bully.group(name="always")
+    async def always(self, ctx: commands.Context):
+        """Sets the list of users who will always be bullied.
+        """
+        pass
+
+    @always.command(name="list")
+    async def always_list(self, ctx: commands.Context):
+        """Gets the list of always bullied users for the server.
+        """
+        always_list = await self.config.guild(ctx.guild).always_list()
+        guild: discord.Guild = ctx.guild
+        embed = discord.Embed()
+        embed.title = "Forced to bully the following users:"
+
+        users = []
+
+        for i in range(len(always_list)):
+            member: discord.Member = guild.get_member(always_list[i])
+
+            if member is None:
+                continue
+
+            users.append(f"[{i}] {member.mention}")
+
+        embed.description = '\n'.join(users)
+
+        await ctx.send(embed=embed)
+        pass
+
+    @always.command(name="add")
+    async def always_add(self, ctx: commands.Context, *, member: discord.Member):
+        """Adds a user to always be bullied by the bot.
+
+        Args:
+            member (discord.Member): The member to always bully.
+        """
+        always_list = await self.config.guild(ctx.guild).always_list()
+
+        if member.id in always_list:
+            await ctx.send(f"{member.display_name} is already on the always-bully list.")
+            return
+
+        always_list.append(member.id)
+        await self.config.guild(ctx.guild).always_list.set(always_list)
+        await ctx.send(f"Added user {member.display_name} to the list of always-bullied members.")
+        pass
+
+    @always.command(name="remove")
+    async def always_remove(self, ctx: commands.Context, *, member: discord.Member):
+        """Removes a user from always being bullied.
+
+        Args:
+            member (discord.Member): The member to remove.
+        """
+        always_list = await self.config.guild(ctx.guild).always_list()
+
+        if member.id not in always_list:
+            await ctx.send(f"{member.display_name} is not on the always-bully list.")
+            return
+
+        always_list.remove(member.id)
+        await self.config.guild(ctx.guild).always_list.set(always_list)
+        await ctx.send(f"Removed {member.display_name} from the list of always-bullied members.")
+        pass
+
+    @bully.group(name="triggers")
+    async def triggers(self, ctx: commands.Context):
+        """Sets the list of trigger phrases to generate bully responses.
+        """
+        pass
+
+    @triggers.command(name="list")
+    async def triggers_list(self, ctx: commands.Context):
+        """Gets the list of random bully messages for the server.
+        """
+        triggers = await self.config.guild(ctx.guild).triggers()
+        embed = discord.Embed()
+        embed.title = "Bully Trigger Phrases:"
+
+        phrases = []
+
+        for i in range(len(triggers)):
+            phrase = triggers[i]
+
+            phrases.append(f"[{i}] {phrase}")
+
+        embed.description = '\n'.join(phrases)
+
+        await ctx.send(embed=embed)
+        pass
+
+    @triggers.command(name="add")
+    async def triggers_add(self, ctx: commands.Context, *, phrase: str):
+        """Adds a phrase which will trigger bully responses.
+
+        Args:
+            phrase (str): The phrase to add for triggering.  Strips out non-alphanumeric characters. 
+        """
+        triggers = await self.config.guild(ctx.guild).triggers()
+
+        if phrase.lower() in triggers:
+            await ctx.send(f"``{phrase}`` is already triggering bully responses.")
+            return
+        
+        phrase = re.sub("[^a-z0-9]", "", phrase.lower())
+
+        triggers.append(phrase)
+
+        await self.config.guild(ctx.guild).triggers.set(triggers)
+
+        await ctx.send(f"Added ``{phrase}`` to the list of bully triggers.")
+        pass
+
+    @triggers.command(name="remove")
+    async def triggers_remove(self, ctx: commands.Context, *, phrase: str):
+        """Removes a phrase from bully triggering.
+
+        Args:
+            phrase (str | int): The triggering phrase.
+        """
+        triggers = await self.config.guild(ctx.guild).triggers()
+
+        try:
+            phrase = int(phrase)
+
+            if phrase >= len(triggers):
+                await ctx.send(f"``{phrase}`` is out of range.")
+                return
+            
+            removed_phrase = triggers.pop(phrase)
+        
+        except:
+            if phrase.lower() not in triggers:
+                await ctx.send(f"``{phrase}`` is not on the triggers list.")
+                return
+
+            removed_phrase = triggers.remove(phrase.lower())
+        
+        await self.config.guild(ctx.guild).triggers.set(triggers)
+        await ctx.send(f"Removed ``{removed_phrase}`` to the list of triggers for bully responses.")
+        pass
+
+    @bully.group(name="responses")
+    async def responses(self, ctx: commands.Context):
+        """Sets the list of responses for bullying users.
+        """
+        pass
+
+    @responses.command(name="list")
+    async def responses_list(self, ctx: commands.Context):
+        """Gets the list of random bully responses for the server.
+        """
+        responses = await self.config.guild(ctx.guild).responses()
+        embed = discord.Embed()
+        embed.title = "Bully Response Messages:"
+
+        phrases = []
+
+        for i in range(len(responses)):
+            phrase = responses[i]
+
+            phrases.append(f"[{i}] {phrase}")
+
+        embed.description = '\n'.join(phrases)
+
+        await ctx.send(embed=embed)
+        pass
+
+    @responses.command(name="add")
+    async def responses_add(self, ctx: commands.Context, *, phrase: str):
+        """Adds a phrase for bully responses.
+
+        Args:
+            phrase (str): The phrase to add for responses.
+        """
+        responses = await self.config.guild(ctx.guild).responses()
+
+        if phrase.lower() in responses:
+            await ctx.send(f"``{phrase}`` is already a response.")
+            return
+        
+        phrase = re.sub("[^a-z0-9]", "", phrase.lower())
+
+        responses.append(phrase)
+
+        await self.config.guild(ctx.guild).responses.set(responses)
+
+        await ctx.send(f"Added ``{phrase}`` to the list of responses.")
+        pass
+
+    @responses.command(name="remove")
+    async def responses_remove(self, ctx: commands.Context, *, phrase: str):
+        """Removes a phrase from bully responses.
+
+        Args:
+            phrase (str | int): The response.
+        """
+        responses = await self.config.guild(ctx.guild).responses()
+
+        try:
+            phrase = int(phrase)
+
+            if phrase >= len(responses):
+                await ctx.send(f"``{phrase}`` is out of range.")
+                return
+            
+            removed_phrase = responses.pop(phrase)
+        
+        except:
+            if phrase.lower() not in responses:
+                await ctx.send(f"``{phrase}`` is not on the responses list.")
+                return
+
+            removed_phrase = responses.remove(phrase.lower())
+        
+        await self.config.guild(ctx.guild).triggers.set(responses)
+        await ctx.send(f"Removed ``{removed_phrase}`` to the list of responses for bullying.")
         pass
 
     @commands.Cog.listener()
@@ -235,20 +451,20 @@ class Bully(commands.Cog):
 
                 if is_firing:
                     # Kick User
-                    reasons = await config.reasons()
-                    reason = replace_tokens(random.choice(
-                        reasons), member=message.author, use_mentions=True)
+                    responses = await config.responses()
+                    response = replace_tokens(random.choice(
+                        responses), member=message.author, use_mentions=True)
 
                     timeout = await config.timeout_mins()
 
                     try:
                         if timeout > 0:
-                            await message.author.timeout(datetime.timedelta(minutes=timeout), reason=reason)
-                            await message.reply(reason)
+                            await message.author.timeout(datetime.timedelta(minutes=timeout), reason=response)
+                            await message.reply(response)
                         else:
-                            await message.author.kick(reason=reason)
+                            await message.author.kick(reason=response)
                     except Exception as e:
-                        await message.reply(reason)
+                        await message.reply(response)
                     pass
 
                     cooldown_minutes = await config.cooldown_minutes()
