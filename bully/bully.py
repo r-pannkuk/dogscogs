@@ -23,6 +23,8 @@ SERVER_NAME_TOKEN = "$SERVER_NAME$"
 MEMBER_COUNT_TOKEN = "$MEMBER_COUNT$"
 ACTION_TOKEN = "$ACTION$"
 
+TRIGGER_REGEX = "[^a-z0-9]\s"
+
 
 def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[bool] = False, token: typing.Optional[str] = None):
     if token is not None:
@@ -290,7 +292,7 @@ class Bully(commands.Cog):
             await ctx.send(f"``{phrase}`` is already triggering bully responses.")
             return
         
-        phrase = re.sub("[^a-z0-9]", "", phrase.lower())
+        phrase = re.sub(TRIGGER_REGEX, "", phrase.lower())
 
         triggers.append(phrase)
 
@@ -318,11 +320,12 @@ class Bully(commands.Cog):
             removed_phrase = triggers.pop(phrase)
         
         except:
-            if phrase.lower() not in triggers:
+            phrase = re.sub(TRIGGER_REGEX, "", phrase.lower())
+            if phrase not in triggers:
                 await ctx.send(f"``{phrase}`` is not on the triggers list.")
                 return
 
-            removed_phrase = triggers.remove(phrase.lower())
+            removed_phrase = triggers.remove(phrase)
         
         await self.config.guild(ctx.guild).triggers.set(triggers)
         await ctx.send(f"Removed ``{removed_phrase}`` to the list of triggers for bully responses.")
@@ -367,7 +370,7 @@ class Bully(commands.Cog):
             await ctx.send(f"``{phrase}`` is already a response.")
             return
         
-        phrase = re.sub("[^a-z0-9]", "", phrase.lower())
+        phrase = re.sub(TRIGGER_REGEX, "", phrase.lower())
 
         responses.append(phrase)
 
@@ -395,11 +398,12 @@ class Bully(commands.Cog):
             removed_phrase = responses.pop(phrase)
         
         except:
-            if phrase.lower() not in responses:
+            phrase = re.sub(TRIGGER_REGEX, "", phrase.lower())
+            if phrase not in responses:
                 await ctx.send(f"``{phrase}`` is not on the responses list.")
                 return
 
-            removed_phrase = responses.remove(phrase.lower())
+            removed_phrase = responses.remove(phrase)
         
         await self.config.guild(ctx.guild).triggers.set(responses)
         await ctx.send(f"Removed ``{removed_phrase}`` to the list of responses for bullying.")
