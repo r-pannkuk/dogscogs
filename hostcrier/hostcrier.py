@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from typing import Literal
 import typing
@@ -295,7 +295,9 @@ class HostCrier(commands.Cog):
         async def host_check():
             cleanup_interval_mins = await self.config.guild(ctx.guild).cleanup_interval_mins()
 
-            if datetime.utcnow().timestamp() > message.created_at.timestamp() + 60 * 1000 * cleanup_interval_mins:
+            offset = (message.created_at + timedelta(minutes=cleanup_interval_mins)).astimezone(tz=pytz.timezone('UTC'))
+
+            if datetime.now().astimezone(tz=pytz.timezone('UTC')) > offset:
                 try:
                     if await channel.fetch_message(message.id) is not None:
                         await ctx.send(f"Hey idiot, you're not hosting anymore, are you? {ctx.author.mention}")
