@@ -13,7 +13,7 @@ import uuid
 from time import strptime
 
 import discord
-from discord.errors import Forbidden, InvalidArgument
+from discord.errors import Forbidden
 import pytz
 from redbot.core import commands
 from redbot.core import config
@@ -132,17 +132,17 @@ def bind_member(group: config.Group):
             id (int, optional): An ID for an entry to find. Defaults to None.
 
         Raises:
-            InvalidArgument: If neither an entry nor id were presented, or if the ID was invalid.
+            BadArgument: If neither an entry nor id were presented, or if the ID was invalid.
         """
         if entry is None and id is None:
-            raise InvalidArgument(
+            raise commands.BadArgument(
                 "Need to have a valid entry or id to remove a job.")
         elif entry is None:
             nick_queue = await self.nick_queue()
             found = list(filter(lambda entry: (
                 id in entry and entry["id"] == id), nick_queue))
             if len(found) == 0:
-                raise InvalidArgument("ID was not found.")
+                raise commands.BadArgument("ID was not found.")
             entry = found[0]
         if 'id' not in entry:
             return
@@ -263,7 +263,7 @@ def parse_duration_string(input: str) -> int:
         t = strptime(input, "%M:%S")
         return t.tm_min * 60 + t.tm_sec
     else:
-        raise InvalidArgument("Could not parse the duration.")
+        raise commands.BadArgument("Could not parse the duration.")
 
 
 class Nickname(commands.Cog):
@@ -826,7 +826,7 @@ class Nickname(commands.Cog):
             if isinstance(cooldown_sec, str):
                 try:
                     cooldown_sec = parse_duration_string(cooldown_sec)
-                except(InvalidArgument):
+                except(commands.BadArgument):
                     await ctx.send("Unable to parse cooldown input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)")
                     return
 
@@ -865,7 +865,7 @@ class Nickname(commands.Cog):
             if isinstance(duration_sec, str):
                 try:
                     duration_sec = parse_duration_string(duration_sec)
-                except(InvalidArgument):
+                except(commands.BadArgument):
                     await ctx.send("Unable to parse duration input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)")
                     return
 

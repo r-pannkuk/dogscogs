@@ -9,7 +9,6 @@ from fractions import Fraction
 # import numpy as np
 
 import discord
-from discord.errors import InvalidArgument
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -298,7 +297,7 @@ class RoleColors(commands.Cog):
         if amount is None:
             amount = default_amount
         elif amount < 3:
-            raise InvalidArgument("Please enter a number higher than 2.")
+            raise commands.BadArgument("Please enter a number higher than 2.")
         elif amount != default_amount:
             await self.config.guild_from_id(ctx.guild.id).number_of_colors.set(amount)
 
