@@ -15,11 +15,34 @@ import pytz
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
-from utils.converters.percent import Percent
 
+class Percent(commands.Converter):
+    async def convert(self, ctx, argument):
+        try:
+            if argument[-1] == '%':
+                return float(argument[:-1]) / 100
+            return float(argument)
+        except:
+            return None
+        
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
-from utils.tokenizer import SERVER_NAME_TOKEN, MEMBER_COUNT_TOKEN, MEMBER_NAME_TOKEN, ACTION_TOKEN, replace_tokens, to_percent
+MEMBER_NAME_TOKEN = "$MEMBER_NAME$"
+SERVER_NAME_TOKEN = "$SERVER_NAME$"
+MEMBER_COUNT_TOKEN = "$MEMBER_COUNT$"
+ACTION_TOKEN = "$ACTION$"
+
+
+def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[bool] = False, token: typing.Optional[str] = None):
+    if token is not None:
+        return text.replace(token, )
+    return text.replace(
+        MEMBER_NAME_TOKEN, member.display_name if not use_mentions else member.mention
+    ).replace(
+        SERVER_NAME_TOKEN, member.guild.name
+    ).replace(
+        MEMBER_COUNT_TOKEN, str(member.guild.member_count)
+    )
 
 
 DEFAULT_GUILD = {
