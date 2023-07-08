@@ -323,10 +323,18 @@ class Logger(commands.Cog):
 
             if payload.before == None or payload.before.author == None or payload.before.author.id == None:
                 return
+            
+            author_id = None
 
-            author = await self.bot.get_or_fetch_member(guild, payload.before.author.id)
+            if payload.before is not None and payload.before.author is not None:
+                author_id = payload.before.author.id
+            else:
+                author_id = payload.data.author.id
+            
+            author = await self.bot.get_or_fetch_member(guild, author_id)
+
             if author == None:
-                author = await self.bot.get_or_fetch_user(payload.before.author.id)
+                author = await self.bot.get_or_fetch_user(author_id)
 
             if author.bot:
                 return
@@ -334,21 +342,38 @@ class Logger(commands.Cog):
             link_text = ""
 
             if await self.config.guild_from_id(guild.id).is_links_enabled():
-                link_text = f" <{payload.before.jump_url}>"
+                link_text = f"{payload.before.jump_url}"
 
-            log = f"[{channel.mention}] `{payload.type}D` message from **{author.display_name}**{link_text}:"
+            log = f"[{channel.mention}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
 
             if payload.type == 'DELETE':
-                await logger_channel.send(log + f"\n{payload.before.content}", files=[await attachment.to_file() for attachment in payload.before.attachments])
+                await logger_channel.send(log + f"\n{payload.before.content}", files=[await attachment.to_file() for attachment in payload.before.attachments], suppress_embeds=True)
                 pass
             elif payload.type == 'UPDATE':
                 if await self.config.guild_from_id(guild.id).formatted_inline():
-                    await logger_channel.send(log + f"\n{payload.delta_inline}")
+                    await logger_channel.send(log + f"\n{payload.delta_inline}", suppress_embeds=True)
                 else:
                     before = '>>> ' + payload.before.content
-                    await logger_channel.send(f"{log}\n{before}")
-                    await logger_channel.send(payload.data['content'])
+                    await logger_channel.send(f"{log}\n{before}", suppress_embeds=True)
+                    await logger_channel.send(payload.data['content'], suppress_embeds=True)
         return
+    
+    @commands.Cog.listener(name="on_raw_bulk_message_delete")
+    async def send_bulk_delete_log(self, event: discord.RawBulkMessageDeleteEvent):
+        """
+        Sends bulk data for processing.
+        """
+        for message in event.cached_messages:
+            single_event : discord.RawMessageDeleteEvent = discord.RawMessageDeleteEvent({
+                "channel_id": event.channel_id,
+                "guild_id": event.guild_id,
+                "id": message.id
+            })
+            single_event.cached_message = message
+            
+            await self.send_log(single_event)
+        pass
+        
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel):
