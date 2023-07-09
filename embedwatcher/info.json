@@ -1,0 +1,21 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "EmbedWatcher",
+    "short": "Watches for embed edits to lock them.",
+    "description": "Watches for embed edits to lock them.",
+    "end_user_data_statement": "This cog does not persistently store any data or metadata about users.",
+    "author": [
+        "klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "message",
+        "edit",
+        "embed"
+    ],
+    "min_bot_version": "3.3.10",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
