@@ -12,7 +12,8 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
     "is_enabled": True,
-    "timeout_mins": 10
+    "timeout_mins": 10,
+    "channel_id": None
 }
 
 class EmbedWatcher(commands.Cog):
@@ -85,6 +86,35 @@ class EmbedWatcher(commands.Cog):
 
         pass
 
+    @embedwatcher.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]):
+        """Sets up an echo channel to announce when users attempt to edit embeds.
+
+        Args:
+            channel (discord.TextChannel): (Optional) The channel for announcements. 
+        """
+        if channel is None:
+            channel_id = await self.config.guild(ctx.guild).channel_id()
+            try:
+                channel = await ctx.guild.fetch_channel(channel_id)
+            except:
+                channel = None
+                channel_id = None
+            pass
+        else:
+            channel_id = channel.id
+
+        await self.config.guild(ctx.guild).channel_id.set(channel_id)
+
+        if channel is None:
+            await ctx.send(f"Not announcing embed edit attempts to any channel.")
+        else:
+            await ctx.send(f"Announcing embed edit attempts to {channel.mention}.")
+
+        pass
+
+
     @commands.Cog.listener()
     async def on_raw_message_edit(self, event: discord.RawMessageUpdateEvent):
 
@@ -107,8 +137,11 @@ class EmbedWatcher(commands.Cog):
             if collections.Counter(before_files) == collections.Counter(after_files):
                 return
             
-            message = await before.channel.fetch_message(after["id"])
-            await message.delete()
+            try:
+                message = await before.channel.fetch_message(after["id"])
+                await message.delete()
+            except:
+                return
             
             author : dict = after["author"]
             member : discord.Member = await guild.fetch_member(author.get("id"))
@@ -124,5 +157,19 @@ class EmbedWatcher(commands.Cog):
                     except:
                         await member.send("Editing embeds is not allowed.")
                     pass
+            
+            channel_id = await self.config.guild(guild).channel_id()
+            
+            if channel_id is not None:
+                try:
+                    channel = await guild.fetch_channel(channel_id)
+                except:
+                    await self.config.guild(guild).channel_id.set(None)
+                    return
+                
+                response = f"User {member.mention if member else author} attempted to edit an embed / attachment in {before.jump_url}:\n"
+                response += '>>> ' + before.content
+                await channel.send(response, suppress_embeds=True)
+                await channel.send(after['content'], suppress_embeds=True)
             pass
         pass
