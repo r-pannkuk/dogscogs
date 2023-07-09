@@ -17,23 +17,23 @@ class Confirm(discord.ui.View):
     def __init__(self):
         super().__init__()
         self.value = None
-        self.response : discord.Message = None
+        self.interaction : discord.Interaction = None
 
     # When the confirm button is pressed, set the inner value to `True` and
     # stop the View from listening to more input.
     # We also send the user an ephemeral message that we're confirming their choice.
     @discord.ui.button(label='Confirm', style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('Confirming', ephemeral=True)
-        self.response = interaction.message
+        await interaction.response.send_message('Confirming')
+        self.interaction = interaction
         self.value = True
         self.stop()
 
     # This one is similar to the confirmation button except sets the inner value to `False`
     @discord.ui.button(label='Cancel', style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message('Cancelling', ephemeral=True)
-        self.response = interaction.message
+        await interaction.response.send_message('Cancelling')
+        self.interaction = interaction
         self.value = False
         self.stop()
 
@@ -89,12 +89,13 @@ class Purge(commands.Cog):
 
         view = Confirm()
 
-        await ctx.send(embed=embed, view=view)
+        prompt = await ctx.send(embed=embed, view=view)
 
         await view.wait()
+        followup = await view.interaction.original_response()
 
         if view.value is None:
-            await ctx.send("Timed out")
+            followup = await ctx.send("Timed out")
             pass
         elif view.value:
             # for i in range(0, len(list), CHUNK_SIZE):
@@ -103,11 +104,16 @@ class Purge(commands.Cog):
                 # await view.response.edit(content=f"{i + CHUNK_SIZE if i + CHUNK_SIZE < number else number} out of {number} deleted.")
                 # await asyncio.sleep(3)
             
-            await ctx.send("Deleted.")
+            followup = await followup.edit(content="Deleted.")
             pass
         else:
-            await ctx.send(f"Cancelled.")
+            followup - await followup.edit(content=f"Cancelled.")
             pass
 
-        
+        await asyncio.sleep(3)
+        await ctx.channel.delete_messages([
+            followup,
+            ctx.message,
+            prompt
+        ])
         pass
