@@ -167,7 +167,7 @@ class EmbedWatcher(commands.Cog):
                     await self.config.guild(guild).channel_id.set(None)
                     return
                 
-                response = f"User {member.mention if member else author} attempted to edit an embed / attachment in {before.jump_url}:\n"
+                response = f"User {member.mention if member else author} {f'was timedout for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {before.jump_url}:\n"
                 response += '>>> ' + before.content
                 await channel.send(response, suppress_embeds=True)
                 await channel.send(after['content'], suppress_embeds=True)
