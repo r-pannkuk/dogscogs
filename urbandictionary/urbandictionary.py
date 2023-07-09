@@ -38,7 +38,6 @@ class UrbanDictionary(commands.Cog):
         embed = discord.Embed(
             title=definition.word,
             description=definition.definition,
-            footer=f""
         )
         embed.set_thumbnail(url=URBAN_DICTIONARY_THUMBNAIL)
         if definition.example:
