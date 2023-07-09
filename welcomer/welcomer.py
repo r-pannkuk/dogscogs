@@ -403,7 +403,7 @@ class Welcomer(commands.Cog):
 
         if "footer" in obj and obj["footer"] != "":
             embed.set_footer(text=replace_tokens(
-                obj["footer"], member), icon_url=member.avatar_url)
+                obj["footer"], member), icon_url=member.avatar.url)
 
         if "embed_image_url" in obj and obj["embed_image_url"] != "":
             embed.set_thumbnail(url=obj["embed_image_url"])
@@ -451,7 +451,7 @@ class Welcomer(commands.Cog):
                 "name": SERVER_NAME_TOKEN,
                 "member_count": MEMBER_COUNT_TOKEN
             }),
-            "avatar_url": self.bot.user.avatar_url,
+            "avatar_url": self.bot.user.avatar.url,
             "mention": "$MEMBER_MENTION$"
         })
         return await self._create(channel, obj, member)
