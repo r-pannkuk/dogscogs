@@ -8,6 +8,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from types import SimpleNamespace
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -121,9 +123,21 @@ class EmbedWatcher(commands.Cog):
         guild: discord.Guild = self.bot.get_guild(event.guild_id)
         before = event.cached_message
         after = event.data
+        if "author" in after and "bot" not in after["author"]:
+            after["author"]["bot"] = False
+
+        if before is None:
+            before = SimpleNamespace(**{
+                "author": SimpleNamespace(**after["author"]),
+                "embeds": [],
+                "attachments": [],
+                "content": "",
+                "channel_id": after["channel_id"],
+                "id": after["id"],
+            })
 
         if await self.config.guild_from_id(guild.id).is_enabled():
-            if before.author.bot:
+            if before.author and before.author.bot:
                 return
             
             before_files = [embed.url for embed in before.embeds]
@@ -138,7 +152,9 @@ class EmbedWatcher(commands.Cog):
                 return
             
             try:
-                message = await before.channel.fetch_message(after["id"])
+                channel = await guild.fetch_channel(after["channel_id"])
+                message = await channel.fetch_message(after["id"])
+                jump_url = message.jump_url
                 await message.delete()
             except:
                 return
@@ -167,7 +183,7 @@ class EmbedWatcher(commands.Cog):
                     await self.config.guild(guild).channel_id.set(None)
                     return
                 
-                response = f"User {member.mention if member else author} {f'was timedout for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {before.jump_url}:\n"
+                response = f"User {member.mention if member else author} {f'was timedout for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {jump_url}:\n"
                 response += '>>> ' + before.content
                 await channel.send(response, suppress_embeds=True)
                 await channel.send(after['content'], suppress_embeds=True)
