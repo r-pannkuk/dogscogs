@@ -23,7 +23,7 @@ SERVER_NAME_TOKEN = "$SERVER_NAME$"
 MEMBER_COUNT_TOKEN = "$MEMBER_COUNT$"
 ACTION_TOKEN = "$ACTION$"
 
-TRIGGER_REGEX = "[^a-z0-9]\s"
+TRIGGER_REGEX = r"[^a-z0-9\s@<>#]"
 
 
 def replace_tokens(text, member: discord.Member, use_mentions: typing.Optional[bool] = False, token: typing.Optional[str] = None):
@@ -292,7 +292,7 @@ class Bully(commands.Cog):
             await ctx.send(f"``{phrase}`` is already triggering bully responses.")
             return
         
-        phrase = re.sub(TRIGGER_REGEX, "", phrase.lower())
+        phrase = re.sub(TRIGGER_REGEX, "", phrase.lower(), flags=re.M)
 
         triggers.append(phrase)
 
