@@ -259,25 +259,36 @@ class EmbedWatcher(commands.Cog):
 
         T = typing.TypeVar('T', discord.TextChannel, discord.Member, discord.Role)
 
-        async def get_list(list: list[str], fetch: typing.Callable[[int], typing.Awaitable[int]]):
-            ids = []
+        async def get_list(list: list[str], fetch: typing.Callable[[int], typing.Awaitable[int]]) -> list[T]:
+            objects : typing.List[T] = []
             for i in range(len(list)):
                 try:
                     object : T = await fetch(list[i])
-                    ids.append(f"[{i+1}] {object.mention}")
+                    objects.append(object)
                 except:
-                    ids.remove(list[i])
                     continue
-            return ids
+            return objects
         
-        channels = await get_list(whitelist["channel_ids"], ctx.guild.fetch_channel)
-        users = await get_list(whitelist["user_ids"], ctx.guild.fetch_member)
-        roles = await ctx.guild.fetch_roles()
-        roles = [f"[{i+1}] {roles[i].mention}" for i in range(len(roles)) if roles[i].id in whitelist["role_ids"]]
+        channels : list[discord.TextChannel] = await get_list(whitelist["channel_ids"], ctx.guild.fetch_channel)
+        channels.sort(key=lambda channel: channel.name.lower())
+        channels = [channel.mention for channel in channels]
+
+        members : list[discord.Member] = await get_list(whitelist["user_ids"], ctx.guild.fetch_member)
+        members.sort(key=lambda member: member.display_name.lower())
+        members = [member.mention for member in members]
+
+        roles : list[discord.Role] = await ctx.guild.fetch_roles()
+        roles.sort(key=lambda role: role.name.lower())
+        roles = [roles[i].mention for i in range(len(roles)) if roles[i].id in whitelist["role_ids"]]
+
+        if len(channels) == len(members) == len(roles) == 0:
+            await ctx.send(f"There's nothing in the whitelist.")
+            return
 
         embed.add_field(name="Channels", value='\n'.join(channels))
-        embed.add_field(name="Members", value='\n'.join(users))
+        embed.add_field(name="Members", value='\n'.join(members))
         embed.add_field(name="Roles", value='\n'.join(roles))
+
 
         await ctx.send(embed=embed)
         pass
