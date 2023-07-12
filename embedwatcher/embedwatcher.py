@@ -17,9 +17,35 @@ DEFAULT_GUILD = {
     "is_enabled": True,
     "timeout_mins": 10,
     "delay_mins": 60,
-    "whitelist_channel_ids": [],
+    "whitelist": {
+        "channel_ids": [],
+        "role_ids": [],
+        "user_ids": [],
+    },
     "channel_id": None
 }
+
+class ParsedMention(commands.Converter):
+    async def convert(self, ctx: commands.Context, mention: str) -> typing.Union[discord.TextChannel, discord.Member, discord.Role]:
+        try:
+            converter = commands.TextChannelConverter()
+            return await converter.convert(ctx, mention)
+        except:
+            pass
+
+        try:
+            converter = commands.MemberConverter()
+            return await converter.convert(ctx, mention)
+        except:
+            pass
+
+        try:
+            converter = commands.RoleConverter()
+            return await converter.convert(ctx, mention)
+        except:
+            pass
+
+        raise commands.BadArgument("Not a valid mention.")
 
 class EmbedWatcher(commands.Cog):
     """
@@ -38,7 +64,7 @@ class EmbedWatcher(commands.Cog):
 
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
         # TODO: Replace this with the proper end user data removal handling.
-        super().red_delete_data_for_user(requester=requester, user_id=user_id)
+        await super().red_delete_data_for_user(requester=requester, user_id=user_id)
 
     @commands.hybrid_group()
     @commands.mod_or_permissions(manage_roles=True)
@@ -154,36 +180,70 @@ class EmbedWatcher(commands.Cog):
 
     @whitelist.command()
     @commands.mod_or_permissions(manage_roles=True)
-    async def add(self, ctx: commands.Context, channel: discord.TextChannel):
+    async def add(self, ctx: commands.Context, target: ParsedMention):
         """Adds a channel to the white list so it is ignored in scanning attachment changes.
 
         Args:
             channel (discord.TextChannel): The discord channel to add. 
         """
-        whitelist_channel_ids = await self.config.guild(ctx.guild).whitelist_channel_ids()
-        whitelist_channel_ids.append(channel.id)
-        await self.config.guild(ctx.guild).whitelist_channel_ids.set(list(set(whitelist_channel_ids)))
+        whitelist = await self.config.guild(ctx.guild).whitelist()
 
-        await ctx.send(f"Added {channel.mention} to the whitelist.")
+        if isinstance(target, discord.Member):
+            whitelist["user_ids"].append(target.id)
+            pass
+        elif isinstance(target, discord.TextChannel):
+            whitelist["channel_ids"].append(target.id)
+            pass
+        elif isinstance(target, discord.Role):
+            whitelist["role_ids"].append(target.id)
+            pass
+        else:
+            raise commands.BadArgument('This is not a valid target for the whitelist.')
+        
+        whitelist["user_ids"] = list(set(whitelist["user_ids"]))
+        whitelist["channel_ids"] = list(set(whitelist["channel_ids"]))
+        whitelist["role_ids"] = list(set(whitelist["role_ids"]))
+
+        await self.config.guild(ctx.guild).whitelist.set(whitelist)
+
+        await ctx.send(f"Added {target.mention} to the whitelist.")
         pass
 
     @whitelist.command()
     @commands.mod_or_permissions(manage_roles=True)
-    async def remove(self, ctx: commands.Context, channel: discord.TextChannel):
+    async def remove(self, ctx: commands.Context, target: ParsedMention):
         """Removes a channel from the white list so it is scanned for attachment changes.
 
         Args:
             channel (discord.TextChannel): The discord channel to add. 
         """
-        whitelist_channel_ids = await self.config.guild(ctx.guild).whitelist_channel_ids()
-        if channel.id not in whitelist_channel_ids:
-            await ctx.send(f"{channel.mention} was not found in the whitelist.")
-            return
-        
-        whitelist_channel_ids.remove(channel.id)
-        await self.config.guild(ctx.guild).whitelist_channel_ids.set(list((set(whitelist_channel_ids))))
+        whitelist = await self.config.guild(ctx.guild).whitelist()
 
-        await ctx.send(f"Removed {channel.mention} from the whitelist.")
+        BAD_ARGUMENT = 'This is not a valid target for the whitelist.'
+
+        def remove_from_list(list: list[str]):
+            if target.id not in list:
+                raise commands.BadArgument(BAD_ARGUMENT)
+            
+            list.remove(target.id)
+
+            return list
+
+        if isinstance(target, discord.Member):
+            whitelist["user_ids"] = remove_from_list(whitelist["user_ids"])
+            pass
+        elif isinstance(target, discord.TextChannel):
+            whitelist["channel_ids"] = remove_from_list(whitelist["channel_ids"])
+            pass
+        elif isinstance(target, discord.Role):
+            whitelist["role_ids"] = remove_from_list(whitelist["role_ids"])
+            pass
+        else:
+            raise commands.BadArgument(BAD_ARGUMENT)
+        
+        await self.config.guild(ctx.guild).whitelist.set(whitelist)
+
+        await ctx.send(f"Removed {target.mention} from the whitelist.")
         pass
 
     @whitelist.command()
@@ -193,22 +253,31 @@ class EmbedWatcher(commands.Cog):
 
         """
         embed = discord.Embed()
-        embed.title = f"Ignored Channels for Embed / Attachment Scans:"
+        embed.title = f"Whitelist for Embed / Attachment Scans:"
 
-        channels = []
-        channel_ids = await self.config.guild(ctx.guild).whitelist_channel_ids()
+        whitelist = await self.config.guild(ctx.guild).whitelist()
 
-        for i in range(len(channel_ids)):
-            try:
-                channel : discord.TextChannel = await self.bot.fetch_channel(channel_ids[i])
-                channels.append(f"[{i}] {channel.mention}")
-            except:
-                channel_ids.remove(channel_ids[i])
-                continue
+        T = typing.TypeVar('T', discord.TextChannel, discord.Member, discord.Role)
+
+        async def get_list(list: list[str], fetch: typing.Callable[[int], typing.Awaitable[int]]):
+            ids = []
+            for i in range(len(list)):
+                try:
+                    object : T = await fetch(list[i])
+                    ids.append(f"[{i+1}] {object.mention}")
+                except:
+                    ids.remove(list[i])
+                    continue
+            return ids
         
-        channels = sorted(channels)
+        channels = await get_list(whitelist["channel_ids"], ctx.guild.fetch_channel)
+        users = await get_list(whitelist["user_ids"], ctx.guild.fetch_member)
+        roles = await ctx.guild.fetch_roles()
+        roles = [f"[{i+1}] {roles[i].mention}" for i in range(len(roles)) if roles[i].id in whitelist["role_ids"]]
 
-        embed.description = '\n'.join(channels)
+        embed.add_field(name="Channels", value='\n'.join(channels))
+        embed.add_field(name="Members", value='\n'.join(users))
+        embed.add_field(name="Roles", value='\n'.join(roles))
 
         await ctx.send(embed=embed)
         pass
