@@ -268,7 +268,7 @@ class EmbedWatcher(commands.Cog):
         T = typing.TypeVar("T", discord.TextChannel, discord.Member, discord.Role)
 
         async def get_list(
-            list: list[str],
+            list: typing.List[str],
             fetch: typing.Callable[
                 [int], typing.Coroutine[typing.Any, typing.Any, int]
             ],
