@@ -233,7 +233,7 @@ class EmbedWatcher(commands.Cog):
 
         def remove_from_list(list: typing.List[str]):
             if target.id not in list:
-                raise commands.BadArgument(BAD_ARGUMENT)
+                raise commands.BadArgument(f"That isn't in the whitelist, idiot.")
 
             list.remove(target.id)
 
