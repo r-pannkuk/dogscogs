@@ -366,12 +366,21 @@ class EmbedWatcher(commands.Cog):
             return
 
         # ignore whitelist
-        whitelist_channel_ids = await self.config.guild(guild).whitelist_channel_ids()
-        if int(after["channel_id"]) in whitelist_channel_ids:
+        whitelist = await self.config.guild(guild).whitelist()
+        if int(after["channel_id"]) in whitelist["channel_ids"]:
+            return
+        if int(after["author"]["id"]) in whitelist["user_ids"]:
+            return
+        
+        author: dict = after["author"]
+        member: discord.Member = await guild.fetch_member(author.get("id"))
+        member_role_ids = [role.id for role in member.roles]
+
+        if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):
             return
 
         if await self.config.guild_from_id(guild.id).is_enabled():
-            if before.author and before.author.bot:
+            if member.bot:
                 return
 
             before_files = [embed.url for embed in before.embeds]
@@ -394,9 +403,6 @@ class EmbedWatcher(commands.Cog):
                 await message.delete()
             except:
                 return
-
-            author: dict = after["author"]
-            member: discord.Member = await guild.fetch_member(author.get("id"))
 
             if member:
                 timeout_mins = await self.config.guild(guild).timeout_mins()
