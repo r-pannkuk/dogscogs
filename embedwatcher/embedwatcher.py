@@ -22,11 +22,14 @@ DEFAULT_GUILD = {
         "role_ids": [],
         "user_ids": [],
     },
-    "channel_id": None
+    "channel_id": None,
 }
 
+
 class ParsedMention(commands.Converter):
-    async def convert(self, ctx: commands.Context, mention: str) -> typing.Union[discord.TextChannel, discord.Member, discord.Role]:
+    async def convert(
+        self, ctx: commands.Context, mention: str
+    ) -> typing.Union[discord.TextChannel, discord.Member, discord.Role]:
         try:
             converter = commands.TextChannelConverter()
             return await converter.convert(ctx, mention)
@@ -47,6 +50,7 @@ class ParsedMention(commands.Converter):
 
         raise commands.BadArgument("Not a valid mention.")
 
+
 class EmbedWatcher(commands.Cog):
     """
     Watches for embed edits to lock them.
@@ -62,15 +66,16 @@ class EmbedWatcher(commands.Cog):
 
         self.config.register_guild(**DEFAULT_GUILD)
 
-    async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
+    async def red_delete_data_for_user(
+        self, *, requester: RequestType, user_id: int
+    ) -> None:
         # TODO: Replace this with the proper end user data removal handling.
         await super().red_delete_data_for_user(requester=requester, user_id=user_id)
 
     @commands.hybrid_group()
     @commands.mod_or_permissions(manage_roles=True)
     async def embedwatcher(self, ctx: commands.Context):
-        """Watches for embed edits and deletes messages to prevent them.
-        """
+        """Watches for embed edits and deletes messages to prevent them."""
         pass
 
     @embedwatcher.command()
@@ -103,7 +108,7 @@ class EmbedWatcher(commands.Cog):
         """Defines how long a user should be timed out for after editing an embed.
 
         Args:
-            minutes (int): (Optional) How long to timeout the user for. 
+            minutes (int): (Optional) How long to timeout the user for.
         """
         if minutes is None:
             minutes = await self.config.guild(ctx.guild).timeout_mins()
@@ -114,7 +119,9 @@ class EmbedWatcher(commands.Cog):
         await self.config.guild(ctx.guild).timeout_mins.set(minutes)
 
         if minutes > 0:
-            await ctx.send(f"Users who edit message embeds will be timed out for {minutes} minute{'' if minutes == 1 else 's'}.")
+            await ctx.send(
+                f"Users who edit message embeds will be timed out for {minutes} minute{'' if minutes == 1 else 's'}."
+            )
         else:
             await ctx.send(f"Users will not be timed out if they edit embeds.")
 
@@ -126,7 +133,7 @@ class EmbedWatcher(commands.Cog):
         """Defines how long the bot should wait before checking for edits.
 
         Args:
-            minutes (int): (Optional) How long to delay edit checks for. 
+            minutes (int): (Optional) How long to delay edit checks for.
         """
         if minutes is None:
             minutes = await self.config.guild(ctx.guild).delay_mins()
@@ -137,7 +144,9 @@ class EmbedWatcher(commands.Cog):
         await self.config.guild(ctx.guild).delay_mins.set(minutes)
 
         if minutes > 0:
-            await ctx.send(f"Will wait for {minutes} minute{'' if minutes == 1 else 's'} before checking edited messages.")
+            await ctx.send(
+                f"Will wait for {minutes} minute{'' if minutes == 1 else 's'} before checking edited messages."
+            )
         else:
             await ctx.send(f"Will not wait to check edited messages.")
 
@@ -145,11 +154,13 @@ class EmbedWatcher(commands.Cog):
 
     @embedwatcher.command()
     @commands.mod_or_permissions(manage_roles=True)
-    async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]):
+    async def channel(
+        self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]
+    ):
         """Sets up an echo channel to announce when users attempt to edit embeds.
 
         Args:
-            channel (discord.TextChannel): (Optional) The channel for announcements. 
+            channel (discord.TextChannel): (Optional) The channel for announcements.
         """
         if channel is None:
             channel_id = await self.config.guild(ctx.guild).channel_id()
@@ -174,8 +185,7 @@ class EmbedWatcher(commands.Cog):
     @embedwatcher.group()
     @commands.mod_or_permissions(manage_roles=True)
     async def whitelist(self, ctx: commands.Context):
-        """Defines the channel whitelist for edited attachments. 
-        """
+        """Defines the channel whitelist for edited attachments."""
         pass
 
     @whitelist.command()
@@ -184,7 +194,7 @@ class EmbedWatcher(commands.Cog):
         """Adds a channel to the white list so it is ignored in scanning attachment changes.
 
         Args:
-            channel (discord.TextChannel): The discord channel to add. 
+            channel (discord.TextChannel): The discord channel to add.
         """
         whitelist = await self.config.guild(ctx.guild).whitelist()
 
@@ -198,8 +208,8 @@ class EmbedWatcher(commands.Cog):
             whitelist["role_ids"].append(target.id)
             pass
         else:
-            raise commands.BadArgument('This is not a valid target for the whitelist.')
-        
+            raise commands.BadArgument("This is not a valid target for the whitelist.")
+
         whitelist["user_ids"] = list(set(whitelist["user_ids"]))
         whitelist["channel_ids"] = list(set(whitelist["channel_ids"]))
         whitelist["role_ids"] = list(set(whitelist["role_ids"]))
@@ -215,16 +225,16 @@ class EmbedWatcher(commands.Cog):
         """Removes a channel from the white list so it is scanned for attachment changes.
 
         Args:
-            channel (discord.TextChannel): The discord channel to add. 
+            channel (discord.TextChannel): The discord channel to add.
         """
         whitelist = await self.config.guild(ctx.guild).whitelist()
 
-        BAD_ARGUMENT = 'This is not a valid target for the whitelist.'
+        BAD_ARGUMENT = "This is not a valid target for the whitelist."
 
         def remove_from_list(list: list[str]):
             if target.id not in list:
                 raise commands.BadArgument(BAD_ARGUMENT)
-            
+
             list.remove(target.id)
 
             return list
@@ -240,7 +250,7 @@ class EmbedWatcher(commands.Cog):
             pass
         else:
             raise commands.BadArgument(BAD_ARGUMENT)
-        
+
         await self.config.guild(ctx.guild).whitelist.set(whitelist)
 
         await ctx.send(f"Removed {target.mention} from the whitelist.")
@@ -249,85 +259,112 @@ class EmbedWatcher(commands.Cog):
     @whitelist.command()
     @commands.mod_or_permissions(manage_roles=True)
     async def list(self, ctx: commands.Context):
-        """Lists all channels currently being ignored in attachment change scans.
-
-        """
+        """Lists all channels currently being ignored in attachment change scans."""
         embed = discord.Embed()
         embed.title = f"Whitelist for Embed / Attachment Scans:"
 
         whitelist = await self.config.guild(ctx.guild).whitelist()
 
-        T = typing.TypeVar('T', discord.TextChannel, discord.Member, discord.Role)
+        T = typing.TypeVar("T", discord.TextChannel, discord.Member, discord.Role)
 
-        async def get_list(list: list[str], fetch: typing.Callable[[int], typing.Awaitable[int]]) -> list[T]:
-            objects : typing.List[T] = []
+        async def get_list(
+            list: list[str],
+            fetch: typing.Callable[
+                [int], typing.Coroutine[typing.Any, typing.Any, int]
+            ],
+        ) -> typing.List[T]:
+            objects: typing.List[T] = []
             for i in range(len(list)):
                 try:
-                    object : T = await fetch(list[i])
+                    object: T = await fetch(list[i])
                     objects.append(object)
                 except:
                     continue
             return objects
-        
-        channels : list[discord.TextChannel] = await get_list(whitelist["channel_ids"], ctx.guild.fetch_channel)
+
+        channels: list[discord.TextChannel] = await get_list(
+            whitelist["channel_ids"], ctx.guild.fetch_channel
+        )
         channels.sort(key=lambda channel: channel.name.lower())
         channels = [channel.mention for channel in channels]
 
-        members : list[discord.Member] = await get_list(whitelist["user_ids"], ctx.guild.fetch_member)
+        members: list[discord.Member] = await get_list(
+            whitelist["user_ids"], ctx.guild.fetch_member
+        )
         members.sort(key=lambda member: member.display_name.lower())
         members = [member.mention for member in members]
 
-        roles : list[discord.Role] = await ctx.guild.fetch_roles()
+        roles: list[discord.Role] = await ctx.guild.fetch_roles()
         roles.sort(key=lambda role: role.name.lower())
-        roles = [roles[i].mention for i in range(len(roles)) if roles[i].id in whitelist["role_ids"]]
+        roles = [
+            roles[i].mention
+            for i in range(len(roles))
+            if roles[i].id in whitelist["role_ids"]
+        ]
 
         if len(channels) == len(members) == len(roles) == 0:
             await ctx.send(f"There's nothing in the whitelist.")
             return
 
-        embed.add_field(name="Channels", value='\n'.join(channels))
-        embed.add_field(name="Members", value='\n'.join(members))
-        embed.add_field(name="Roles", value='\n'.join(roles))
-
+        embed.add_field(name="Channels", value="\n".join(channels))
+        embed.add_field(name="Members", value="\n".join(members))
+        embed.add_field(name="Roles", value="\n".join(roles))
 
         await ctx.send(embed=embed)
         pass
-
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, event: discord.RawMessageUpdateEvent):
         if isinstance(event, discord.RawMessageDeleteEvent):
             return
-        
+
         guild: discord.Guild = self.bot.get_guild(event.guild_id)
         before = event.cached_message
         after = event.data
 
-        if "author" not in after or "embeds" not in after or "content" not in after or "attachments" not in after or "edited_timestamp" not in after:
+        if (
+            "author" not in after
+            or "embeds" not in after
+            or "content" not in after
+            or "attachments" not in after
+            or "edited_timestamp" not in after
+        ):
             return
-        
+
         if "bot" not in after["author"]:
             after["author"]["bot"] = False
 
         if before is None:
-            before = SimpleNamespace(**{
-                "author": SimpleNamespace(**after["author"]),
-                "embeds": [],
-                "attachments": [],
-                "content": "",
-                "channel_id": after["channel_id"],
-                "id": after["id"],
-                "created_at": datetime.datetime(year=2000, month=1, day=1, hour=1, minute=1, second=1, microsecond=1)
-            })
-        
+            before = SimpleNamespace(
+                **{
+                    "author": SimpleNamespace(**after["author"]),
+                    "embeds": [],
+                    "attachments": [],
+                    "content": "",
+                    "channel_id": after["channel_id"],
+                    "id": after["id"],
+                    "created_at": datetime.datetime(
+                        year=2000,
+                        month=1,
+                        day=1,
+                        hour=1,
+                        minute=1,
+                        second=1,
+                        microsecond=1,
+                    ),
+                }
+            )
+
         delay_mins = await self.config.guild(guild).delay_mins()
 
         # ignore delay
         after_edited_at = datetime.datetime.fromisoformat(after["edited_timestamp"])
         before_created_at = before.created_at
-        if (after_edited_at.timestamp() - before_created_at.timestamp()) <= timedelta(minutes=delay_mins).total_seconds():
+        if (after_edited_at.timestamp() - before_created_at.timestamp()) <= timedelta(
+            minutes=delay_mins
+        ).total_seconds():
             return
-        
+
         # ignore whitelist
         whitelist_channel_ids = await self.config.guild(guild).whitelist_channel_ids()
         if int(after["channel_id"]) in whitelist_channel_ids:
@@ -336,18 +373,20 @@ class EmbedWatcher(commands.Cog):
         if await self.config.guild_from_id(guild.id).is_enabled():
             if before.author and before.author.bot:
                 return
-            
+
             before_files = [embed.url for embed in before.embeds]
             before_files.extend([attachment.url for attachment in before.attachments])
 
             if "embeds" in after:
                 after_files = [embed["url"] for embed in after["embeds"]]
             if "attachments" in after:
-                after_files.extend([attachment["url"] for attachment in after["attachments"]])
+                after_files.extend(
+                    [attachment["url"] for attachment in after["attachments"]]
+                )
 
             if collections.Counter(before_files) == collections.Counter(after_files):
                 return
-            
+
             try:
                 channel = await guild.fetch_channel(after["channel_id"])
                 message = await channel.fetch_message(after["id"])
@@ -355,34 +394,36 @@ class EmbedWatcher(commands.Cog):
                 await message.delete()
             except:
                 return
-            
-            author : dict = after["author"]
-            member : discord.Member = await guild.fetch_member(author.get("id"))
+
+            author: dict = after["author"]
+            member: discord.Member = await guild.fetch_member(author.get("id"))
 
             if member:
                 timeout_mins = await self.config.guild(guild).timeout_mins()
-                
+
                 if timeout_mins > 0:
                     try:
                         reason = f"Embeds are currently prevented from being edited.  User has been timed out for {timeout_mins} minute{'' if timeout_mins == 1 else 's'}."
-                        await member.timeout(timedelta(minutes=timeout_mins), reason=reason)
+                        await member.timeout(
+                            timedelta(minutes=timeout_mins), reason=reason
+                        )
                         await member.send(reason)
                     except:
                         await member.send("Editing embeds is not allowed.")
                     pass
-            
+
             channel_id = await self.config.guild(guild).channel_id()
-            
+
             if channel_id is not None:
                 try:
                     channel = await guild.fetch_channel(channel_id)
                 except:
                     await self.config.guild(guild).channel_id.set(None)
                     return
-                
+
                 response = f"User {member.mention if member else author} {f'was timedout for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {jump_url}:\n"
-                response += '>>> ' + before.content
+                response += ">>> " + before.content
                 await channel.send(response, suppress_embeds=True)
-                await channel.send(after['content'], suppress_embeds=True)
+                await channel.send(after["content"], suppress_embeds=True)
             pass
         pass
