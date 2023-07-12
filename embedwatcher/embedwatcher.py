@@ -231,7 +231,7 @@ class EmbedWatcher(commands.Cog):
 
         BAD_ARGUMENT = "This is not a valid target for the whitelist."
 
-        def remove_from_list(list: list[str]):
+        def remove_from_list(list: typing.List[str]):
             if target.id not in list:
                 raise commands.BadArgument(BAD_ARGUMENT)
 
@@ -282,19 +282,19 @@ class EmbedWatcher(commands.Cog):
                     continue
             return objects
 
-        channels: list[discord.TextChannel] = await get_list(
+        channels: typing.List[discord.TextChannel] = await get_list(
             whitelist["channel_ids"], ctx.guild.fetch_channel
         )
         channels.sort(key=lambda channel: channel.name.lower())
         channels = [channel.mention for channel in channels]
 
-        members: list[discord.Member] = await get_list(
+        members: typing.List[discord.Member] = await get_list(
             whitelist["user_ids"], ctx.guild.fetch_member
         )
         members.sort(key=lambda member: member.display_name.lower())
         members = [member.mention for member in members]
 
-        roles: list[discord.Role] = await ctx.guild.fetch_roles()
+        roles: typing.List[discord.Role] = await ctx.guild.fetch_roles()
         roles.sort(key=lambda role: role.name.lower())
         roles = [
             roles[i].mention
