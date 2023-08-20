@@ -1,5 +1,8 @@
 import asyncio
 import datetime
+import io
+import os
+import tempfile
 from typing import Literal
 import typing
 
@@ -150,6 +153,32 @@ class Purge(commands.Cog):
         )
         pass
 
+    def _file_header(
+        self,
+        users: typing.List[discord.User],
+        channel: discord.TextChannel,
+        messages: typing.List[discord.Message],
+    ):
+        header = ""
+        header += f"Server: {channel.guild.name}\n"
+        header += f"Server ID: {channel.guild.id}\n"
+        header += f"Channel: {channel.name}\n"
+        header += f"Channel ID: {channel.id}\n"
+        header += f"Users: \n"
+
+        for user in users:
+            header += f"-- {user.display_name}{f'({user.name})' if user.name != user.display_name else ''} [{user.id}]\n"
+
+        header += f"No. Messages: {len(messages)}\n"
+        header += "\n\n"
+
+        return header
+
+    def _file_line(self, message: discord.Message):
+        user = message.author
+        username = f"{user.display_name}{f' ({user.name})' if user.name != user.display_name else ''}"
+        return f"({message.created_at.strftime('%Y-%m-%d %H:%M:%S')}) {username}: {message.content}"
+
     @commands.hybrid_group()
     @commands.admin_or_can_manage_channel()
     async def purge(self, ctx: commands.Context):
@@ -176,6 +205,8 @@ class Purge(commands.Cog):
         """
         if channel is None:
             channel = ctx.channel
+
+        deferment = await ctx.defer(ephemeral=False)
 
         messages = channel.history(limit=number, before=ctx.message, oldest_first=False)
 
@@ -207,7 +238,7 @@ class Purge(commands.Cog):
         followup = await view.interaction.original_response()
 
         if view.value is None:
-            followup = await ctx.send("Timed out")
+            followup = await ctx.channel.send("Timed out")
             pass
         elif view.value:
             # for i in range(0, len(list), CHUNK_SIZE):
@@ -225,7 +256,7 @@ class Purge(commands.Cog):
             pass
 
         await asyncio.sleep(3)
-        await ctx.channel.delete_messages([followup, ctx.message, prompt])
+        await ctx.channel.delete_messages([ctx.message, deferment, prompt, followup])
         pass
 
     @purge.command()
@@ -265,7 +296,7 @@ class Purge(commands.Cog):
                 ctx.guild.get_member(self.bot.user.id)
             ).manage_messages
         ]
-        
+
         if ignore_channels is not None:
             in_channels = [
                 channel
@@ -278,9 +309,11 @@ class Purge(commands.Cog):
         messages = {}
         number = 0
 
+        deferment = await ctx.send("Starting fetch")
+
         user_ids = [user.id for user in users]
 
-        response = await ctx.send("Fetching...")
+        response = await ctx.channel.send("Fetching...")
 
         for channel in in_channels:
             await response.edit(content=f"Fetching...{channel.mention}")
@@ -322,11 +355,12 @@ class Purge(commands.Cog):
             followup = await view.interaction.original_response()
 
         if view.value is None:
-            followup = await ctx.send("Timed out")
+            followup = await ctx.channel.send("Timed out")
             pass
         elif view.value:
             completed_channels: typing.List[discord.TextChannel] = []
             current_total = 0
+            files = []
 
             def generate_followup_str(
                 channel, channel_current_total, channel_total, current_total
@@ -349,37 +383,56 @@ class Purge(commands.Cog):
                     )
                 )
 
-                bulk_messages = [
-                    message
-                    for message in messages
-                    if message.created_at
-                    > (
-                        datetime.datetime.utcnow() - datetime.timedelta(days=14)
-                    ).astimezone(tz=pytz.timezone("UTC"))
-                ]
+                if len(messages) > 0:
+                    file = self._file_header(users, channel, messages)
 
-                await channel.delete_messages(bulk_messages)
+                    bulk_messages = [
+                        message
+                        for message in messages
+                        if message.created_at
+                        > (
+                            datetime.datetime.utcnow() - datetime.timedelta(days=14)
+                        ).astimezone(tz=pytz.timezone("UTC"))
+                    ]
 
-                channel_current_total += len(bulk_messages)
-                current_total += len(bulk_messages)
+                    file += "\n".join(
+                        [self._file_line(message) for message in bulk_messages]
+                    )
 
-                remaining_messages = [
-                    message for message in messages if message not in bulk_messages
-                ]
-                for message in remaining_messages:
-                    try:
-                        await message.delete()
-                    except Exception as e:
-                        print(e)
-                        pass
-                    channel_current_total += 1
-                    current_total += 1
-                    await followup.edit(
-                        content=generate_followup_str(
-                            channel, channel_current_total, channel_total, current_total
+                    await channel.delete_messages(bulk_messages)
+
+                    channel_current_total += len(bulk_messages)
+                    current_total += len(bulk_messages)
+
+                    remaining_messages = [
+                        message for message in messages if message not in bulk_messages
+                    ]
+                    for message in remaining_messages:
+                        try:
+                            await message.delete()
+                        except Exception as e:
+                            print(e)
+                            pass
+                        channel_current_total += 1
+                        current_total += 1
+                        await followup.edit(
+                            content=generate_followup_str(
+                                channel,
+                                channel_current_total,
+                                channel_total,
+                                current_total,
+                            )
+                        )
+                        file += self._file_line(message) + "\n"
+                        await asyncio.sleep(3)
+
+                    f = io.StringIO(file)
+                    await ctx.author.send(
+                        file=discord.File(
+                            fp=f,
+                            filename=f"{channel.name}_{int(datetime.datetime.now().strftime('%Y%m%d'))}.txt",
                         )
                     )
-                    await asyncio.sleep(3)
 
                 completed_channels.append(channel)
 
@@ -390,7 +443,9 @@ class Purge(commands.Cog):
             pass
 
         await asyncio.sleep(3)
-        await ctx.channel.delete_messages([ctx.message, response, prompt, followup])
+        await ctx.channel.delete_messages(
+            [ctx.message, deferment, response, prompt, followup]
+        )
         pass
 
         pass
