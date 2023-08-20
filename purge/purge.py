@@ -66,7 +66,7 @@ class UserParser(commands.Converter):
             pruned_args = [
                 id.replace("<", "").replace(">", "").replace("@", "") for id in args
             ]
-            extra_users = [ctx.bot.get_user(arg) for arg in pruned_args]
+            extra_users = [await ctx.bot.fetch_user(arg) for arg in pruned_args]
 
             badUsers = []
 
@@ -280,11 +280,11 @@ class Purge(commands.Cog):
 
         embed = discord.Embed()
         embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
-        embed.description = f"User: {','.join([user.mention for user in users])}"
+        embed.description = f"**User**: {','.join([user.mention for user in users])}"
         embed.description += f"\n"
-        embed.description += f"Channels: {','.join(channel_mentions)}"
+        embed.description += f"**Channels**: {','.join(channel_mentions)}"
         embed.description += f"\n"
-        embed.description += f"Number: {number}"
+        embed.description += f"**Number**: {number}"
 
         view = Confirm(allowed_respondents=[ctx.author])
 
