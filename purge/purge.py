@@ -88,7 +88,9 @@ class UserParser(commands.Converter):
 # https://github.com/Rapptz/discord.py/blob/master/examples/views/confirm.py
 # Define a simple View that gives us a confirmation menu
 class Confirm(discord.ui.View):
-    def __init__(self, allowed_respondents : typing.List[discord.Member | discord.User] = []):
+    def __init__(
+        self, allowed_respondents: typing.List[discord.Member | discord.User] = []
+    ):
         super().__init__()
         self.value = None
         self.allowed_respondents = allowed_respondents
@@ -102,10 +104,15 @@ class Confirm(discord.ui.View):
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        if self.is_limiting_respondents and interaction.user not in self.allowed_respondents:
-            await interaction.response.send_message("You aren't qualified to respond to this.", ephemeral=True)
+        if (
+            self.is_limiting_respondents
+            and interaction.user not in self.allowed_respondents
+        ):
+            await interaction.response.send_message(
+                "You aren't qualified to respond to this.", ephemeral=True
+            )
             return
-        
+
         await interaction.response.send_message("Confirming")
         self.interaction = interaction
         self.value = True
@@ -114,10 +121,15 @@ class Confirm(discord.ui.View):
     # This one is similar to the confirmation button except sets the inner value to `False`
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if self.is_limiting_respondents and interaction.user not in self.allowed_respondents:
-            await interaction.response.send_message("You aren't qualified to respond to this.", ephemeral=True)
+        if (
+            self.is_limiting_respondents
+            and interaction.user not in self.allowed_respondents
+        ):
+            await interaction.response.send_message(
+                "You aren't qualified to respond to this.", ephemeral=True
+            )
             return
-        
+
         await interaction.response.send_message("Cancelling")
         self.interaction = interaction
         self.value = False
@@ -238,9 +250,22 @@ class Purge(commands.Cog):
 
         if in_channels is None:
             in_channels = ctx.guild.channels
-            in_channels = [
-                channel for channel in in_channels if channel.type in TEXT_CHANNEL_TYPES
-            ]
+
+        in_channels = [
+            channel
+            for channel in in_channels
+            if channel.type in TEXT_CHANNEL_TYPES
+            and channel.permissions_for(
+                ctx.guild.get_member(self.bot.user.id)
+            ).read_messages
+            and channel.permissions_for(
+                ctx.guild.get_member(self.bot.user.id)
+            ).read_message_history
+            and channel.permissions_for(
+                ctx.guild.get_member(self.bot.user.id)
+            ).manage_messages
+        ]
+        
         if ignore_channels is not None:
             in_channels = [
                 channel
@@ -261,7 +286,9 @@ class Purge(commands.Cog):
             await response.edit(content=f"Fetching...{channel.mention}")
             messages[channel.id] = []
             channel_scan_number = 0
-            async for message in channel.history(limit=None, before=ctx.message, oldest_first=False):
+            async for message in channel.history(
+                limit=None, before=ctx.message, oldest_first=False
+            ):
                 if message.author.id in user_ids:
                     messages[channel.id].append(message)
                     number += 1
@@ -269,7 +296,6 @@ class Purge(commands.Cog):
 
                     if limit is not None and channel_scan_number >= limit:
                         break
-
 
         if number == 0:
             await ctx.channel.delete_messages([response])
@@ -302,7 +328,9 @@ class Purge(commands.Cog):
             completed_channels: typing.List[discord.TextChannel] = []
             current_total = 0
 
-            def generate_followup_str(channel, channel_current_total, channel_total, current_total) -> str:
+            def generate_followup_str(
+                channel, channel_current_total, channel_total, current_total
+            ) -> str:
                 followup_str = f"**Completed**: {','.join([channel.mention for channel in completed_channels])}"
                 followup_str += f"\n"
                 followup_str += f"**Currently On**: {channel.mention} ({channel_current_total} out of {channel_total})"
@@ -315,7 +343,11 @@ class Purge(commands.Cog):
                 channel_total = len(messages)
                 channel_current_total = 0
 
-                await followup.edit(content=generate_followup_str(channel, channel_current_total, channel_total, current_total))
+                await followup.edit(
+                    content=generate_followup_str(
+                        channel, channel_current_total, channel_total, current_total
+                    )
+                )
 
                 bulk_messages = [
                     message
@@ -342,7 +374,11 @@ class Purge(commands.Cog):
                         pass
                     channel_current_total += 1
                     current_total += 1
-                    await followup.edit(content=generate_followup_str(channel, channel_current_total, channel_total, current_total))
+                    await followup.edit(
+                        content=generate_followup_str(
+                            channel, channel_current_total, channel_total, current_total
+                        )
+                    )
                     await asyncio.sleep(3)
 
                 completed_channels.append(channel)
