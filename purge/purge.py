@@ -88,9 +88,11 @@ class UserParser(commands.Converter):
 # https://github.com/Rapptz/discord.py/blob/master/examples/views/confirm.py
 # Define a simple View that gives us a confirmation menu
 class Confirm(discord.ui.View):
-    def __init__(self):
+    def __init__(self, allowed_respondents : typing.List[discord.Member | discord.User] = []):
         super().__init__()
         self.value = None
+        self.allowed_respondents = allowed_respondents
+        self.is_limiting_respondents = len(allowed_respondents) > 0
         self.interaction: discord.Interaction = None
 
     # When the confirm button is pressed, set the inner value to `True` and
@@ -100,6 +102,10 @@ class Confirm(discord.ui.View):
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
+        if self.is_limiting_respondents and interaction.user not in self.allowed_respondents:
+            await interaction.response.send_message("You aren't qualified to respond to this.", ephemeral=True)
+            return
+        
         await interaction.response.send_message("Confirming")
         self.interaction = interaction
         self.value = True
@@ -108,6 +114,10 @@ class Confirm(discord.ui.View):
     # This one is similar to the confirmation button except sets the inner value to `False`
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.is_limiting_respondents and interaction.user not in self.allowed_respondents:
+            await interaction.response.send_message("You aren't qualified to respond to this.", ephemeral=True)
+            return
+        
         await interaction.response.send_message("Cancelling")
         self.interaction = interaction
         self.value = False
@@ -177,7 +187,7 @@ class Purge(commands.Cog):
         embed.description += "\n"
         embed.description += f"Last Message: {last_deleted_message.jump_url}"
 
-        view = Confirm()
+        view = Confirm(allowed_respondents=[ctx.author])
 
         prompt = await ctx.send(embed=embed, view=view)
 
@@ -276,7 +286,7 @@ class Purge(commands.Cog):
         embed.description += f"\n"
         embed.description += f"Number: {number}"
 
-        view = Confirm()
+        view = Confirm(allowed_respondents=[ctx.author])
 
         prompt = await ctx.send(embed=embed, view=view)
 
