@@ -23,6 +23,8 @@ TEXT_CHANNEL_TYPES = [
     discord.ChannelType.text,
 ]
 
+UPDATE_DURATION_SECS = 5
+DELETE_INTERVAL_SECS = 3
 
 class ChannelParser(commands.Converter):
     async def convert(self, ctx: commands.Context, argument: str):
@@ -99,6 +101,7 @@ class Confirm(discord.ui.View):
         self.allowed_respondents = allowed_respondents
         self.is_limiting_respondents = len(allowed_respondents) > 0
         self.interaction: discord.Interaction = None
+        self.timeout = None
 
     # When the confirm button is pressed, set the inner value to `True` and
     # stop the View from listening to more input.
@@ -205,10 +208,13 @@ class Purge(commands.Cog):
         """
         if channel is None:
             channel = ctx.channel
+            before_message = ctx.message
+        else:
+            before_message = channel.last_message
 
         deferment = await ctx.defer(ephemeral=False)
 
-        messages = channel.history(limit=number, before=ctx.message, oldest_first=False)
+        messages = channel.history(limit=number, before=before_message, oldest_first=False)
 
         list = []
 
@@ -244,7 +250,7 @@ class Purge(commands.Cog):
             # for i in range(0, len(list), CHUNK_SIZE):
             #     chunk = list[i: i + CHUNK_SIZE]
             await channel.purge(
-                limit=number, before=ctx.message, bulk=True, oldest_first=False
+                limit=number, before=before_message, bulk=True, oldest_first=False
             )
             # await view.response.edit(content=f"{i + CHUNK_SIZE if i + CHUNK_SIZE < number else number} out of {number} deleted.")
             # await asyncio.sleep(3)
@@ -256,7 +262,7 @@ class Purge(commands.Cog):
             pass
 
         await asyncio.sleep(3)
-        await ctx.channel.delete_messages([ctx.message, deferment, prompt, followup])
+        await ctx.channel.delete_messages([ctx.message, prompt, followup])
         pass
 
     @purge.command()
@@ -319,15 +325,25 @@ class Purge(commands.Cog):
             await response.edit(content=f"Fetching...{channel.mention}")
             messages[channel.id] = []
             channel_scan_number = 0
+            author_scan_number = 0
+
+            next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
+
             async for message in channel.history(
                 limit=None, before=ctx.message, oldest_first=False
             ):
+                channel_scan_number += 1
+
+                if datetime.datetime.utcnow() > next_update:
+                    await response.edit(content=f"Fetching...{channel.mention}\nParsed: {channel_scan_number}\nFound: {author_scan_number}")
+                    next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
+                
                 if message.author.id in user_ids:
                     messages[channel.id].append(message)
                     number += 1
-                    channel_scan_number += 1
+                    author_scan_number += 1
 
-                    if limit is not None and channel_scan_number >= limit:
+                    if limit is not None and author_scan_number >= limit:
                         break
 
         if number == 0:
@@ -335,13 +351,13 @@ class Purge(commands.Cog):
             await ctx.send("No messages found.")
             return
 
-        channel_mentions = [channel.mention for channel in in_channels]
+        channel_mentions = [f"{channel.mention} ({len(messages[channel.id])})" for channel in in_channels]
 
         embed = discord.Embed()
         embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
-        embed.description = f"**User**: {','.join([user.mention for user in users])}"
+        embed.description = f"**User**: {', '.join([user.mention for user in users])}"
         embed.description += f"\n"
-        embed.description += f"**Channels**: {','.join(channel_mentions)}"
+        embed.description += f"**Channels**: {', '.join(channel_mentions)}"
         embed.description += f"\n"
         embed.description += f"**Number**: {number}"
 
@@ -351,21 +367,19 @@ class Purge(commands.Cog):
 
         await view.wait()
 
-        if not view.interaction is None:
-            followup = await view.interaction.original_response()
-
         if view.value is None:
             followup = await ctx.channel.send("Timed out")
             pass
         elif view.value:
             completed_channels: typing.List[discord.TextChannel] = []
             current_total = 0
-            files = []
+
+            followup = await ctx.channel.send("Starting...")
 
             def generate_followup_str(
                 channel, channel_current_total, channel_total, current_total
             ) -> str:
-                followup_str = f"**Completed**: {','.join([channel.mention for channel in completed_channels])}"
+                followup_str = f"**Completed**: {', '.join([channel.mention for channel in completed_channels])}"
                 followup_str += f"\n"
                 followup_str += f"**Currently On**: {channel.mention} ({channel_current_total} out of {channel_total})"
                 followup_str += f"\n"
@@ -376,6 +390,7 @@ class Purge(commands.Cog):
                 channel = ctx.guild.get_channel(id)
                 channel_total = len(messages)
                 channel_current_total = 0
+                update_duration_secs = UPDATE_DURATION_SECS
 
                 await followup.edit(
                     content=generate_followup_str(
@@ -407,24 +422,50 @@ class Purge(commands.Cog):
                     remaining_messages = [
                         message for message in messages if message not in bulk_messages
                     ]
+
                     for message in remaining_messages:
-                        try:
-                            await message.delete()
-                        except Exception as e:
-                            print(e)
-                            pass
+                        file += self._file_line(message) + "\n"
+                        attempts = 0
+
+                        while True:
+                            try:
+                                attempts += 1
+                                await message.delete()
+                                break
+                            # except discord.RateLimited as e:
+                            #     print(e)
+                            #     await asyncio.sleep(e.retry_after)
+                            except Exception as e:
+                                print(e)
+                                if attempts > 10:
+                                    break
+
                         channel_current_total += 1
                         current_total += 1
-                        await followup.edit(
-                            content=generate_followup_str(
+
+                        try:
+                            if datetime.datetime.utcnow() > next_update:
+                                await followup.edit(
+                                    content=generate_followup_str(
+                                        channel,
+                                        channel_current_total,
+                                        channel_total,
+                                        current_total,
+                                    )
+                                )
+                                next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=update_duration_secs)
+
+                        except Exception as e:
+                            await followup.delete()
+                            followup = ctx.send(content=generate_followup_str(
                                 channel,
                                 channel_current_total,
                                 channel_total,
                                 current_total,
-                            )
-                        )
-                        file += self._file_line(message) + "\n"
-                        await asyncio.sleep(3)
+                            ))
+                            pass
+
+                        await asyncio.sleep(DELETE_INTERVAL_SECS)
 
                     f = io.StringIO(file)
                     await ctx.author.send(
@@ -439,7 +480,7 @@ class Purge(commands.Cog):
             followup = await followup.edit(content="Deleted.")
             pass
         else:
-            followup = await followup.edit(content=f"Cancelled.")
+            followup = (await view.interaction.original_response()).edit(content=f"Cancelled.")
             pass
 
         await asyncio.sleep(3)
