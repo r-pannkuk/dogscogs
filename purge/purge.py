@@ -329,22 +329,36 @@ class Purge(commands.Cog):
 
             next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
 
-            async for message in channel.history(
-                limit=None, before=ctx.message, oldest_first=False
-            ):
-                channel_scan_number += 1
+            channel : discord.TextChannel = channel
 
-                if datetime.datetime.utcnow() > next_update:
-                    await response.edit(content=f"Fetching...{channel.mention}\nParsed: {channel_scan_number}\nFound: {author_scan_number}")
-                    next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
-                
-                if message.author.id in user_ids:
-                    messages[channel.id].append(message)
-                    number += 1
-                    author_scan_number += 1
+            message = ctx.message
 
-                    if limit is not None and author_scan_number >= limit:
-                        break
+            history = channel.history(limit=None, before=message, oldest_first=False)
+
+            while True:
+                try:
+                    result = await anext(history)
+                    
+                    message = result
+                    
+                    channel_scan_number += 1
+
+                    if datetime.datetime.utcnow() > next_update:
+                        await response.edit(content=f"Fetching...{channel.mention}\nParsed: {channel_scan_number}\nFound: {author_scan_number}")
+                        next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
+                    
+                    if message.author.id in user_ids:
+                        messages[channel.id].append(message)
+                        number += 1
+                        author_scan_number += 1
+
+                        if limit is not None and author_scan_number >= limit:
+                            break
+                except StopAsyncIteration as e:
+                    break
+                except Exception as e:
+                    history = channel.history(limit=None, before=message, oldest_first=False)
+                    continue
 
         if number == 0:
             await ctx.channel.delete_messages([response])
