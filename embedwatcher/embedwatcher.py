@@ -328,6 +328,8 @@ class EmbedWatcher(commands.Cog):
             or "content" not in after
             or "attachments" not in after
             or "edited_timestamp" not in after
+            or ("pinned" in after and after["pinned"] == True)
+            or ("pinned" in after and before is not None and before.pinned != after["pinned"])
         ):
             return
 
