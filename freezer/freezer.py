@@ -155,8 +155,8 @@ class Freezer(commands.Cog):
 
         def stringify_entry(entry: FreezerEntry, indent_length=0):
             found_channel: FreezerEntryType = next(
-                channel for channel in guild.channels if channel.id == entry['id']
-            )
+                (channel for channel in guild.channels if channel.id == entry['id'])
+            , None)
             if found_channel:
                 if isinstance(found_channel, discord.VoiceChannel):
                     icon = '🔊'
@@ -171,12 +171,13 @@ class Freezer(commands.Cog):
                     for child in entry['children']:
                         stringify_entry(child, indent_length + INDENT_SIZE)
             else:
-                freezer_entries.pop(entry['id'])
+                if entry['id'] in freezer_entries:
+                    freezer_entries.pop(entry['id'])
             pass
 
         if len(dict.keys(freezer_entries)) != 0:
             for entry in sorted(freezer_entries.values(), key=lambda x: x["position"]):
-                stringify_entry(entry)
+                    stringify_entry(entry)
             embed.description = '`' + ('\n').join(description) + '`'
         else:
             embed.description = f"`*No Channels Currently Frozen*`"
