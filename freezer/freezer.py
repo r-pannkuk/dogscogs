@@ -44,7 +44,8 @@ def FreezerEntry(category_or_channel: FreezerEntryType):
 
 
 DEFAULT_GUILD = {
-    "freezer_entries": {}
+    "freezer_entries": {},
+    "is_moving_categories": False
 }
 
 
@@ -185,6 +186,30 @@ class Freezer(commands.Cog):
 
         pass
 
+    @freezer.group()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def settings(self, ctx: commands.Context):
+        """Settings for freezing channel order and structure of server.
+        """
+        pass
+
+    @settings.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def categories(self, ctx: commands.Context, bool: typing.Optional[bool]):
+        """Sets whether or not to move categories when a channel is moved.
+
+        Args:
+            bool (typing.Optional[bool]): Whether or not to move categories when a channel is moved.
+        """
+        if bool == None:
+            bool = not await self.config.guild(ctx.guild).is_moving_categories()
+
+        await self.config.guild(ctx.guild).is_moving_categories.set(bool)
+
+        await ctx.send(f"{'Will' if bool else 'Will not'} move categories when a channel is moved.")
+
+        pass
+
     @commands.Cog.listener()
     async def on_guild_channel_update(self, before: FreezerEntryType, after: FreezerEntryType):
         """Listens for channel movement and resets as necessary.
@@ -194,6 +219,9 @@ class Freezer(commands.Cog):
             after (FreezerEntryType): After state of the channel.
         """
         if before.position == after.position and before.category_id == after.category_id:
+            return
+        
+        if isinstance(before, discord.CategoryChannel) and await self.config.guild(before.guild).is_moving_categories() == False:
             return
 
         freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(before.guild).freezer_entries()
