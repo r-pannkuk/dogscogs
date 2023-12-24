@@ -202,10 +202,10 @@ class Freezer(commands.Cog):
         Args:
             bool (typing.Optional[bool]): Whether or not to move categories when a channel is moved.
         """
-        if bool == None:
-            bool = not await self.config.guild(ctx.guild).is_moving_categories()
-
-        await self.config.guild(ctx.guild).is_moving_categories.set(bool)
+        if bool != None:
+            await self.config.guild(ctx.guild).is_moving_categories.set(bool)
+        
+        bool = await self.config.guild(ctx.guild).is_moving_categories()
 
         await ctx.send(f"{'Will' if bool else 'Will not'} move categories when a channel is moved.")
 
