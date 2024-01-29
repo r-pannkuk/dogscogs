@@ -465,9 +465,10 @@ class Nickname(commands.Cog):
         if defender_roll.crit == d20.CritType.CRIT:
             prefix += f":shield: {target.display_name} shielded against the blow"
             collateral_list: typing.List[discord.Member] = []
-            fetched: typing.List[discord.Message] = await ctx.channel.history(limit=200).flatten()
-            potentials: typing.List[discord.Member] = set(
-                [msg.author for msg in fetched])
+            fetched: typing.List[discord.Message] = [message async for message in ctx.channel.history(limit=200)]
+            potentials: typing.List[typing.Union[discord.Member, discord.User]] = list(set(
+                [msg.author for msg in fetched]
+            ))
             collateral_list.extend([
                 t for t in potentials
                 if t.id != target.id
