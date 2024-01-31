@@ -289,7 +289,7 @@ class CommandObj:
         
         ccinfo = await self.db(ctx.guild).commands.get_raw(command, default=None)
 
-        if ccinfo["mod_only"]:
+        if "mod_only" in ccinfo and ccinfo["mod_only"]:
             if not ctx.author.guild_permissions.moderate_members:
                 raise InvalidPermissions()
 
