@@ -133,11 +133,11 @@ class CommandObj:
         if not command:
             raise NotFound()
         ccinfo = await self.db(message.guild).commands.get_raw(command, default=None)
+        blocked_channel_ids : list[str] = await self.db(message.guild).blocked_channel_ids()
         if not ccinfo:
             raise NotFound()
-        elif "allow_anywhere" in ccinfo and ccinfo["allow_anywhere"] == False:
-            blocked_channel_ids : list[str] = await self.db(message.guild).blocked_channel_ids()
-            if blocked_channel_ids is not None and message.channel.id in blocked_channel_ids:
+        if blocked_channel_ids is not None and message.channel.id in blocked_channel_ids:
+            if "allow_anywhere" not in ccinfo or ccinfo["allow_anywhere"] == False:
                 raise InvalidPermissions()
         return ccinfo["response"], ccinfo.get("cooldowns", {})
 
@@ -846,10 +846,10 @@ class ModCustomCommands(commands.Cog):
         if not channels:
             blocked_channel_ids = await self.config.guild(ctx.guild).blocked_channel_ids()
             if not blocked_channel_ids:
-                return await ctx.send(_("Mod commands can be used anywhere."))
+                return await ctx.send(_("Custom commands can be used anywhere."))
             channels = [c for c in ctx.guild.channels if c.id in blocked_channel_ids]
         await self.config.guild(ctx.guild).blocked_channel_ids.set([c.id for c in channels])
-        await ctx.send(_("Mod commands cannot be used in {channels}.").format(channels=humanize_list([f"{c.mention}" for c in channels])))
+        await ctx.send(_("Custom commands cannot be used in {channels}.").format(channels=humanize_list([f"{c.mention}" for c in channels])))
 
 ############################# DO NOT EDIT #############################
 
