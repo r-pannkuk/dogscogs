@@ -644,7 +644,9 @@ class ModCustomCommands(commands.Cog):
         """
         blocked_channel_ids : list[str] = await self.config.guild(ctx.message.guild).blocked_channel_ids()
         if blocked_channel_ids is not None and ctx.message.channel.id in blocked_channel_ids:
-            return await ctx.send(_("Custom commands cannot be used in this channel."), delete_after=5)
+            await ctx.send(_("Custom commands cannot be used in this channel."), delete_after=5)
+            await ctx.message.delete(delay=5)
+            return
 
         cc_dict = await CommandObj.get_commands(self.config.guild(ctx.guild))
 
@@ -889,6 +891,7 @@ class ModCustomCommands(commands.Cog):
                 self.test_cooldowns(ctx, ctx.invoked_with, cooldowns)
         except InvalidPermissions:
             await ctx.send(_("Custom commands cannot be used in this channel."), delete_after=5)
+            await ctx.message.delete(delay=5)
         except CCError:
             return
 
