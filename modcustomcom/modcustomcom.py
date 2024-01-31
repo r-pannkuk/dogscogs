@@ -597,6 +597,8 @@ class ModCustomCommands(commands.Cog):
             await ctx.send(_("Custom command successfully deleted."))
         except NotFound:
             await ctx.send(_("That command doesn't exist."), delete_after=10)
+        except InvalidPermissions:
+            await ctx.send(_("You do not have permission to delete this command."), delete_after=10)
 
     @customcom.command(name="edit")
     @commands.mod_or_permissions(administrator=True)
