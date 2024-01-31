@@ -891,7 +891,8 @@ class ModCustomCommands(commands.Cog):
                 self.test_cooldowns(ctx, ctx.invoked_with, cooldowns)
         except InvalidPermissions:
             await ctx.send(_("Custom commands cannot be used in this channel."), delete_after=5)
-            await ctx.message.delete(delay=5)
+            await message.delete(delay=5)
+            return
         except CCError:
             return
 
