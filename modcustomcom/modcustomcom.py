@@ -117,7 +117,7 @@ class CommandObj:
                     await ctx.send(e.args[0])
                     continue
                 if args and args != this_args:
-                    await ctx.send(_("Random responses must take the same arguments!"))
+                    await ctx.send(_("Random responses must take the same arguments!"), delete_after=10)
                     continue
                 args = args or this_args
                 responses.append(msg.content)
@@ -206,7 +206,7 @@ class CommandObj:
             try:
                 await self.bot.wait_for("message", check=pred, timeout=30)
             except asyncio.TimeoutError:
-                await ctx.send(_("Response timed out, please try again later."))
+                await ctx.send(_("Response timed out, please try again later."), delete_after=10)
                 raise CommandNotEdited()
             if pred.result is True:
                 response = await self.get_responses(ctx=ctx)
@@ -225,7 +225,7 @@ class CommandObj:
                         "message", check=MessagePredicate.same_context(ctx), timeout=180
                     )
                 except asyncio.TimeoutError:
-                    await ctx.send(_("Response timed out, please try again later."))
+                    await ctx.send(_("Response timed out, please try again later."), delete_after=10)
                     raise CommandNotEdited()
                 response = resp.content
 
@@ -236,7 +236,7 @@ class CommandObj:
                 try:
                     await self.bot.wait_for("message", check=pred, timeout=30)
                 except asyncio.TimeoutError:
-                    await ctx.send(_("Response timed out, please try again later."))
+                    await ctx.send(_("Response timed out, please try again later."), delete_after=10)
                     raise CommandNotEdited()
                 mod_only = pred.result
 
@@ -246,7 +246,7 @@ class CommandObj:
                 try:
                     await self.bot.wait_for("message", check=pred, timeout=30)
                 except asyncio.TimeoutError:
-                    await ctx.send(_("Response timed out, please try again later."))
+                    await ctx.send(_("Response timed out, please try again later."), delete_after=10)
                     raise CommandNotEdited()
                 allow_anywhere = pred.result
 
@@ -464,14 +464,14 @@ class ModCustomCommands(commands.Cog):
         """
         if any(char.isspace() for char in command):
             # Haha, nice try
-            await ctx.send(_("Custom command names cannot have spaces in them."))
+            await ctx.send(_("Custom command names cannot have spaces in them."), delete_after=10)
             return
         if command in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
-            await ctx.send(_("There already exists a bot command with the same name."))
+            await ctx.send(_("There already exists a bot command with the same name."), delete_after=10)
             return
         responses = await self.commandobj.get_responses(ctx=ctx)
         if not responses:
-            await ctx.send(_("Custom command process cancelled."))
+            await ctx.send(_("Custom command process cancelled."), delete_after=10)
             return
         try:
             await self.commandobj.create(ctx=ctx, command=command, response=responses)
@@ -481,14 +481,14 @@ class ModCustomCommands(commands.Cog):
                 _("This command already exists. Use `{command}` to edit it.").format(
                     command=f"{ctx.clean_prefix}customcom edit"
                 )
-            )
+            , delete_after=20)
         except ResponseTooLong:  # This isn't needed, however may be a good idea to keep this.
             await ctx.send(
                 _(
                     "The text response you're trying to create has more than 2000 characters.\n"
                     "I cannot send messages that are longer than 2000 characters."
                 )
-            )
+            , delete_after=20)
 
     @cc_create.command(name="simple")
     @commands.mod_or_permissions(administrator=True)
@@ -505,10 +505,10 @@ class ModCustomCommands(commands.Cog):
         """
         if any(char.isspace() for char in command):
             # Haha, nice try
-            await ctx.send(_("Custom command names cannot have spaces in them."))
+            await ctx.send(_("Custom command names cannot have spaces in them."), delete_after=10)
             return
         if command in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
-            await ctx.send(_("There already exists a bot command with the same name."))
+            await ctx.send(_("There already exists a bot command with the same name."), delete_after=10)
             return
         try:
             await self.commandobj.create(ctx=ctx, command=command, response=text, elevated_perms=False)
@@ -518,7 +518,7 @@ class ModCustomCommands(commands.Cog):
                 _("This command already exists. Use `{command}` to edit it.").format(
                     command=f"{ctx.clean_prefix}customcom edit"
                 )
-            )
+            , delete_after=20)
         except ArgParseError as e:
             await ctx.send(e.args[0])
         except ResponseTooLong:
@@ -527,7 +527,7 @@ class ModCustomCommands(commands.Cog):
                     "The text response you're trying to create has more than 2000 characters.\n"
                     "I cannot send messages that are longer than 2000 characters."
                 )
-            )
+            , delete_after=20)
 
     @customcom.command(name="cooldown")
     @commands.mod_or_permissions(administrator=True)
@@ -555,7 +555,7 @@ class ModCustomCommands(commands.Cog):
             try:
                 cooldowns = (await self.commandobj.get(ctx.message, command))[1]
             except NotFound:
-                return await ctx.send(_("That command doesn't exist."))
+                return await ctx.send(_("That command doesn't exist.", delete_after=10))
             if cooldowns:
                 cooldown = []
                 for per, rate in cooldowns.items():
@@ -578,7 +578,7 @@ class ModCustomCommands(commands.Cog):
                 _("That command doesn't exist. Use `{command}` to add it.").format(
                     command=f"{ctx.clean_prefix}customcom create"
                 )
-            )
+            , delete_after=10)
 
     @customcom.command(name="delete", aliases=["del", "remove"])
     @commands.mod_or_permissions(administrator=True)
@@ -596,7 +596,7 @@ class ModCustomCommands(commands.Cog):
             await self.commandobj.delete(ctx=ctx, command=command)
             await ctx.send(_("Custom command successfully deleted."))
         except NotFound:
-            await ctx.send(_("That command doesn't exist."))
+            await ctx.send(_("That command doesn't exist."), delete_after=10)
 
     @customcom.command(name="edit")
     @commands.mod_or_permissions(administrator=True)
@@ -619,7 +619,7 @@ class ModCustomCommands(commands.Cog):
                 _("That command doesn't exist. Use `{command}` to add it.").format(
                     command=f"{ctx.clean_prefix}customcom create"
                 )
-            )
+            , delete_after=20)
         except ArgParseError as e:
             await ctx.send(e.args[0])
         except CommandNotEdited:
@@ -630,9 +630,9 @@ class ModCustomCommands(commands.Cog):
                     "The text response you're trying to create has more than 2000 characters.\n"
                     "I cannot send messages that are longer than 2000 characters."
                 )
-            )
+            , delete_after=20)
         except InvalidPermissions:
-            await ctx.send(_("You do not have permission to edit this command."))
+            await ctx.send(_("You do not have permission to edit this command."), delete_after=10)
 
     @customcom.command(name="list")
     @commands.bot_can_react()
@@ -644,7 +644,7 @@ class ModCustomCommands(commands.Cog):
         """
         blocked_channel_ids : list[str] = await self.config.guild(ctx.message.guild).blocked_channel_ids()
         if blocked_channel_ids is not None and ctx.message.channel.id in blocked_channel_ids:
-            return await ctx.send(_("Custom commands cannot be used in this channel."))
+            return await ctx.send(_("Custom commands cannot be used in this channel."), delete_after=5)
 
         cc_dict = await CommandObj.get_commands(self.config.guild(ctx.guild))
 
@@ -656,7 +656,7 @@ class ModCustomCommands(commands.Cog):
                     "There are no custom commands in this server."
                     " Use `{command}` to start adding some."
                 ).format(command=f"{ctx.clean_prefix}customcom create")
-            )
+            , delete_after=10)
             return
 
         await self._list(ctx, cc_dict)
@@ -673,7 +673,7 @@ class ModCustomCommands(commands.Cog):
         try:
             cmd = await self.commandobj.get_full(ctx.message, command_name)
         except NotFound:
-            await ctx.send(_("I could not not find that custom command."))
+            await ctx.send(_("I could not not find that custom command."), delete_after=10)
             return
 
         responses = cmd["response"]
@@ -775,10 +775,10 @@ class ModCustomCommands(commands.Cog):
         """
         if any(char.isspace() for char in command):
             # Haha, nice try
-            await ctx.send(_("Custom command names cannot have spaces in them."))
+            await ctx.send(_("Custom command names cannot have spaces in them."), delete_after=10)
             return
         if command in (*self.bot.all_commands, *commands.RESERVED_COMMAND_NAMES):
-            await ctx.send(_("There already exists a bot command with the same name."))
+            await ctx.send(_("There already exists a bot command with the same name."), delete_after=10)
             return
         try:
             await self.commandobj.create(ctx=ctx, command=command, response=text, elevated_perms=True)
@@ -788,16 +788,16 @@ class ModCustomCommands(commands.Cog):
                 _("This command already exists. Use `{command}` to edit it.").format(
                     command=f"{ctx.clean_prefix}customcom edit"
                 )
-            )
+            , delete_after=20)
         except ArgParseError as e:
-            await ctx.send(e.args[0])
+            await ctx.send(e.args[0], delete_after=20)
         except ResponseTooLong:
             await ctx.send(
                 _(
                     "The text response you're trying to create has more than 2000 characters.\n"
                     "I cannot send messages that are longer than 2000 characters."
                 )
-            )
+            , delete_after=20)
 
     @modcustomcom.command(name="promote")
     @commands.mod_or_permissions(moderate_members=True)
@@ -813,15 +813,15 @@ class ModCustomCommands(commands.Cog):
         """
         try:
             await self.commandobj.edit(ctx=ctx, command=command, ask_for=False, mod_only=True, allow_anywhere=True)
-            await ctx.send(_("Custom command successfully promoted."))
+            await ctx.send(_("Custom command successfully promoted."), delete_after=10)
         except NotFound:
             await ctx.send(
                 _("That command doesn't exist. Use `{command}` to add it.").format(
                     command=f"{ctx.clean_prefix}modcustomcom create"
                 )
-            )
+            , delete_after=20)
         except ArgParseError as e:
-            await ctx.send(e.args[0])
+            await ctx.send(e.args[0], delete_after=10)
         except CommandNotEdited:
             pass
 
@@ -888,7 +888,7 @@ class ModCustomCommands(commands.Cog):
             if cooldowns:
                 self.test_cooldowns(ctx, ctx.invoked_with, cooldowns)
         except InvalidPermissions:
-            await ctx.send(_("Custom commands cannot be used in this channel."))
+            await ctx.send(_("Custom commands cannot be used in this channel."), delete_after=5)
         except CCError:
             return
 
