@@ -412,10 +412,9 @@ class Logger(commands.Cog):
                 return
 
             link_text = ""
-            fetched_message = await channel.fetch_message(event.message_id)
 
             if await self.config.guild_from_id(guild.id).is_links_enabled():
-                link_text = f"{fetched_message.jump_url}"
+                link_text = f"{payload.before['jump_url'] if payload.before else payload.data['jump_url']}"
 
             log = f"[{channel.mention}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
 
