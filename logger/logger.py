@@ -87,7 +87,7 @@ class LogPayload:
         import difflib
 
         expected = self.before.content
-        actual = self.data["content"]
+        actual = "" if self.data == None or "content" not in self.data or self.data["content"] == None else self.data["content"]
         str = ""
         prev = "  "
         for ele in difflib.Differ().compare(expected, actual):
@@ -410,7 +410,7 @@ class Logger(commands.Cog):
                     before = ">>> " + payload.before.content
                     after = (
                         ""
-                        if payload.data == None or payload.data["content"] == None
+                        if payload.data == None or "content" not in payload.data or payload.data["content"] == None
                         else payload.data["content"]
                     )
                     await logger_channel.send(f"{log}\n{before}", suppress_embeds=True)
