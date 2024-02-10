@@ -33,11 +33,33 @@ class LogPayload:
         self._type = None
         if isinstance(event, discord.RawMessageUpdateEvent):
             self._type = "UPDATE"
-            self._before = event.cached_message
+            self._before = {
+                "author": event.cached_message.author
+                if event.cached_message
+                else event.data["author"]
+                if "author" in event.data
+                else None,
+                "content": event.cached_message.content
+                if event.cached_message
+                else "<<< Message was not cached. >>>",
+                "attachments": event.cached_message.attachments
+                if event.cached_message
+                else [],
+                "jump_url": f"https://discord.com/channels/{event.guild_id}/{event.channel_id}/{event.message_id}",
+            }
             self._message = event.data
         elif isinstance(event, discord.RawMessageDeleteEvent):
             self._type = "DELETE"
-            self._before = event.cached_message
+            self._before = {
+                "author": event.cached_message.author if event.cached_message else None,
+                "content": event.cached_message.content
+                if event.cached_message
+                else "<<< Message was not cached. >>>",
+                "attachments": event.cached_message.attachments
+                if event.cached_message
+                else [],
+                "jump_url": f"https://discord.com/channels/{event.guild_id}/{event.channel_id}/{event.message_id}",
+            }
             self._message = None
         self._guild_id = event.guild_id
         self._channel_id = event.channel_id
@@ -87,7 +109,13 @@ class LogPayload:
         import difflib
 
         expected = self.before.content
-        actual = "" if self.data == None or "content" not in self.data or self.data["content"] == None else self.data["content"]
+        actual = (
+            ""
+            if self.data == None
+            or "content" not in self.data
+            or self.data["content"] == None
+            else self.data["content"]
+        )
         str = ""
         prev = "  "
         for ele in difflib.Differ().compare(expected, actual):
@@ -362,19 +390,18 @@ class Logger(commands.Cog):
             ).logger_channel_id()
             logger_channel: discord.TextChannel = guild.get_channel(logger_channel_id)
 
-            if (
-                payload.before == None
-                or payload.before.author == None
-                or payload.before.author.id == None
-            ):
+            author_id = (
+                payload.before["author"].id
+                if isinstance(payload.before["author"], discord.Member)
+                else payload.before["author"]["id"]
+                if "author" in payload.before and payload.before["author"]
+                else payload.data["author"]["id"]
+                if payload.data and "author" in payload.data
+                else None
+            )
+
+            if author_id == None:
                 return
-
-            author_id = None
-
-            if payload.before is not None and payload.before.author is not None:
-                author_id = payload.before.author.id
-            else:
-                author_id = payload.data.author.id
 
             author = await self.bot.get_or_fetch_member(guild, author_id)
 
@@ -385,18 +412,19 @@ class Logger(commands.Cog):
                 return
 
             link_text = ""
+            fetched_message = await channel.fetch_message(event.message_id)
 
             if await self.config.guild_from_id(guild.id).is_links_enabled():
-                link_text = f"{payload.before.jump_url}"
+                link_text = f"{fetched_message.jump_url}"
 
             log = f"[{channel.mention}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
 
             if payload.type == "DELETE":
                 await logger_channel.send(
-                    log + f"\n{payload.before.content}",
+                    log + f"\n{payload.before['content']}",
                     files=[
                         await attachment.to_file()
-                        for attachment in payload.before.attachments
+                        for attachment in payload.before["attachments"]
                     ],
                     suppress_embeds=True,
                 )
@@ -407,10 +435,12 @@ class Logger(commands.Cog):
                         log + f"\n{payload.delta_inline}", suppress_embeds=True
                     )
                 else:
-                    before = ">>> " + payload.before.content
+                    before = ">>> " + payload.before["content"]
                     after = (
-                        ""
-                        if payload.data == None or "content" not in payload.data or payload.data["content"] == None
+                        "`No content provided.`"
+                        if payload.data == None
+                        or "content" not in payload.data
+                        or payload.data["content"] == None
                         else payload.data["content"]
                     )
                     await logger_channel.send(f"{log}\n{before}", suppress_embeds=True)
