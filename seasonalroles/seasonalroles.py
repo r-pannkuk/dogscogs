@@ -20,27 +20,6 @@ DEFAULT_CHANNEL = {
 class SeasonalRoles(commands.Cog):
     """
     Automatically applies roles to users who post in a channel.
-
-    Attributes:
-        bot (Red): The instance of the Red bot.
-        config (Config): The configuration object for the cog.
-    """
-
-    def __init__(self, bot: Red) -> None:
-        self.bot = bot
-        self.config = Config.get_conf(
-            self,
-            identifier=260288776360820736,
-            force_registration=True,
-        )
-
-        self.config.register_guild(**DEFAULT_GUILD)
-        self.config.register_channel(**DEFAULT_CHANNEL)
-
-    ...
-class SeasonalRoles(commands.Cog):
-    """
-    Automatically applies roles to users who post in a channel.
     """
 
     def __init__(self, bot: Red) -> None:

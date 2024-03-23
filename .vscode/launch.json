@@ -10,7 +10,8 @@
                 "--dev",
                 "--debug"
             ],
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
