@@ -44,6 +44,7 @@ def FreezerEntry(category_or_channel: FreezerEntryType):
 
 
 DEFAULT_GUILD = {
+    "is_enabled": True,
     "freezer_entries": {},
     "is_moving_categories": False
 }
@@ -74,6 +75,53 @@ class Freezer(commands.Cog):
     async def freezer(self, ctx: commands.Context):
         """Settings for freezing channel order and structure of server.
         """
+        pass
+
+    @freezer.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def enable(self, ctx: commands.Context):
+        """Enable the freezer.
+        """
+        await self.config.guild(ctx.guild).is_enabled.set(True)
+        await ctx.send("Freezer enabled.")
+        pass
+
+    @freezer.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def disable(self, ctx: commands.Context):
+        """Disable the freezer.
+        """
+        await self.config.guild(ctx.guild).is_enabled.set(False)
+        await ctx.send("Freezer disabled.")
+        pass
+
+    @freezer.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+        """Check if the freezer is enabled.
+
+        Args:
+            bool (typing.Optional[bool]): Whether or not the freezer is enabled.
+        """
+        if bool is None:
+            bool = await self.config.guild(ctx.guild).is_enabled()
+
+        await self.config.guild(ctx.guild).is_enabled.set(bool)
+
+        await ctx.send(f"Freezer is {'enabled' if bool else 'disabled'}.")
+        pass
+
+    @freezer.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def ismoving(self, ctx:commands.Context, bool: typing.Optional[bool]):
+        """Check if the freezer is moving categories when a channel is moved.
+        """
+        if bool is None:
+            bool = await self.config.guild(ctx.guild).is_moving_categories()
+
+        await self.config.guild(ctx.guild).is_moving_categories.set(bool)
+
+        await ctx.send(f"Currently {'moving' if bool else 'not moving'} channels.")
         pass
 
     @freezer.command(aliases=["lock"])
@@ -219,69 +267,37 @@ class Freezer(commands.Cog):
             before (FreezerEntryType): Before state of the channel.
             after (FreezerEntryType): After state of the channel.
         """
-        if before.position == after.position and before.category_id == after.category_id:
+        if not await self.config.guild(before.guild).is_enabled():
             return
         
-        if isinstance(before, discord.CategoryChannel) and await self.config.guild(before.guild).is_moving_categories() == False:
+        if await self.config.guild(before.guild).is_moving_categories():
             return
-
+        
         freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(before.guild).freezer_entries()
-        guild: discord.Guild = before.guild
+        categories = before.guild.categories
+        operations = []
 
-        if isinstance(before, discord.CategoryChannel):
-            return
+        # Identify all of the channels that need to be corrected.
+        for category in categories:
+            if str(category.id) in freezer_entries.keys():
+                correct_channels = sorted(freezer_entries[str(category.id)]['children'], key=lambda c: c['position'])
+                
+                for k in range(0, len(correct_channels)):
+                    channel = next(c for c in category.channels if c.id == correct_channels[k]['id'])
 
-        entry = next((e for e in freezer_entries.values() if e["id"] == before.id), None)
-        if entry == None:
-            entry = next((child for e in freezer_entries.values() for child in e["children"] if child["id"] == before.id), None)
+                    # check for permissions
+                    if channel.permissions_for(before.guild.me).manage_channels:
+                        print(f"Channel {channel.name} is at position {channel.position} and should be at {correct_channels[k]['position']}")
+                        operations.append(channel.edit(position=correct_channels[k]['position']))
+                    
 
-        if entry:
-            print(f"{entry['name']} {'{'} pos: {after.position}(*{entry['position']}*)  cat: {after.category.id}(*{entry['category_id']}*) {'}'}")
-
-            self.current_movers.append({"entry": entry, "before": before, "after": after})
-
-            if self.is_running:
-                return
-
-            self.is_running = True
-
-            await sleep(1)
-
-            # get most egregious swap
-            self.current_movers.sort(key=lambda x: abs(x["entry"]["position"] - x["after"].position))
-            self.current_movers.reverse()
-
-            for o in self.current_movers:
-                entry = o["entry"]
-                before = o["before"]
-                after = o["after"]
-                current = next((c for c in guild.channels if c.id == entry["id"]), None)
-
-                if current == None or (current.position == entry["position"] and current.category.id == entry["category_id"]):
-                    continue
-
-                category = next((c for c in guild.categories if c.id == entry["category_id"]), None)
-                await after.edit(category=category, position=entry["position"])
-                await sleep(1)
-
-            # category_mover = next((j for j in self.current_movers if j["entry"]["category_id"] != j["after"].category.id), None)
-
-            # if category_mover:
-            #     target = category_mover
-            # else:
-            #     # find the right one
-            #     target = next(iter(self.current_movers), None)
-
-            # if target:
-            #     # move target
-            #     print(f"Moving: {target['after'].name}")
-            #     await target["after"].edit(category=target["before"].category, position=target["entry"]["position"])
-            
-            # await sleep(0.1)
-
-            self.current_movers.clear()
-            self.is_running = False
-
-            print("Done")
+        if len(operations) > 0:
+            await self.config.guild(before.guild).is_moving_categories.set(True)
+            print("Running operations")
+            for operation in operations:
+                await operation
+                await sleep(3)
+            print("Done running operations")
+            await self.config.guild(before.guild).is_moving_categories.set(False)
 
         pass
