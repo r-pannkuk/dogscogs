@@ -512,7 +512,8 @@ class Points(commands.Cog):
         await ctx.reply(embed=embed, view=view)
         pass
 
-    @points.command(cooldown=commands.Cooldown(1, 60))
+    @points.command()
+    @commands.cooldown(1, 60, commands.BucketType.channel)
     @commands.guild_only()
     async def leaderboard(self, ctx: commands.Context):
         """Check the points leaderboard."""
