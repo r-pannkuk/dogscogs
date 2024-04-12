@@ -1,0 +1,19 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "Points",
+    "short": "Manages local guild points.",
+    "description": "Manages local guild points.",
+    "end_user_data_statement": "This cog does not persistently store any data or metadata about users.",
+    "author": [
+        "klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "points"
+    ],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

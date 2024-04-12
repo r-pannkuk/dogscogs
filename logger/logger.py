@@ -380,6 +380,9 @@ class Logger(commands.Cog):
         Sends data to the logger channel.
         """
         guild: discord.Guild = self.bot.get_guild(event.guild_id)
+        if guild == None:
+            return
+        
         payload = LogPayload(event)
 
         if await self.config.guild_from_id(guild.id).is_enabled():
