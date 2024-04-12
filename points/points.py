@@ -460,6 +460,14 @@ class Points(commands.Cog):
         Args:
             user (typing.Optional[discord.Member]): The user to check the balance for.
         """
+        claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
+        claim_channels = [ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids]
+
+        if (claim_channels and ctx.channel not in claim_channels) or ctx.author.guild_permissions.moderate_members:
+            await ctx.message.delete(delay=15)
+            await ctx.reply(f"You can only view the balance in {', '.join([channel.mention for channel in claim_channels])}.", ephemeral=True, delete_after=10)
+            return
+
         if user is None:
             user = ctx.author
         elif not ctx.author.guild_permissions.moderate_members and user != ctx.author:
@@ -504,10 +512,18 @@ class Points(commands.Cog):
         await ctx.reply(embed=embed, view=view)
         pass
 
-    @points.command()
+    @points.command(cooldown=commands.Cooldown(1, 60))
     @commands.guild_only()
     async def leaderboard(self, ctx: commands.Context):
         """Check the points leaderboard."""
+        claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
+        claim_channels = [ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids]
+
+        if (claim_channels and ctx.channel not in claim_channels) or ctx.author.guild_permissions.moderate_members:
+            await ctx.message.delete(delay=15)
+            await ctx.reply(f"You can only view the leaderboard in {', '.join([channel.mention for channel in claim_channels])}.", ephemeral=True, delete_after=10)
+            return
+
         leaderboard = await bank.get_leaderboard(100, ctx.guild) # type: ignore[arg-type]
 
         description = ""
