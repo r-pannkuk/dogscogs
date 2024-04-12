@@ -161,9 +161,9 @@ class Points(commands.Cog):
             user (discord.Member): The target of withdrawing.
             amount (int): The amount to withdraw.
         """
-        current_balance = await bank.get_balance(user)
-        if current_balance - amount < 0:
-            amount = current_balance
+        # current_balance = await bank.get_balance(user)
+        # if current_balance - amount < 0:
+        #     amount = current_balance
         return await bank.withdraw_credits(user, amount) # type: ignore[arg-type]
 
     @staticmethod
@@ -197,8 +197,8 @@ class Points(commands.Cog):
         max_balance = await bank.get_max_balance(user.guild) # type: ignore[arg-type]
         if amount > max_balance:
             amount = max_balance
-        if amount < 0:
-            amount = 0
+        # if amount < 0:
+        #     amount = 0
         return await bank.set_balance(user, amount)
 
     @commands.group()
@@ -463,7 +463,7 @@ class Points(commands.Cog):
         claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
         claim_channels = [ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids]
 
-        if (claim_channels and ctx.channel not in claim_channels) or ctx.author.guild_permissions.moderate_members:
+        if (claim_channels and ctx.channel not in claim_channels) and not ctx.author.guild_permissions.moderate_members:
             await ctx.message.delete(delay=15)
             await ctx.reply(f"You can only view the balance in {', '.join([channel.mention for channel in claim_channels])}.", ephemeral=True, delete_after=10)
             return
@@ -520,7 +520,7 @@ class Points(commands.Cog):
         claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
         claim_channels = [ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids]
 
-        if (claim_channels and ctx.channel not in claim_channels) or ctx.author.guild_permissions.moderate_members:
+        if (claim_channels and ctx.channel not in claim_channels) and not ctx.author.guild_permissions.moderate_members:
             await ctx.message.delete(delay=15)
             await ctx.reply(f"You can only view the leaderboard in {', '.join([channel.mention for channel in claim_channels])}.", ephemeral=True, delete_after=10)
             return
