@@ -14,6 +14,7 @@ DEFAULT_GUILD = {
     "is_enabled": False,
     "daily_award": 100,
     "daily_award_channels": [],
+    "offset": -50000
 }
 
 DEFAULT_USER = {
@@ -147,11 +148,18 @@ class Points(commands.Cog):
             user (discord.Member): The target of depositing.
             amount (int): The amount to deposit.
         """
-        current_balance = await bank.get_balance(user)
+        config = Config.get_conf(
+            cog_instance=None,
+            cog_name='Points',
+            identifier=260288776360820736,
+            force_registration=True,
+        )
+        offset = await config.guild(user.guild).offset()
+        current_balance = await Points._get_balance(user)
         max_balance = await bank.get_max_balance(user.guild) # type: ignore[arg-type]
-        if current_balance + amount > max_balance:
-            amount = max_balance - current_balance
-        return await bank.deposit_credits(user, amount) # type: ignore[arg-type]
+        if current_balance + amount - offset > max_balance:
+            amount = max_balance - current_balance - offset
+        return await bank.deposit_credits(user, amount) + offset # type: ignore[arg-type]
         
     @staticmethod
     async def _remove_balance(user: discord.Member, amount: int) -> int:
@@ -161,10 +169,17 @@ class Points(commands.Cog):
             user (discord.Member): The target of withdrawing.
             amount (int): The amount to withdraw.
         """
-        # current_balance = await bank.get_balance(user)
+        config = Config.get_conf(
+            cog_instance=None,
+            cog_name='Points',
+            identifier=260288776360820736,
+            force_registration=True,
+        )
+        offset = await config.guild(user.guild).offset()
+        # current_balance = await Points._get_balance(user)
         # if current_balance - amount < 0:
         #     amount = current_balance
-        return await bank.withdraw_credits(user, amount) # type: ignore[arg-type]
+        return await bank.withdraw_credits(user, amount) + offset # type: ignore[arg-type]
 
     @staticmethod
     async def _is_daily_award_claimed(user: discord.Member) -> bool:
@@ -194,12 +209,40 @@ class Points(commands.Cog):
             user (discord.Member): The target of setting.
             amount (int): The amount to set.
         """
+        config = Config.get_conf(
+            cog_instance=None,
+            cog_name='Points',
+            identifier=260288776360820736,
+            force_registration=True,
+        )
+
+        offset = await config.guild(user.guild).offset()
+        amount = amount - offset
         max_balance = await bank.get_max_balance(user.guild) # type: ignore[arg-type]
         if amount > max_balance:
             amount = max_balance
         # if amount < 0:
         #     amount = 0
-        return await bank.set_balance(user, amount)
+        return await bank.set_balance(user, amount) + offset
+    
+    @staticmethod
+    async def _get_balance(user: discord.Member) -> int:
+        """Gets a user's true balance by using the offset.
+
+        Args:
+            user (discord.Member): The target of getting balance.
+
+        Returns:
+            int: The user's balance.
+        """
+        config = Config.get_conf(
+            cog_instance=None,
+            cog_name='Points',
+            identifier=260288776360820736,
+            force_registration=True,
+        )
+        offset = await config.guild(user.guild).offset()
+        return await bank.get_balance(user) + offset        
 
     @commands.group()
     async def points(self, ctx: commands.Context):
@@ -256,10 +299,14 @@ class Points(commands.Cog):
         Args:
             max (typing.Optional[int]): The max balance for a user.
         """
-        if max is None:
-            max = await bank.get_max_balance(ctx.guild) # type: ignore[arg-type]
+        offset = await self.config.guild(ctx.guild).offset()
 
-        await bank.set_max_balance(max, ctx.guild) #type: ignore[arg-type]
+        if max is None:
+            max = await bank.get_max_balance(ctx.guild) + offset # type: ignore[arg-type]
+
+
+
+        await bank.set_max_balance(max - offset, ctx.guild) #type: ignore[arg-type]
         currency_name = await bank.get_currency_name(ctx.guild) #type: ignore[arg-type]
         await ctx.send(f"The max balance for {currency_name} is set to `{max}`.")
         pass
@@ -312,10 +359,11 @@ class Points(commands.Cog):
         Args:
             int (typing.Optional[int]): The default balance for a user.
         """
+        offset = await self.config.guild(ctx.guild).offset()
         if int is None:
-            int = await bank.get_default_balance(ctx.guild) # type: ignore[arg-type]
+            int = await bank.get_default_balance(ctx.guild) + offset # type: ignore[arg-type]
 
-        await bank.set_default_balance(int, ctx.guild) # type: ignore[arg-type]
+        await bank.set_default_balance(int - offset, ctx.guild) # type: ignore[arg-type]
         await ctx.send(f"The starting balance for a user is set to `{int}`.")
         pass
 
@@ -361,6 +409,21 @@ class Points(commands.Cog):
         await ctx.send(f"Daily award can be claimed in {', '.join([channel.mention for channel in channels])}.")
         pass
 
+    @settings.command()
+    @commands.guild_only()
+    @commands.is_owner()
+    async def offset(self, ctx: commands.Context, int: typing.Optional[int]):
+        """Set the offset for the balance.
+
+        Args:
+            int (typing.Optional[int]): The offset for the balance.
+        """
+        if int is None:
+            int = await self.config.guild(ctx.guild).offset()
+
+        await self.config.guild(ctx.guild).offset.set(int)
+        await ctx.send(f"The offset for the balance is set to `{int}`.")
+        pass
 
     @settings.command()
     @commands.guild_only()
@@ -402,9 +465,9 @@ class Points(commands.Cog):
         
         daily_amount = await self.config.guild(ctx.guild).daily_award()
 
-        await Points._add_balance(ctx.author, daily_amount) # type: ignore[arg-type]
+        new_balance = await Points._add_balance(ctx.author, daily_amount) # type: ignore[arg-type]
         await self.config.user(ctx.author).last_claim_timestamp.set(datetime.datetime.now().timestamp())
-        await ctx.reply(f"Claimed {daily_amount} {currency_name}. You can claim again at <t:{int(tomorrow.timestamp())}:F>.", delete_after=15, ephemeral=True)
+        await ctx.reply(f"Claimed {daily_amount} {currency_name}. Your new balance: `{new_balance}`\nYou can claim again at <t:{int(tomorrow.timestamp())}:F>.", delete_after=15, ephemeral=True)
         pass
 
     @points.command()
@@ -447,7 +510,7 @@ class Points(commands.Cog):
             user (discord.Member): The user to set points for.
             amount (int): The amount of points to set.
         """
-        before = await bank.get_balance(user)
+        before = await Points._get_balance(user)
         await Points._set_balance(user, amount)
         await ctx.reply(f"Set {user.mention}'s points from `{before}` --> `{amount}`.")
         pass
@@ -474,7 +537,7 @@ class Points(commands.Cog):
             await ctx.reply("You don't have permission to check another user's balance.")
             return
 
-        balance = await bank.get_balance(user) #type: ignore[arg-type]
+        balance = await Points._get_balance(user) #type: ignore[arg-type]
         currency_name = await bank.get_currency_name(ctx.guild) # type: ignore[arg-type]
 
         account = await bank.get_account(user) # type: ignore[arg-type]
@@ -485,7 +548,8 @@ class Points(commands.Cog):
         description += f"**Leaderboard Position**: {await bank.get_leaderboard_position(user)}\n"
         description += f"**Created At**: {account.created_at.replace(tzinfo=timezone):%Y-%m-%d %H:%M:%S %Z}\n"
 
-        max_balance = await bank.get_max_balance(ctx.guild) # type: ignore[arg-type]
+        offset = await self.config.guild(ctx.guild).offset()
+        max_balance = await bank.get_max_balance(ctx.guild) + offset # type: ignore[arg-type]
 
         color = discord.Color.dark_grey()               # Dark Grey
         if balance > 0.8 * max_balance:
@@ -529,11 +593,14 @@ class Points(commands.Cog):
 
         description = ""
 
+        offset = await self.config.guild(ctx.guild).offset()
+
         for i, (user_id, stats) in enumerate(leaderboard):
             user = ctx.guild.get_member(user_id) # type: ignore[arg-type]
             if user is None:
                 user = await self.bot.fetch_user(user_id)
-            description += f"{i+1}. {user.mention} - `{stats['balance']}`\n"
+            balance = stats['balance'] + offset
+            description += f"{i+1}. {user.mention} - `{balance}`\n"
 
         bank_name = await bank.get_bank_name(ctx.guild)
 
