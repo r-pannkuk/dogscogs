@@ -456,7 +456,7 @@ class Points(commands.Cog):
         await ctx.send(f"The daily award is set to `{int}`.")
         pass
 
-    @daily.command(name="channels")
+    @daily.command(name="channels", aliases=["channel"])
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def daily_channels(
@@ -585,7 +585,7 @@ class Points(commands.Cog):
         )
         pass
 
-    @passive.command(name="channels")
+    @passive.command(name="channels", aliases=["channel"])
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def passive_channels(
