@@ -837,11 +837,8 @@ class Points(commands.Cog):
             return
         
         passive_channel_ids = await self.config.guild(message.guild).passive_channels()
-        passive_channels = [
-            message.guild.get_channel(channel_id) for channel_id in passive_channel_ids
-        ]
 
-        if passive_channel_ids and len(passive_channel_ids) > 0 and message.channel not in passive_channels:
+        if passive_channel_ids and len(passive_channel_ids) > 0 and message.channel.id not in passive_channel_ids:
             return
 
         user = message.author
