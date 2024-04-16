@@ -963,6 +963,6 @@ class Points(commands.Cog):
 
         message_reply += f"New Balance: `{new_balance} {currency_name}`"
 
-        await message.reply(message_reply, delete_after=20)
+        await message.reply(message_reply, delete_after=20) 
 
         pass
