@@ -21,7 +21,7 @@ DEFAULT_GUILD = {
     "passive_max_count_per_day": 5,
     "passive_channels": [],
     "passive_award_responses": [
-        "That was a particularly good statement. Here, have $POINTS$."
+        "That was a particularly good statement. Here, have $POINTS$.",
         "I don't like you, but I can't deny this take. Have $POINTS$.",
         "You're not as bad as I thought. Have $POINTS$.",
         "Your opinions continue to confuse me. Have $POINTS$.",
@@ -38,7 +38,8 @@ DEFAULT_GUILD = {
         "You're annoying me. Will $POINTS$ make it stop?",
         "On the list of best users in the server, you're name isn't on it. Here's $POINTS$ anyway.",
         "Your skills might be a joke, but it makes me laugh. Here's $POINTS$.",
-    ]
+    ],
+    "passive_response_chance": 0.05,
 }
 
 DEFAULT_USER = {
@@ -225,7 +226,7 @@ class Points(commands.Cog):
         current_balance = await Points._get_balance(user)
         max_balance = await bank.get_max_balance(user.guild)  # type: ignore[arg-type]
         if current_balance + amount - offset > max_balance:
-            amount = max_balance - current_balance - offset
+            amount = max_balance - current_balance + offset
         return await bank.deposit_credits(user, amount) + offset  # type: ignore[arg-type]
 
     @staticmethod
@@ -585,6 +586,84 @@ class Points(commands.Cog):
         )
         pass
 
+    @passive.group(name="response", aliases=["responses"])
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def passive_response(self, ctx: commands.Context):
+        """Manage passive point generation responses."""
+        pass
+
+    @passive_response.command(name="add")
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def passive_response_add(self, ctx: commands.Context, *, response: str):
+        """Add a passive point generation response.  Use `$POINTS$` to represent the amount of points awarded.
+
+        Args:
+            response (str): The response to add.
+        """
+        responses = await self.config.guild(ctx.guild).passive_award_responses()
+        responses.append(response)
+        await self.config.guild(ctx.guild).passive_award_responses.set(responses)
+        await ctx.send(f"Added response: `{response}`.")
+        pass
+
+    @passive_response.command(name="remove")
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def passive_response_remove(self, ctx: commands.Context, index: int):
+        """Remove a passive point generation response.
+
+        Args:
+            index (int): The index of the response to remove.
+        """
+        responses = await self.config.guild(ctx.guild).passive_award_responses()
+        if index < 1 or index > len(responses):
+            await ctx.send("Invalid index.")
+            return
+
+        response = responses.pop(index - 1)
+        await self.config.guild(ctx.guild).passive_award_responses.set(responses)
+        await ctx.send(f"Removed response: `{response}`.")
+        pass
+
+    @passive_response.command(name="list")
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def passive_response_list(self, ctx: commands.Context):
+        """List all passive point generation responses."""
+        responses = await self.config.guild(ctx.guild).passive_award_responses()
+        if len(responses) == 0:
+            await ctx.send("No responses.")
+            return
+
+        response_list = "\n".join([f"{i+1}. {response}" for i, response in enumerate(responses)])
+        await ctx.send(f"Responses:\n{response_list}")
+        pass
+
+    @passive_response.command(name="chance")
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def passive_response_chance(
+        self, ctx: commands.Context, chance: typing.Optional[PercentageOrFloat]
+    ):
+        """Set the chance of a passive point generation response.
+
+        Args:
+            chance (typing.Optional[float]): The chance of a passive point generation response.
+        """
+        if chance is None:
+            chance = await self.config.guild(ctx.guild).passive_response_chance()
+
+        if chance > 1:
+            chance = 1
+        elif chance < 0:
+            chance = 0
+
+        await self.config.guild(ctx.guild).passive_response_chance.set(chance)
+        await ctx.send(f"The chance of a passive response is set to `{chance:,.2%}`.")
+        pass
+
     @passive.command(name="channels", aliases=["channel"])
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
@@ -868,12 +947,22 @@ class Points(commands.Cog):
         )
         await self.config.user(user).last_passive_count.set(last_passive_count + 1)
 
-        passive_responses = await self.config.guild(message.guild).passive_award_responses()
+        passive_response_chance = await self.config.guild(message.guild).passive_response_chance()
 
-        if passive_responses and len(passive_responses) > 0:
-            passive_response = random.choice(passive_responses)
-            currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
-            passive_response = passive_response.replace("$POINTS$", f"`{passive_amount} {currency_name}`")
+        message_reply = ":coin: "
+        currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
 
-            await message.reply(f"{passive_response}\nNew Balance: `{new_balance} {currency_name}`")
+        if random.random() <= passive_response_chance:
+            passive_responses = await self.config.guild(message.guild).passive_award_responses()
+
+            if passive_responses and len(passive_responses) > 0:
+                passive_response = random.choice(passive_responses)
+                passive_response = passive_response.replace("$POINTS$", f"`{passive_amount} {currency_name}`")
+
+                message_reply += f"{passive_response}\n"
+
+        message_reply += f"New Balance: `{new_balance} {currency_name}`"
+
+        await message.reply(message_reply, delete_after=20)
+
         pass
