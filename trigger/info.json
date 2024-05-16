@@ -1,7 +1,7 @@
 {
-    "name": "Welcomer",
-    "short": "Welcomes new users with a greeting, and announces departures from the server.",
-    "description": "Welcomes new users with a greeting, and announces departures from the server.",
+    "name": "Trigger",
+    "short": "Generates messages and responses based on trigger criteria.",
+    "description": "Generates a response based on different trigger criteria and allows custom triggers.",
     "end_user_data_statement": "This cog does not persistently store any data or metadata about users.",
     "author": [
         "Klypto"
@@ -9,9 +9,12 @@
     "required_cogs": {},
     "requirements": [],
     "tags": [
+        "trigger",
         "welcome",
         "greeting",
-        "departure"
+        "leave",
+        "ban",
+        "message"
     ],
     "min_bot_version": "3.3.10",
     "hidden": false,
