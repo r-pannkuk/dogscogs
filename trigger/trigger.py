@@ -389,6 +389,20 @@ class Trigger(commands.Cog):
 
         pass
 
+    @trigger.command()
+    @commands.mod_or_can_manage_channel()
+    async def tokens(self, ctx: commands.GuildContext):
+        """Lists all tokens available for use."""
+        await ctx.reply(
+            f"Available tokens for response messages:\n" +
+            f"\t``{Token.MemberName.value}`` - Member's display name\n" +
+            f"\t``{Token.ServerName.value}`` - Server name\n" +
+            f"\t``{Token.MemberCount.value}`` - Server member count\n" +
+            f"\t``{Token.Action.value}`` - Action taken, i.e. 'joined', 'banned', etc.\n" +
+            f"\t``{Token.InstigatorName.value}`` - Name of the moderator who performed the above action.\n" +
+            f"\t``{Token.Context.value}`` - Context of the action, i.e. the ban / kick reason"
+        )
+
     async def _process_listener(
             self, 
             *,
