@@ -500,7 +500,12 @@ class Trigger(commands.Cog):
                             context=context
                         )
 
-                        if message_contents["reactions"] is not None and message is not None:
+                        if message_contents["reactions"] is not None and \
+                            message is not None and (
+                                config["channel_ids"] is None or
+                                len(config["channel_ids"]) == 0 or
+                                str(message.channel.id) in [str(id) for id in config["channel_ids"]]
+                            ):
                             for emoji in message_contents["reactions"]:
                                 await message.add_reaction(emoji)
                             
