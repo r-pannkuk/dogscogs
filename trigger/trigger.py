@@ -9,12 +9,14 @@ import logging
 import random
 import re
 import typing
+import unicodedata
 import discord
 import pytz
 from redbot.core.bot import Red
 from redbot.core import commands, app_commands
 from enum import UNIQUE, StrEnum, auto, IntFlag, verify
 import d20
+import discord_emoji
 
 from redbot.core.commands.context import Context
 from redbot.core.config import Config
@@ -31,12 +33,15 @@ class Token(StrEnum):
     Action = "$ACTION$"
     InstigatorName = "$INSTIGATOR_NAME$"
     Context = "$CONTEXT$"
+    ReactOpening = "react("
+    ReactClosing = ")"
 
 ActionType = typing.Literal["joined", "was banned", "was kicked", "left"]
 
 class MessageOptions(typing.TypedDict, total=False):
     content: typing.Optional[str]
     embed: typing.Optional[discord.Embed]
+    reactions: typing.Optional[typing.List[typing.Union[discord.Emoji, str]]]
 
 def replace_tokens(
     text: str,
@@ -56,6 +61,15 @@ def replace_tokens(
     if guild is not None:
         text = text.replace(Token.ServerName.value, guild.name)
         text = text.replace(Token.MemberCount.value, str(guild.member_count))
+        emoji_matches = re.findall(r"[:][a-zA-Z0-9_]+[:]", text)
+
+        for match in emoji_matches:
+            emoji_name = match[1:-1]
+            with suppress(discord.errors.HTTPException):
+                emoji = discord.utils.get(guild.emojis, name=emoji_name)
+                if emoji is not None:
+                    text = text.replace(match, str(emoji))
+        
     if action is not None:
         text = text.replace(Token.Action.value, action)
     if instigator is not None:
@@ -228,14 +242,36 @@ class Trigger(commands.Cog):
         
         config_copy["responses"] = [replace_tokens(random.choice([x for x in config_copy["responses"]]), member=member, guild=member.guild, action=action, context=context, instigator=instigator, use_mentions=True)]
 
+        retval : MessageOptions = {
+            "content": None,
+            "embed": None,
+            "reactions": None
+        }
+
+        if config_copy["responses"][0].find(Token.ReactOpening) != -1 and config_copy["responses"][0].find(Token.ReactClosing) != -1:
+            start = config_copy["responses"][0].find(Token.ReactOpening)
+            end = config_copy["responses"][0].find(Token.ReactClosing)
+            reactions = config_copy["responses"][0][start + len(Token.ReactOpening):end].replace(' ', '').split(',')
+
+            custom_emoji_ids = [e.group(0) for e in [re.search(r"(?<=:)[\d]+(?=>)", r) for r in reactions] if e is not None]
+            regular_emojis = [discord_emoji.to_unicode(discord_emoji.to_discord(r, get_all=True) or r) for r in reactions if r is not None and not any(id in r for id in custom_emoji_ids)]
+            emojis = [discord.utils.get(member.guild.emojis, id=int(str(id))) for id in custom_emoji_ids if id is not None] + [r for r in regular_emojis if r is not None]
+            retval["reactions"] = [e for e in emojis if e is not None]
+            config_copy["responses"][0] = (config_copy["responses"][0][:start] + config_copy["responses"][0][end+1:]).strip()
+
+            if len(config_copy["responses"][0]) == 0:
+                config_copy["responses"][0] = None
+
         if config_copy["embed"] is not None and config["embed"]["use_embed"]:
             if config_copy["embed"]["title"] is not None:
                 config_copy["embed"]["title"] = replace_tokens(config_copy["embed"]["title"], member=member, guild=member.guild, action=action, context=context, instigator=instigator)
             if config_copy["embed"]["footer"] is not None:
                 config_copy["embed"]["footer"] = replace_tokens(config_copy["embed"]["footer"], member=member, guild=member.guild, action=action, context=context, instigator=instigator)
-            return {"embed": ReactEmbed(config_copy)}
+            retval["embed"] = discord.Embed.from_dict(config_copy["embed"])
         else:
-            return {"content": config_copy["responses"][0]}
+            retval["content"] = config_copy["responses"][0]
+        
+        return retval
 
     async def _template(self, ctx: commands.GuildContext, config: ReactConfig) -> discord.Message:
         """Template a trigger configuration.
@@ -254,9 +290,23 @@ class Trigger(commands.Cog):
 
         view.add_item(DeleteButton(label="Delete", style=discord.ButtonStyle.danger, custom_id="delete_button"))
 
-        message_content = self._generate(config=config, member=ctx.author, action="<Action>", instigator=ctx.author, context="<Context>")
+        if config["trigger"]["type"] & ReactType.MESSAGE:
+            action = None
+        if config["trigger"]["type"] & ReactType.JOIN:
+            action = "joined"
+        if config["trigger"]["type"] & ReactType.LEAVE:
+            action = "left"
+        if config["trigger"]["type"] & ReactType.KICK:
+            action = "was kicked"
+        if config["trigger"]["type"] & ReactType.BAN:
+            action = "was banned"
 
-        return await ctx.reply(**message_content, view=view, delete_after=60)
+        message_content = self._generate(config=config, member=ctx.author, action=action, instigator=ctx.author, context="<Context>")
+
+        for emoji in message_content["reactions"] or []:
+            await ctx.message.add_reaction(emoji)
+
+        return await ctx.reply(content=message_content["content"], embed=message_content["embed"], view=view, delete_after=60)
 
 
     @commands.group()
@@ -448,19 +498,28 @@ class Trigger(commands.Cog):
                             instigator=perp, 
                             context=context
                         )
-                        if message is not None:
-                            if message.channel is not None and (
-                                len(config["channel_ids"]) == 0 or
-                                str(message.channel.id) in [str(id) for id in config["channel_ids"]]
-                            ):
-                                await message.channel.send(**message_contents)
-                            else: 
-                                continue
-                        else:
-                            for id in config["channel_ids"]:
-                                channel = member.guild.get_channel(int(id))
-                                if channel is not None and isinstance(channel, discord.TextChannel):
-                                    await channel.send(**message_contents)
+
+                        if message_contents["reactions"] is not None and message is not None:
+                            for emoji in message_contents["reactions"]:
+                                await message.add_reaction(emoji)
+                            
+                        del message_contents["reactions"]
+
+                        if message_contents["content"] is not None or message_contents["embed"] is not None:
+                            if message is not None:
+                                if message.channel is not None and (
+                                    config["channel_ids"] is None or
+                                    len(config["channel_ids"]) == 0 or
+                                    str(message.channel.id) in [str(id) for id in config["channel_ids"]]
+                                ):
+                                    await message.channel.send(**message_contents)
+                                else: 
+                                    continue
+                            else:
+                                for id in config["channel_ids"]:
+                                    channel = member.guild.get_channel(int(id))
+                                    if channel is not None and isinstance(channel, discord.TextChannel):
+                                        await channel.send(**message_contents)
 
                         config["cooldown"]["last_timestamp"] = int(datetime.datetime.now(tz=pytz.timezone("UTC")).timestamp())
                         config["cooldown"]["next"] = int((
