@@ -340,20 +340,24 @@ class Trigger(commands.Cog):
     async def list(self, ctx: commands.GuildContext):
         """Lists all triggers for the guild."""
         message = await ctx.reply("Loading...")
+        reacts = await self.config.guild(ctx.guild).reacts()
+        selected_config : str = next(iter(reacts))
 
         while(True):
             reacts = await self.config.guild(ctx.guild).reacts()
-            view = ReactConfigList(ctx.author, reacts, message)
+            view = ReactConfigList(
+                author=ctx.author, 
+                reacts=reacts, 
+                embed_message=message, 
+                selected_config=selected_config
+            )
 
             if not reacts or len(reacts.keys()) == 0:
                 await message.edit(content="No triggers found.", embed=None, view=view)
             else:
-                await message.edit(content= "", embed=ReactConfigurationEmbed(ctx.bot, reacts[next(iter(reacts))]), view=view)
+                await message.edit(content= "", embed=ReactConfigurationEmbed(ctx.bot, reacts[selected_config]), view=view)
 
             await view.wait()
-
-            print(view.selected_config)
-            print(view.action)
 
             if view.action == "REMOVE":
                 if view.selected_config is None:
@@ -385,6 +389,7 @@ class Trigger(commands.Cog):
                     await ctx.reply("No valid trigger to template.", delete_after=5)
                     continue
                 template_message = await self._template(ctx, reacts[view.selected_config])
+                selected_config = view.selected_config
                 continue
 
         pass

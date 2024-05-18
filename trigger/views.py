@@ -52,7 +52,7 @@ async def validate_not_in_triggers(trigger_list: typing.List[str], input: str, i
     return input.lower() not in trigger_list
 
 async def validate_image(input: str, interaction: discord.Interaction):
-    return re.match("(http)?s?:?(\\/\\/[^\"']*\\.(?:png|jpg|jpeg|gif|png|svg))", input) is not None
+    return input == "" or re.match("(http)?s?:?(\\/\\/[^\"']*\\.(?:png|jpg|jpeg|gif|png|svg))", input) is not None
 
 async def validate_length(length: int, input: str, interaction: discord.Interaction):
     return len(input) <= length
@@ -849,10 +849,18 @@ class ReactConfigList(discord.ui.View):
     action : typing.Optional[typing.Literal["ADD", "EDIT", "REMOVE", "TEMPLATE"]]
     
 
-    def __init__(self, author: typing.Union[discord.User, discord.Member], reacts: typing.Dict[str, ReactConfig], embed_message: discord.Message):
+    def __init__(
+            self, 
+            *,
+            author: typing.Union[discord.User, discord.Member], 
+            reacts: typing.Dict[str, ReactConfig], 
+            embed_message: discord.Message, 
+            selected_config: typing.Optional[str] = None
+        ):
         self.author = author
         self.reacts = reacts
         self.embed_message = embed_message
+        self.selected_config = selected_config
 
         super().__init__(timeout=86400)
 
@@ -864,7 +872,6 @@ class ReactConfigList(discord.ui.View):
         self.config_selector = next(i for i in self.children if isinstance(i, discord.ui.Select) and i.custom_id == "CONFIG_SELECT")
         self.template_config_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "TEMPLATE_CONFIG")
 
-        self.selected_config = None
         self.action = None
 
         self.generate_prompt()
@@ -977,7 +984,7 @@ class ReactConfigList(discord.ui.View):
         self.stop()
         pass
 
-    @discord.ui.button(custom_id="TEMPLATE_CONFIG", label="Template Config", style=discord.ButtonStyle.secondary, row=3)
+    @discord.ui.button(custom_id="TEMPLATE_CONFIG", label="Example", style=discord.ButtonStyle.secondary, row=3)
     async def template_config(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user != self.author:
             return
