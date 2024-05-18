@@ -11,12 +11,10 @@ from redbot.core.config import Config
 from trigger.config import ReactConfig, ReactType, COG_IDENTIFIER
 
 from trigger.embed import ReactConfigurationEmbed
-from dogscogs_utils.adapters.parsers import Token
 
 
 async def validate_true(str: str, interaction: discord.Interaction):
     return True
-
 
 async def validate_not_in_guild(input: str, interaction: discord.Interaction):
     guild_config = Config.get_conf(
@@ -24,7 +22,6 @@ async def validate_not_in_guild(input: str, interaction: discord.Interaction):
     )
     reacts = await guild_config.guild(interaction.guild).reacts()
     return input.lower() not in reacts
-
 
 async def validate_number_or_diceroll(input: str, interaction: discord.Interaction):
     try:
@@ -36,7 +33,6 @@ async def validate_number_or_diceroll(input: str, interaction: discord.Interacti
             return True
         except d20.RollSyntaxError:
             return False
-
 
 async def validate_percent_or_diceroll(input: str, interaction: discord.Interaction):
     try:
@@ -79,7 +75,6 @@ def convert_to_color(input: str):
         except:
             return convert_color_name(input)
             
-
 async def validate_color(input: str, interaction: discord.Interaction):
     try:
         convert_to_color(input)
@@ -92,12 +87,16 @@ class _EditReactView(abc.ABC, discord.ui.View):
     embed_message: discord.Message
     selection: typing.Optional[str]
 
-    def __init__(self, config: ReactConfig, message: discord.Message):
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
         super().__init__(timeout=86400)
         assert message is not None
+        self.author = author
         self.embed_message = message
         self.selection = None
         self.config = config
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        return interaction.user == self.author
 
     @abc.abstractmethod
     def generate_prompt(self) -> None:
@@ -152,6 +151,9 @@ class ReactTextBasedModal(discord.ui.Modal):
         self.add_item(self.item)
 
     async def interaction_check(self, interaction: discord.Interaction):
+        if interaction.user != self.react_view.author:
+            return False
+
         if not await self.validation(self.item.value, interaction):
             await interaction.response.send_message(
                 f"Invalid input for {self.label.capitalize()}. Please try again.",
@@ -290,41 +292,6 @@ class ReactRemoveEntryButton(ReactDynamicButton):
         await super().callback(interaction)
         await interaction.response.defer(ephemeral=True)
 
-class EditReactGeneralView(_EditReactView):
-    def __init__(self, config: ReactConfig, message: discord.Message):
-        super().__init__(config, message)
-        self.generate_prompt()
-
-    def generate_prompt(self) -> None:
-        super().generate_prompt()
-
-        self.add_button = ReactTextBasedModalButton(
-            obj=self.config,
-            key="name",
-            react_view=self,
-            label="Edit Name",
-            row=0,
-            prompt_style=discord.TextStyle.long,
-            placeholder="Enter a new name for the trigger.",
-            required=True,
-            converter=lambda s: s.replace(" ", "_").lower(),
-            validation=validate_not_in_guild,
-        )
-        self.add_item(self.add_button)
-
-        self.add_button = ReactTextBasedModalButton(
-            obj=self.config["cooldown"],
-            key="mins",
-            react_view=self,
-            label="Edit Cooldown",
-            row=0,
-            prompt_style=discord.TextStyle.short,
-            placeholder="Enter a number between 0 and 1, or a diceroll like `1d30`.",
-            required=True,
-            validation=validate_number_or_diceroll,
-        )
-        self.add_item(self.add_button)
-
 class ReactDynamicSelect(abc.ABC, discord.ui.Select):
     def __init__(
             self, 
@@ -365,6 +332,8 @@ class ReactDynamicSelectUsers(abc.ABC, discord.ui.UserSelect):
     def __init__(
             self, 
             *,
+            obj,
+            key: str,
             react_view: _EditReactView, 
             custom_id: str,
             min_values: int = 1,
@@ -373,8 +342,9 @@ class ReactDynamicSelectUsers(abc.ABC, discord.ui.UserSelect):
             placeholder: typing.Optional[str] = None,
             row: int = 0,
         ):
-        self.config = react_view.config
         self.react_view = react_view
+        self.obj = obj
+        self.key = key
 
         super().__init__(
             custom_id=custom_id,
@@ -386,7 +356,7 @@ class ReactDynamicSelectUsers(abc.ABC, discord.ui.UserSelect):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        self.react_view.config["always_list"] = [user.id for user in self.values]
+        self.obj[self.key] = [user.id for user in self.values]
         self.react_view.generate_prompt()
         await self.react_view.embed_message.edit(
             embed=ReactConfigurationEmbed(interaction.client, self.react_view.config),
@@ -400,6 +370,8 @@ class ReactDynamicSelectChannels(abc.ABC, discord.ui.ChannelSelect):
     def __init__(
             self, 
             *,
+            obj,
+            key: str,
             react_view: _EditReactView, 
             custom_id: str,
             min_values: int = 1,
@@ -408,7 +380,8 @@ class ReactDynamicSelectChannels(abc.ABC, discord.ui.ChannelSelect):
             placeholder: typing.Optional[str] = None,
             row: int = 0,
         ):
-        self.config = react_view.config
+        self.obj = obj
+        self.key = key
         self.react_view = react_view
 
         super().__init__(
@@ -422,7 +395,7 @@ class ReactDynamicSelectChannels(abc.ABC, discord.ui.ChannelSelect):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        self.react_view.config["channel_ids"] = [channel.id for channel in self.values]
+        self.obj[self.key] = [channel.id for channel in self.values]
         self.react_view.generate_prompt()
         await self.react_view.embed_message.edit(
             embed=ReactConfigurationEmbed(interaction.client, self.react_view.config),
@@ -441,7 +414,7 @@ class ReactSelectTriggerType(ReactDynamicSelect):
 
         for option in options:
             if (
-                react_view.config["trigger"]["type"].value
+                ReactType(react_view.config["trigger"]["type"]).value
                 & ReactType._member_map_[option.value].value
             ):
                 option.default = True
@@ -495,25 +468,36 @@ class ReactSelectFromList(ReactDynamicSelect):
         pass
 
 class ReactSelectYesNo(ReactDynamicSelect):
-    def __init__(self, *, obj, key: typing.Union[str, int], react_view: _EditReactView, row: int = 0):
+    def __init__(
+            self, 
+            *, 
+            obj, 
+            key: typing.Union[str, int], 
+            react_view: _EditReactView, 
+            placeholder: str = "Select Yes or No", 
+            yes: str = "Yes",
+            no: str = "No",
+            row: int = 0
+        ):
 
         self.obj = obj
         self.key = key
 
         options = [
-            discord.SelectOption(label="Yes", value="True"),
-            discord.SelectOption(label="No", value="False"),
+            discord.SelectOption(label=yes, value="True"),
+            discord.SelectOption(label=no, value="False"),
         ]
 
-        for option in options:
-            if option.value == str(react_view.config["embed"] is not None and react_view.config["embed"]["use_embed"]):
-                option.default = True
+        if self.obj[self.key]:
+            options[0].default = True
+        else:
+            options[1].default = True
 
         super().__init__(
             react_view=react_view,
             custom_id=str(key).upper(),
             options=options,
-            placeholder="Select Yes or No.",
+            placeholder=placeholder,
             min_values=1,
             max_values=1,
             row=row,
@@ -534,9 +518,55 @@ class ReactSubmitButton(discord.ui.Button):
         )
         self.react_view.stop()
 
+class EditReactGeneralView(_EditReactView):
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
+        super().__init__(author, config, message)
+        self.generate_prompt()
+
+    def generate_prompt(self) -> None:
+        super().generate_prompt()
+
+        self.enabled_selector = ReactSelectYesNo(
+            obj=self.config,
+            key="enabled",
+            react_view=self,
+            row=0,
+            placeholder="Enable or disable the trigger.",
+            yes="Enabled",
+            no="Disabled",
+        )
+        self.add_item(self.enabled_selector)
+
+        self.add_button = ReactTextBasedModalButton(
+            obj=self.config,
+            key="name",
+            react_view=self,
+            label="Edit Name",
+            row=1,
+            prompt_style=discord.TextStyle.long,
+            placeholder="Enter a new name for the trigger.",
+            required=True,
+            converter=lambda s: s.replace(" ", "_").lower(),
+            validation=validate_not_in_guild,
+        )
+        self.add_item(self.add_button)
+
+        self.add_button = ReactTextBasedModalButton(
+            obj=self.config["cooldown"],
+            key="mins",
+            react_view=self,
+            label="Edit Cooldown",
+            row=1,
+            prompt_style=discord.TextStyle.short,
+            placeholder="Enter a number between 0 and 1, or a diceroll like `1d30`.",
+            required=True,
+            validation=validate_number_or_diceroll,
+        )
+        self.add_item(self.add_button)
+
 class EditReactTriggerView(_EditReactView):
-    def __init__(self, config: ReactConfig, message: discord.Message):
-        super().__init__(config, message)
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
+        super().__init__(author, config, message)
         self.generate_prompt()
 
     def generate_prompt(self) -> None:
@@ -583,7 +613,7 @@ class EditReactTriggerView(_EditReactView):
 
             self.trigger_select: ReactSelectFromList = ReactSelectFromList(
                 react_view=self,
-                custom_id="TRIGGER_SELECT",
+                custom_id="CONFIG_SELECT",
                 options=options,
                 row=2,
                 disabled=len(option_set) == 0,
@@ -630,10 +660,22 @@ class EditReactTriggerView(_EditReactView):
                 self.add_item(self.trigger_select)
                 self.add_item(self.edit_trigger)
                 self.add_item(self.remove_trigger)
+        
+        self.always_list: ReactDynamicSelectUsers = ReactDynamicSelectUsers(
+            react_view=self,
+            obj=self.config,
+            key="always_list",
+            custom_id="ALWAYS_LIST",
+            placeholder="Select users who will always trigger the response.",
+            row=4,
+            min_values=0,
+            max_values=25,
+        )
+        self.add_item(self.always_list)
 
 class EditReactEmbedView(_EditReactView):
-    def __init__(self, config: ReactConfig, message: discord.Message):
-        super().__init__(config, message)
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
+        super().__init__(author, config, message)
         self.generate_prompt()
     
     def generate_prompt(self) -> None:
@@ -644,6 +686,9 @@ class EditReactEmbedView(_EditReactView):
             key="use_embed",
             react_view=self,
             row=0,
+            placeholder="Using RichEmbed or Text Responses",
+            yes="Embed",
+            no="Text",
         )
         self.add_item(self.use_embed)
 
@@ -698,10 +743,9 @@ class EditReactEmbedView(_EditReactView):
             self.add_item(self.edit_footer)
             self.add_item(self.edit_image)
 
-
 class EditReactResponsesView(_EditReactView):
-    def __init__(self, config: ReactConfig, message: discord.Message):
-        super().__init__(config, message)
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
+        super().__init__(author, config, message)
         self.generate_prompt()
 
     def generate_prompt(self) -> None:
@@ -770,42 +814,175 @@ class EditReactResponsesView(_EditReactView):
             self.add_item(self.response_select)
             self.add_item(self.edit_response)
             self.add_item(self.remove_response)
+            
+        self.channel_ids: ReactDynamicSelectChannels = ReactDynamicSelectChannels(
+            react_view=self,
+            obj=self.config,
+            key="channel_ids",
+            custom_id="CHANNEL_IDS",
+            placeholder="Select respond channels, or blank for all channels.",
+            row=4,
+            min_values=0,
+            max_values=25,
+        )
+        self.add_item(self.channel_ids)
         pass
 
-
-
 class EditReactOtherView(_EditReactView):
-    def __init__(self, config: ReactConfig, message: discord.Message):
-        super().__init__(config, message)
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
+        super().__init__(author, config, message)
         self.config = config
         self.generate_prompt()
 
     def generate_prompt(self) -> None:
         super().generate_prompt()
 
-        self.always_list: ReactDynamicSelectUsers = ReactDynamicSelectUsers(
-            react_view=self,
-            custom_id="ALWAYS_LIST",
-            placeholder="Select users who will always trigger the response.",
-            row=0,
-            min_values=0,
-            max_values=25,
-        )
-        self.add_item(self.always_list)
-
-        self.channel_ids: ReactDynamicSelectChannels = ReactDynamicSelectChannels(
-            react_view=self,
-            custom_id="CHANNEL_IDS",
-            placeholder="Select respond channels, or blank for all channels.",
-            row=1,
-            min_values=0,
-            max_values=25,
-        )
-        self.add_item(self.channel_ids)
-
         self.submit : ReactSubmitButton = ReactSubmitButton(
             react_view=self,
             row=4,
         )
         self.add_item(self.submit)
+        pass
+
+class ReactConfigList(discord.ui.View):
+    selected_config : typing.Optional[str]
+    action : typing.Optional[typing.Literal["ADD", "EDIT", "REMOVE", "TEMPLATE"]]
+    
+
+    def __init__(self, author: typing.Union[discord.User, discord.Member], reacts: typing.Dict[str, ReactConfig], embed_message: discord.Message):
+        self.author = author
+        self.reacts = reacts
+        self.embed_message = embed_message
+
+        super().__init__(timeout=86400)
+
+        self.next_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "NEXT")
+        self.prev_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "PREVIOUS")
+        self.add_config_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "ADD_CONFIG")
+        self.edit_config_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "EDIT_CONFIG")
+        self.remove_config_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "REMOVE_CONFIG")
+        self.config_selector = next(i for i in self.children if isinstance(i, discord.ui.Select) and i.custom_id == "CONFIG_SELECT")
+        self.template_config_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "TEMPLATE_CONFIG")
+
+        self.selected_config = None
+        self.action = None
+
+        self.generate_prompt()
+
+    def generate_prompt(self) -> None:
+        self.clear_items()
+
+        options = [
+            discord.SelectOption(
+                label=name, value=name
+            )
+            for name in self.reacts.keys()
+        ]
+
+        self.config_selector.disabled = False
+
+        if self.selected_config is not None:
+            for option in options:
+                if option.value == self.selected_config:
+                    option.default = True
+        elif len(options) > 0:
+            self.selected_config = options[0].value
+            options[0].default = True
+        else:
+            options = [discord.SelectOption(label="No configs available.", value="None")]
+            self.selected_config = None
+            self.config_selector.disabled = True
+            self.prev_button.disabled = True
+            self.next_button.disabled = True
+
+        self.config_selector.options = options
+
+        self.add_item(self.prev_button)
+        self.add_item(self.next_button)
+        self.add_item(self.config_selector)
+        self.add_item(self.add_config_button)
+        self.add_item(self.edit_config_button)
+        self.add_item(self.remove_config_button)
+        self.add_item(self.template_config_button)
+
+        pass
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        return interaction.user == self.author
+
+    @discord.ui.button(custom_id="PREVIOUS", label="⮜", style=discord.ButtonStyle.secondary, row=0)
+    async def previous(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            return
+
+        if self.selected_config is not None and len(self.config_selector.options) > 1:
+            found_index = next((i for i, x in enumerate(self.config_selector.options) if x.value == self.selected_config), None)
+            self.selected_config = self.config_selector.options[(found_index if found_index > 0 else len(self.config_selector.options)) - 1].value
+            self.generate_prompt()
+            await self.embed_message.edit(content=self.embed_message.content, embed=ReactConfigurationEmbed(interaction.client, self.reacts[self.selected_config]), view=self)
+        await interaction.response.defer()
+        pass
+
+    @discord.ui.button(custom_id="NEXT", label="⮞", style=discord.ButtonStyle.secondary, row=0)
+    async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            return
+        
+        if self.selected_config is not None and len(self.config_selector.options) > 1:
+            found_index = next((i for i, x in enumerate(self.config_selector.options) if x.value == self.selected_config), None)
+            self.selected_config = self.config_selector.options[(found_index if found_index < len(self.config_selector.options) - 1 else -1) + 1].value
+            self.generate_prompt()
+            await self.embed_message.edit(content=self.embed_message.content, embed=ReactConfigurationEmbed(interaction.client, self.reacts[self.selected_config]), view=self)
+        await interaction.response.defer()
+        pass
+
+    @discord.ui.select(custom_id="CONFIG_SELECT", placeholder="Select a trigger to edit.", min_values=1, max_values=1, row=1)
+    async def config_select(self, interaction: discord.Interaction, select: discord.ui.Select):
+        if interaction.user != self.author:
+            return
+        
+        self.selected_config = self.config_selector.values[0]
+        self.generate_prompt()
+        await self.embed_message.edit(content=self.embed_message.content, embed=ReactConfigurationEmbed(interaction.client, self.reacts[self.selected_config]), view=self)
+        await interaction.response.defer()
+        pass
+
+    @discord.ui.button(custom_id="ADD_CONFIG", label="Add New Config", style=discord.ButtonStyle.success, row=2)
+    async def add_config(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            return
+        
+        self.action = "ADD"
+        await interaction.response.defer(ephemeral=True)
+        self.stop()
+        pass
+
+    @discord.ui.button(custom_id="EDIT_CONFIG", label="Edit Config", style=discord.ButtonStyle.blurple, row=2)
+    async def edit_config(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            return
+        
+        self.action = "EDIT"
+        await interaction.response.defer(ephemeral=True)
+        self.stop()
+        pass
+
+    @discord.ui.button(custom_id="REMOVE_CONFIG", label="Remove Config", style=discord.ButtonStyle.danger, row=2)
+    async def remove_config(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            return
+        
+        self.action = "REMOVE"
+        await interaction.response.defer(ephemeral=True)
+        self.stop()
+        pass
+
+    @discord.ui.button(custom_id="TEMPLATE_CONFIG", label="Template Config", style=discord.ButtonStyle.secondary, row=3)
+    async def template_config(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user != self.author:
+            return
+        
+        self.action = "TEMPLATE"
+        await interaction.response.defer(ephemeral=True)
+        self.stop()
         pass
