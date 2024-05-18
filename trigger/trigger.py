@@ -455,7 +455,8 @@ class Trigger(commands.Cog):
             f"\t``{Token.MemberCount.value}`` - Server member count\n" +
             f"\t``{Token.Action.value}`` - Action taken, i.e. 'joined', 'banned', etc.\n" +
             f"\t``{Token.InstigatorName.value}`` - Name of the moderator who performed the above action.\n" +
-            f"\t``{Token.Context.value}`` - Context of the action, i.e. the ban / kick reason"
+            f"\t``{Token.Context.value}`` - Context of the action, i.e. the ban / kick reason \n" +
+            f"\t``{Token.ReactOpening.value}:thumbsup:, :guild_emoji:, ...{Token.ReactClosing.value}`` - React with the specified emojis"
         )
 
     async def _process_listener(
