@@ -332,10 +332,15 @@ class Trigger(commands.Cog):
 
         message_content = self._generate(config=config, member=ctx.author, action=action, instigator=ctx.author, context="<Context>")
 
-        for emoji in message_content["reactions"] or []:
-            await ctx.message.add_reaction(emoji)
+        message = await ctx.reply(content=message_content["content"], embed=message_content["embed"], view=view, delete_after=60)
 
-        return await ctx.reply(content=message_content["content"], embed=message_content["embed"], view=view, delete_after=60)
+        for emoji in message_content["reactions"] or []:
+            if isinstance(message, discord.Message):
+                await message.add_reaction(emoji)
+            else: 
+                await ctx.message.add_reaction(emoji)
+
+        return message
 
 
     @commands.group()
