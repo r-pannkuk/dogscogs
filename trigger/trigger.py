@@ -33,8 +33,9 @@ class Token(StrEnum):
     Action = "$ACTION$"
     InstigatorName = "$INSTIGATOR_NAME$"
     Context = "$CONTEXT$"
-    ReactOpening = "react("
-    ReactClosing = ")"
+    Param = "$PARAM$"
+    ReactToken = f"react({Param})"
+    WeightToken = f"weight({Param})"
 
 ActionType = typing.Literal["joined", "was banned", "was kicked", "left"]
 
@@ -239,8 +240,30 @@ class Trigger(commands.Cog):
 
         if config_copy["responses"] is None or len(config_copy["responses"]) == 0:
             config_copy["responses"] = ["<No Response>"]
+
+        responses = []
+        weights = []
+        param_token = r'\d+\.?\d*'
+        token = re.escape(Token.WeightToken.value).replace(re.escape(Token.Param.value), param_token)
+
+        for r in config_copy["responses"]:
+            weight = re.search(token, r)
+
+            if weight is not None:
+                split_token = Token.WeightToken.value.split(Token.Param.value)
+                isolated = weight.group(0).replace(split_token[0], "").replace(split_token[1], "")
+                weights.append(float(isolated))
+                responses.append(r.replace(weight.group(0), ""))
+            else:
+                weights.append(1.0)
+                responses.append(r)
+
+        choice = random.choices(
+            population=responses,
+            weights=weights,
+        )[0]
         
-        config_copy["responses"] = [replace_tokens(random.choice([x for x in config_copy["responses"]]), member=member, guild=member.guild, action=action, context=context, instigator=instigator, use_mentions=True)]
+        config_copy["responses"] = [replace_tokens(choice, member=member, guild=member.guild, action=action, context=context, instigator=instigator, use_mentions=True)]
 
         retval : MessageOptions = {
             "content": None,
@@ -248,16 +271,22 @@ class Trigger(commands.Cog):
             "reactions": None
         }
 
-        if config_copy["responses"][0].find(Token.ReactOpening) != -1 and config_copy["responses"][0].find(Token.ReactClosing) != -1:
-            start = config_copy["responses"][0].find(Token.ReactOpening)
-            end = config_copy["responses"][0].find(Token.ReactClosing)
-            reactions = config_copy["responses"][0][start + len(Token.ReactOpening):end].replace(' ', '').split(',')
+        param_token = r'.+?'
+        token = re.escape(Token.ReactToken.value).replace(re.escape(Token.Param.value), param_token)
+        found_reactions = re.search(token, config_copy["responses"][0])
+        reactions = None
 
+        if found_reactions is not None:
+            split_token = Token.ReactToken.value.split(Token.Param.value)
+            isolated = found_reactions.group(0).replace(split_token[0], "").replace(split_token[1], "")
+            reactions = isolated.split(", ")
+            config_copy["responses"][0] = config_copy["responses"][0].replace(found_reactions.group(0), "")
+
+        if reactions is not None:
             custom_emoji_ids = [e.group(0) for e in [re.search(r"(?<=:)[\d]+(?=>)", r) for r in reactions] if e is not None]
             regular_emojis = [discord_emoji.to_unicode(discord_emoji.to_discord(r, get_all=True) or r) for r in reactions if r is not None and not any(id in r for id in custom_emoji_ids)]
             emojis = [discord.utils.get(member.guild.emojis, id=int(str(id))) for id in custom_emoji_ids if id is not None] + [r for r in regular_emojis if r is not None]
             retval["reactions"] = [e for e in emojis if e is not None]
-            config_copy["responses"][0] = (config_copy["responses"][0][:start] + config_copy["responses"][0][end+1:]).strip()
 
             if len(config_copy["responses"][0]) == 0:
                 config_copy["responses"][0] = None
@@ -267,7 +296,7 @@ class Trigger(commands.Cog):
                 config_copy["embed"]["title"] = replace_tokens(config_copy["embed"]["title"], member=member, guild=member.guild, action=action, context=context, instigator=instigator)
             if config_copy["embed"]["footer"] is not None:
                 config_copy["embed"]["footer"] = replace_tokens(config_copy["embed"]["footer"], member=member, guild=member.guild, action=action, context=context, instigator=instigator)
-            retval["embed"] = discord.Embed.from_dict(config_copy["embed"])
+            retval["embed"] = ReactEmbed(config_copy)
         else:
             retval["content"] = config_copy["responses"][0]
         
@@ -444,7 +473,7 @@ class Trigger(commands.Cog):
 
         pass
 
-    @trigger.command()
+    @trigger.command(aliases=["token"])
     @commands.mod_or_can_manage_channel()
     async def tokens(self, ctx: commands.GuildContext):
         """Lists all tokens available for use."""
@@ -456,7 +485,13 @@ class Trigger(commands.Cog):
             f"\t``{Token.Action.value}`` - Action taken, i.e. 'joined', 'banned', etc.\n" +
             f"\t``{Token.InstigatorName.value}`` - Name of the moderator who performed the above action.\n" +
             f"\t``{Token.Context.value}`` - Context of the action, i.e. the ban / kick reason \n" +
-            f"\t``{Token.ReactOpening.value}:thumbsup:, :guild_emoji:, ...{Token.ReactClosing.value}`` - React with the specified emojis"
+            f"\t``{Token.ReactToken.value.replace(Token.Param.value, ':thumbsup:, :guild_emoji:, ...')}`` - React with the specified emojis\n" + 
+            f"\t``{Token.WeightToken.value.replace(Token.Param.value, '3.0')}`` - Weight the response with the specified value\n" +
+            "\n"
+            f"Join Message Example:\n" + 
+            f"``{Token.ReactToken.value.replace(Token.Param.value, ':wave:')} " + 
+            f"{Token.WeightToken.value.replace(Token.Param.value, '3.0')} " + 
+            f"{Token.MemberName.value} {Token.Action.value} {Token.ServerName.value}. Welcome! You are member #{Token.MemberCount.value}.``"
         )
 
     async def _process_listener(
@@ -500,16 +535,7 @@ class Trigger(commands.Cog):
                             context=context
                         )
 
-                        if message_contents["reactions"] is not None and \
-                            message is not None and (
-                                config["channel_ids"] is None or
-                                len(config["channel_ids"]) == 0 or
-                                str(message.channel.id) in [str(id) for id in config["channel_ids"]]
-                            ):
-                            for emoji in message_contents["reactions"]:
-                                await message.add_reaction(emoji)
-                            
-                        del message_contents["reactions"]
+                        new_message = None
 
                         if message_contents["content"] is not None or message_contents["embed"] is not None:
                             if message is not None:
@@ -518,14 +544,28 @@ class Trigger(commands.Cog):
                                     len(config["channel_ids"]) == 0 or
                                     str(message.channel.id) in [str(id) for id in config["channel_ids"]]
                                 ):
-                                    await message.channel.send(**message_contents)
+                                    new_message = await message.channel.send(content=message_contents["content"], embed=message_contents["embed"])
                                 else: 
                                     continue
                             else:
                                 for id in config["channel_ids"]:
                                     channel = member.guild.get_channel(int(id))
                                     if channel is not None and isinstance(channel, discord.TextChannel):
-                                        await channel.send(**message_contents)
+                                        new_message = await channel.send(content=message_contents["content"], embed=message_contents["embed"])
+
+                        if message_contents["reactions"] is not None:
+                            if message is not None and (
+                                config["channel_ids"] is None or
+                                len(config["channel_ids"]) == 0 or
+                                str(message.channel.id) in [str(id) for id in config["channel_ids"]]
+                            ):
+                                pass
+                            else:
+                                message = new_message
+                            
+                            if message is not None:
+                                for emoji in message_contents["reactions"]:
+                                    await message.add_reaction(emoji)
 
                         config["cooldown"]["last_timestamp"] = int(datetime.datetime.now(tz=pytz.timezone("UTC")).timestamp())
                         config["cooldown"]["next"] = int((
