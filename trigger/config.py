@@ -42,6 +42,7 @@ class TriggerConfig(typing.TypedDict):
 class ReactConfig(typing.TypedDict):
     enabled: bool
     always_list: typing.Optional[typing.List[typing.Union[str, int]]]
+    never_list: typing.Optional[typing.List[typing.Union[str, int]]]
     channel_ids: typing.Optional[typing.List[typing.Union[str, int]]]
     cooldown: CooldownConfig
     embed: typing.Optional[EmbedConfig]

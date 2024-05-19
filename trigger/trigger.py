@@ -23,7 +23,7 @@ from redbot.core.config import Config
 
 from trigger.config import COG_IDENTIFIER, ReactConfig, ReactType
 from trigger.embed import ReactConfigurationEmbed, ReactEmbed
-from trigger.views import _EditReactView, EditReactEmbedView, EditReactGeneralView, EditReactTriggerView, EditReactResponsesView, EditReactOtherView, ReactConfigList
+from trigger.views import _EditReactView, EditReactEmbedView, EditReactGeneralView, EditReactTriggerView, EditReactResponsesView, EditReactOtherView, EditReactUserListView, ReactConfigList
 
 @verify(UNIQUE)
 class Token(StrEnum):
@@ -107,7 +107,7 @@ async def get_audit_log_reason(
 
 DefaultConfig: ReactConfig = {
     "enabled": True,
-    "name": "",
+    "name": "new_trigger",
     "cooldown": {"mins": "1d30", "next": 0, "last_timestamp": 0},
     "trigger": {"type": ReactType.MESSAGE, "chance": "100%", "list": []},
     "responses": [],
@@ -119,6 +119,7 @@ DefaultConfig: ReactConfig = {
         "color": discord.Color.lighter_grey().to_rgb(),
     },
     "always_list": [],
+    "never_list": [],
     "channel_ids": [],
 }
 
@@ -142,6 +143,16 @@ class Trigger(commands.Cog):
         )
         self.config.register_guild(**DEFAULT_GUILD)
 
+    async def load(self):
+        """Load the trigger cog."""
+        for guild in self.bot.guilds:
+            reacts = await self.config.guild(guild).reacts()
+            for name, config in reacts.items():
+                config = {**DefaultConfig, **config}
+                reacts[name] = config
+            await self.config.guild(guild).reacts.set(reacts)
+        pass
+
     async def _edit(self, ctx: commands.GuildContext, config: ReactConfig):
         """Edit a trigger configuration.
 
@@ -153,7 +164,7 @@ class Trigger(commands.Cog):
 
         class MessageViewObject(typing.TypedDict):
             view: typing.Optional[_EditReactView]
-            message: discord.Message
+            message: typing.Optional[discord.Message]
 
         messages : typing.Dict[str, MessageViewObject] = {
             "embed": {
@@ -166,6 +177,10 @@ class Trigger(commands.Cog):
             },
             "trigger": {
                 "view": EditReactTriggerView(ctx.author, config, embed_message),
+                "message": None,
+            },
+            "user_list": {
+                "view": EditReactUserListView(ctx.author, config, embed_message),
                 "message": None,
             },
             "responses": {
@@ -184,6 +199,7 @@ class Trigger(commands.Cog):
 
         messages["general"]["message"] = await ctx.send(view=messages["general"]["view"])
         messages["trigger"]["message"] = await ctx.send(content="**Trigger Type**:", view=messages["trigger"]["view"])
+        messages["user_list"]["message"] = await ctx.send(view=messages["user_list"]["view"])
         messages["responses"]["message"] = await ctx.send(view=messages["responses"]["view"])
         messages["embed"]["message"] = await ctx.send(content="**Response Type**:", view=messages["embed"]["view"])
         messages["other"]["message"] = await ctx.send(view=messages["other"]["view"])
@@ -192,20 +208,19 @@ class Trigger(commands.Cog):
 
         old_cooldown = config["cooldown"]["mins"]
 
-        await messages["other"]["view"].wait()
+        if not await messages["other"]["view"].wait():
+            if config["cooldown"]["mins"] != old_cooldown:
+                config["cooldown"]["next"] = 0
 
-        if config["cooldown"]["mins"] != old_cooldown:
-            config["cooldown"]["next"] = 0
+            reacts = await self.config.guild(ctx.guild).reacts()
 
-        reacts = await self.config.guild(ctx.guild).reacts()
+            reacts[config["name"]] = config 
 
-        reacts[config["name"]] = config 
+            await self.config.guild(ctx.guild).reacts.set(reacts)
 
-        await self.config.guild(ctx.guild).reacts.set(reacts)
+            await ctx.reply(f"Set trigger ``{config['name']}``.")
 
         await ctx.channel.delete_messages([x["message"] for x in messages.values() if x["message"] is not None])
-
-        await ctx.reply(f"Set trigger ``{config['name']}``.")
 
 
     async def _delete(self, ctx: commands.GuildContext, config: ReactConfig):
@@ -239,7 +254,7 @@ class Trigger(commands.Cog):
         config_copy = copy.deepcopy(config)
 
         if config_copy["responses"] is None or len(config_copy["responses"]) == 0:
-            config_copy["responses"] = ["<No Response>"]
+            config_copy["responses"] = [""]
 
         responses = []
         weights = []
@@ -291,14 +306,15 @@ class Trigger(commands.Cog):
             if len(config_copy["responses"][0]) == 0:
                 config_copy["responses"][0] = None
 
-        if config_copy["embed"] is not None and config["embed"]["use_embed"]:
+        if config_copy["embed"] is not None and config_copy["embed"]["use_embed"]:
             if config_copy["embed"]["title"] is not None:
                 config_copy["embed"]["title"] = replace_tokens(config_copy["embed"]["title"], member=member, guild=member.guild, action=action, context=context, instigator=instigator)
             if config_copy["embed"]["footer"] is not None:
                 config_copy["embed"]["footer"] = replace_tokens(config_copy["embed"]["footer"], member=member, guild=member.guild, action=action, context=context, instigator=instigator)
             retval["embed"] = ReactEmbed(config_copy)
         else:
-            retval["content"] = config_copy["responses"][0]
+            retval["content"] = (config_copy["responses"][0] if config_copy["responses"][0] is not None else "").strip()
+            retval["content"] = retval["content"] if len(retval["content"] or "") > 0 else None
         
         return retval
 
@@ -318,6 +334,8 @@ class Trigger(commands.Cog):
                         await interaction.message.delete()
 
         view.add_item(DeleteButton(label="Delete", style=discord.ButtonStyle.danger, custom_id="delete_button"))
+
+        action : typing.Optional[ActionType] = None
 
         if config["trigger"]["type"] & ReactType.MESSAGE:
             action = None
@@ -455,7 +473,7 @@ class Trigger(commands.Cog):
             if view.action == "ADD":
                 await message.delete()
                 new_config = DefaultConfig
-                new_config["name"] = "new_trigger"
+                new_config["name"] += f":{datetime.datetime.now().timestamp()}"
                 await self._edit(ctx, new_config)
                 reacts = await self.config.guild(ctx.guild).reacts()
                 break
@@ -513,11 +531,15 @@ class Trigger(commands.Cog):
         for name, c in reacts.items():
             config : ReactConfig = c
 
+            if config["never_list"] and member.id in config["never_list"]:
+                continue
+
             if config["enabled"]:
                 if (
                     config["trigger"]["type"] & ReactType.MESSAGE and 
                     action is None and 
                     message is not None and 
+                    config["trigger"]["list"] is not None and
                     any(x for x in config["trigger"]["list"] if re.match(x, message.content.lower()))
                 ) or \
                 config["trigger"]["type"] & ReactType.JOIN and action == "joined" or \
@@ -529,7 +551,10 @@ class Trigger(commands.Cog):
                         chance = chance.replace("%", "")
                         chance = chance[:-2] + "." + chance[-2:]
                     if (
-                        member.id in config["always_list"] or
+                        (
+                            config["always_list"] is not None and
+                            member.id in config["always_list"] 
+                        ) or
                         random.random() < d20.roll(str(chance)).total
                      ) and datetime.datetime.now(tz=pytz.timezone("UTC")).timestamp() > config["cooldown"]["next"]:
                         message_contents = self._generate(
@@ -552,7 +577,7 @@ class Trigger(commands.Cog):
                                     new_message = await message.channel.send(content=message_contents["content"], embed=message_contents["embed"])
                                 else: 
                                     continue
-                            else:
+                            elif config["channel_ids"] is not None:
                                 for id in config["channel_ids"]:
                                     channel = member.guild.get_channel(int(id))
                                     if channel is not None and isinstance(channel, discord.TextChannel):
@@ -638,6 +663,7 @@ class Trigger(commands.Cog):
         pass
 
     @commands.Cog.listener()
+    @commands.guild_only()
     async def on_message(self, message: discord.Message):
         """Listens for hello triggers and rolls a chance to trigger a response.
 
@@ -647,11 +673,17 @@ class Trigger(commands.Cog):
         if message.author.bot:
             return
         
+        if self.bot.user is None:
+            return
+
         if message.author.id == self.bot.user.id:
             return
         
         if message.guild is None:
             return
         
-        await self._process_listener(member=message.author, message=message)
+        member = message.guild.get_member(message.author.id)
+        
+        if member is not None:
+            await self._process_listener(member=member, message=message)
         pass

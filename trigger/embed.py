@@ -51,6 +51,16 @@ class ReactConfigurationEmbed(discord.Embed):
                 name="Always Triggers For", value="\n".join(user_list), inline=False
             )
 
+        if config["never_list"] and len(config["never_list"]) > 0:
+            user_list = [
+                y.mention
+                for y in [self.client.get_user(int(x)) for x in config["never_list"]]
+                if y is not None
+            ]
+            self.add_field(
+                name="Never Triggers For", value="\n".join(user_list), inline=False
+            )
+
         if config["responses"] and len(config["responses"]) > 0:
             self.add_field(
                 name="Responses",

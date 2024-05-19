@@ -88,7 +88,7 @@ class _EditReactView(abc.ABC, discord.ui.View):
     selection: typing.Optional[str]
 
     def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
-        super().__init__(timeout=86400)
+        super().__init__(timeout=10*60)
         assert message is not None
         self.author = author
         self.embed_message = message
@@ -119,7 +119,7 @@ class ReactTextBasedModal(discord.ui.Modal):
         ] = validate_true,
     ):
         self.label: str = key if isinstance(key, str) else "Element " + str(key)
-        super().__init__(timeout=86400, title="Edit " + self.label.capitalize()[0:39])
+        super().__init__(timeout=10*60, title="Edit " + self.label.capitalize()[0:39])
         self.obj = obj
         self.key = key
         self.react_view = react_view
@@ -138,7 +138,7 @@ class ReactTextBasedModal(discord.ui.Modal):
         else:
             default = obj[key]
 
-        if placeholder == None:
+        if placeholder is None:
             placeholder = f"Provide a new value for {self.label.capitalize()}."
 
         self.item: discord.ui.TextInput = discord.ui.TextInput(
@@ -635,7 +635,7 @@ class EditReactTriggerView(_EditReactView):
 
             self.edit_trigger: ReactTextBasedModalButton = ReactTextBasedModalButton(
                 obj=self.config["trigger"]["list"],
-                key=self.selection,
+                key=self.selection or 0,
                 button_style=discord.ButtonStyle.blurple,
                 prompt_style=discord.TextStyle.long,
                 required=True,
@@ -648,7 +648,7 @@ class EditReactTriggerView(_EditReactView):
 
             self.remove_trigger: ReactRemoveEntryButton = ReactRemoveEntryButton(
                 obj=self.config["trigger"]["list"],
-                key=self.selection,
+                key=self.selection or 0,
                 style=discord.ButtonStyle.danger,
                 react_view=self,
                 disabled=self.selection == None,
@@ -660,6 +660,14 @@ class EditReactTriggerView(_EditReactView):
                 self.add_item(self.trigger_select)
                 self.add_item(self.edit_trigger)
                 self.add_item(self.remove_trigger)
+
+class EditReactUserListView(_EditReactView):
+    def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
+        super().__init__(author, config, message)
+        self.generate_prompt()
+
+    def generate_prompt(self) -> None:
+        super().generate_prompt()
         
         self.always_list: ReactDynamicSelectUsers = ReactDynamicSelectUsers(
             react_view=self,
@@ -667,11 +675,24 @@ class EditReactTriggerView(_EditReactView):
             key="always_list",
             custom_id="ALWAYS_LIST",
             placeholder="Select users who will always trigger the response.",
-            row=4,
+            row=0,
             min_values=0,
             max_values=25,
         )
         self.add_item(self.always_list)
+
+        self.never_list : ReactDynamicSelectUsers = ReactDynamicSelectUsers(
+            react_view=self,
+            obj=self.config,
+            key="never_list",
+            custom_id="NEVER_LIST",
+            placeholder="Select users who will never trigger the response.",
+            row=1,
+            min_values=0,
+            max_values=25,
+        )
+        self.add_item(self.never_list)
+        
 
 class EditReactEmbedView(_EditReactView):
     def __init__(self, author: typing.Union[discord.User, discord.Member], config: ReactConfig, message: discord.Message):
@@ -791,7 +812,7 @@ class EditReactResponsesView(_EditReactView):
 
         self.edit_response : ReactTextBasedModalButton = ReactTextBasedModalButton(
             obj=self.config["responses"],
-            key=self.selection,
+            key=self.selection or 0,
             react_view=self,
             label=f"Edit Response",
             row=3,
@@ -802,7 +823,7 @@ class EditReactResponsesView(_EditReactView):
 
         self.remove_response : ReactRemoveEntryButton = ReactRemoveEntryButton(
             obj=self.config["responses"],
-            key=self.selection,
+            key=self.selection or 0,
             react_view=self,
             label=f"Remove Response",
             style=discord.ButtonStyle.danger,
@@ -862,7 +883,7 @@ class ReactConfigList(discord.ui.View):
         self.embed_message = embed_message
         self.selected_config = selected_config
 
-        super().__init__(timeout=86400)
+        super().__init__(timeout=10*60)
 
         self.next_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "NEXT")
         self.prev_button = next(i for i in self.children if isinstance(i, discord.ui.Button) and i.custom_id == "PREVIOUS")
@@ -923,7 +944,7 @@ class ReactConfigList(discord.ui.View):
             return
 
         if self.selected_config is not None and len(self.config_selector.options) > 1:
-            found_index = next((i for i, x in enumerate(self.config_selector.options) if x.value == self.selected_config), None)
+            found_index = next((i for i, x in enumerate(self.config_selector.options) if x.value == self.selected_config), 0)
             self.selected_config = self.config_selector.options[(found_index if found_index > 0 else len(self.config_selector.options)) - 1].value
             self.generate_prompt()
             await self.embed_message.edit(content=self.embed_message.content, embed=ReactConfigurationEmbed(interaction.client, self.reacts[self.selected_config]), view=self)
@@ -936,7 +957,7 @@ class ReactConfigList(discord.ui.View):
             return
         
         if self.selected_config is not None and len(self.config_selector.options) > 1:
-            found_index = next((i for i, x in enumerate(self.config_selector.options) if x.value == self.selected_config), None)
+            found_index = next((i for i, x in enumerate(self.config_selector.options) if x.value == self.selected_config), 0)
             self.selected_config = self.config_selector.options[(found_index if found_index < len(self.config_selector.options) - 1 else -1) + 1].value
             self.generate_prompt()
             await self.embed_message.edit(content=self.embed_message.content, embed=ReactConfigurationEmbed(interaction.client, self.reacts[self.selected_config]), view=self)
