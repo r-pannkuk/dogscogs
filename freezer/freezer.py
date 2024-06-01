@@ -70,6 +70,35 @@ class Freezer(commands.Cog):
         self.current_movers : typing.List[FreezerEntry] = []
         pass
 
+    async def sort_channels(self, guild: discord.Guild):
+        freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(guild).freezer_entries()
+        operations = []
+        categories = guild.categories
+
+        # Identify all of the channels that need to be corrected.
+        for category in categories:
+            if str(category.id) in freezer_entries.keys():
+                correct_channels = sorted(freezer_entries[str(category.id)]['children'], key=lambda c: c['position'])
+                
+                for k in range(0, len(correct_channels)):
+                    channel = next(c for c in category.channels if c.id == correct_channels[k]['id'])
+
+                    # check for permissions
+                    if channel.permissions_for(guild.me).manage_channels:
+                        print(f"Channel {channel.name} is at position {channel.position} and should be at {correct_channels[k]['position']}")
+                        operations.append(channel.edit(position=correct_channels[k]['position']))
+                    
+
+        if len(operations) > 0:
+            await self.config.guild(guild).is_moving_categories.set(True)
+            print("Running operations")
+            for operation in operations:
+                await operation
+                await sleep(3)
+            print("Done running operations")
+            await self.config.guild(guild).is_moving_categories.set(False)
+
+
     @commands.group()
     @commands.mod_or_permissions(manage_roles=True)
     async def freezer(self, ctx: commands.Context):
@@ -235,6 +264,14 @@ class Freezer(commands.Cog):
 
         pass
 
+    @freezer.command()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def sort(self, ctx: commands.GuildContext):
+        """Sorts the channel order to the recorded state.
+        """
+        await self.sort_channels(ctx.guild)
+        pass
+
     @freezer.group()
     @commands.mod_or_permissions(manage_roles=True)
     async def settings(self, ctx: commands.Context):
@@ -273,31 +310,6 @@ class Freezer(commands.Cog):
         if await self.config.guild(before.guild).is_moving_categories():
             return
         
-        freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(before.guild).freezer_entries()
-        categories = before.guild.categories
-        operations = []
-
-        # Identify all of the channels that need to be corrected.
-        for category in categories:
-            if str(category.id) in freezer_entries.keys():
-                correct_channels = sorted(freezer_entries[str(category.id)]['children'], key=lambda c: c['position'])
-                
-                for k in range(0, len(correct_channels)):
-                    channel = next(c for c in category.channels if c.id == correct_channels[k]['id'])
-
-                    # check for permissions
-                    if channel.permissions_for(before.guild.me).manage_channels:
-                        print(f"Channel {channel.name} is at position {channel.position} and should be at {correct_channels[k]['position']}")
-                        operations.append(channel.edit(position=correct_channels[k]['position']))
-                    
-
-        if len(operations) > 0:
-            await self.config.guild(before.guild).is_moving_categories.set(True)
-            print("Running operations")
-            for operation in operations:
-                await operation
-                await sleep(3)
-            print("Done running operations")
-            await self.config.guild(before.guild).is_moving_categories.set(False)
+        await self.sort_channels(before.guild)
 
         pass
