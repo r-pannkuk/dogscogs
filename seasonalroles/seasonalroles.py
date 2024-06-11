@@ -76,7 +76,7 @@ class SeasonalRoles(commands.Cog):
     @seasonalroles.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
-    async def channel(self, ctx: commands.Context, channel: discord.TextChannel, roles: commands.Greedy[discord.Role]) -> None:
+    async def channel(self, ctx: commands.Context, channel: typing.Union[discord.TextChannel, discord.Thread], roles: commands.Greedy[discord.Role]) -> None:
         """Set the channel to watch for seasonal roles."""
         if not roles or len(roles) == 0:
             role_ids = await self.config.channel(channel).roles()
@@ -113,7 +113,7 @@ class SeasonalRoles(commands.Cog):
         embed.description = "The following channels will apply roles to users who post in them:\n\n"
         text = ""
         for channel_id, data in channels.items():
-            channel = ctx.guild.get_channel(channel_id)
+            channel = ctx.guild.get_channel_or_thread(channel_id)
             roles = [ctx.guild.get_role(role_id) for role_id in data["roles"]]
             roles = [role for role in roles if role]
             if not roles:
@@ -170,7 +170,7 @@ class SeasonalRoles(commands.Cog):
         for channel_id, data in channels.items():
             if role.id in data["roles"]:
                 data["roles"].remove(role.id)
-                await self.config.channel(guild.get_channel(channel_id)).roles.set(data["roles"])
+                await self.config.channel(guild.get_channel_or_thread(channel_id)).roles.set(data["roles"])
 
     @commands.Cog.listener()
     async def on_guild_channel_delete(self, channel: discord.abc.GuildChannel) -> None:
@@ -182,3 +182,19 @@ class SeasonalRoles(commands.Cog):
             return
 
         await self.config.channel(channel).clear()
+
+    @commands.Cog.listener()
+    async def on_thread_delete(self, thread: discord.Thread) -> None:
+        guild = thread.guild
+        if not guild:
+            return
+
+        await self.config.channel(thread).clear()
+
+    @commands.Cog.listener()
+    async def on_thread_remove(self, thread: discord.Thread) -> None:
+        guild = thread.guild
+        if not guild:
+            return
+
+        await self.config.channel(thread).clear()

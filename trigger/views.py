@@ -331,6 +331,7 @@ class ReactDynamicSelect(abc.ABC, discord.ui.Select):
 class ReactDynamicSelectUsers(abc.ABC, discord.ui.UserSelect):
     def __init__(
             self, 
+            guild: typing.Optional[discord.Guild] = None,
             *,
             obj,
             key: str,
@@ -670,6 +671,7 @@ class EditReactUserListView(_EditReactView):
         super().generate_prompt()
         
         self.always_list: ReactDynamicSelectUsers = ReactDynamicSelectUsers(
+            guild=self.embed_message.guild,
             react_view=self,
             obj=self.config,
             key="always_list",
@@ -682,6 +684,7 @@ class EditReactUserListView(_EditReactView):
         self.add_item(self.always_list)
 
         self.never_list : ReactDynamicSelectUsers = ReactDynamicSelectUsers(
+            guild=self.embed_message.guild,
             react_view=self,
             obj=self.config,
             key="never_list",
