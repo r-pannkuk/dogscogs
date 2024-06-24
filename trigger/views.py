@@ -585,6 +585,8 @@ class EditReactTriggerView(_EditReactView):
                 if chance < 0:
                     return 0
                 if chance > 1:
+                    if chance / 100 > 1:
+                        return 1
                     return chance / 100
                 return chance
             except:
