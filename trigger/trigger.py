@@ -443,6 +443,9 @@ class Trigger(commands.Cog):
         """Lists all triggers for the guild."""
         message = await ctx.reply("Loading...")
         reacts = await self.config.guild(ctx.guild).reacts()
+        if reacts is None or len(reacts.keys()) == 0:
+            await message.edit(content="No triggers found.")
+            return
         selected_config : str = next(iter(reacts))
 
         while(True):

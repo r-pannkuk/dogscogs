@@ -446,6 +446,9 @@ class Bully(commands.Cog):
         else:
             if any(message.content.startswith(p) for p in prefix):
                 return
+            
+        if message.guild is None:
+            return
 
         config = self.config.guild(message.guild)
 
@@ -478,9 +481,9 @@ class Bully(commands.Cog):
                     timeout = await config.timeout_mins()
 
                     try:
+                        await message.reply(response)
                         if timeout > 0:
                             await message.author.timeout(datetime.timedelta(minutes=timeout), reason=response)
-                            await message.reply(response)
                         else:
                             await message.author.kick(reason=response)
                     except Exception as e:
