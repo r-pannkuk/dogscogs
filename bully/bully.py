@@ -487,7 +487,8 @@ class Bully(commands.Cog):
                         else:
                             await message.author.kick(reason=response)
                     except Exception as e:
-                        await message.reply(response)
+                        # Couldn't timeout or kick the user, which is fine.
+                        pass
                     pass
 
                     cooldown_minutes = await config.cooldown_minutes()
