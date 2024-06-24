@@ -40,7 +40,7 @@ async def validate_percent_or_diceroll(input: str, interaction: discord.Interact
             f = float(input[:-1]) / 100
         else:
             f = float(input)
-        return 0 <= f <= 1
+        return True
     except ValueError:
         try:
             d20.parse(input)
@@ -579,6 +579,17 @@ class EditReactTriggerView(_EditReactView):
         )
         self.add_item(self.trigger_type)
 
+        def trigger_chance_converter(s):
+            try:
+                chance = float(s)
+                if chance < 0:
+                    return 0
+                if chance > 1:
+                    return chance / 100
+                return chance
+            except:
+                return s.replace(" ", "_").lower()
+
         self.edit_chance: discord.ui.Button = ReactTextBasedModalButton(
             obj=self.config["trigger"],
             key="chance",
@@ -588,7 +599,7 @@ class EditReactTriggerView(_EditReactView):
             prompt_style=discord.TextStyle.short,
             placeholder="Enter a number between 0 and 1, or a diceroll like `1d30`.",
             required=True,
-            converter=lambda s: s.replace(" ", "_").lower(),
+            converter=trigger_chance_converter,
             validation=validate_percent_or_diceroll,
         )
         self.add_item(self.edit_chance)
