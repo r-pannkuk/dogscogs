@@ -69,7 +69,6 @@ class PercentageOrFloat(commands.Converter):
         
         return value
 
-
 class BalanceAdjustmentButtons(discord.ui.View):
 
     class _Modal(discord.ui.Modal, title="Placeholder"):
