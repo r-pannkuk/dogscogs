@@ -81,7 +81,8 @@ class Karma(commands.Cog):
             karma += valid_stickers[sticker_id] * len(message_ids)
             count += len(message_ids)
 
-        karma = float(karma) / count
+        if count > 0:
+            karma = float(karma) / count
 
         if karma > 0.1:
             rating = "Good"
