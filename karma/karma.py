@@ -13,8 +13,9 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
     "valid_stickers": {
-        1254608441234821171 : -1,
         1226341561495851030 : 1,
+        1254952247343972393 : 0,
+        1254608441234821171 : -1,
     },
     "after_timestamp": 1719147600
 }
@@ -123,4 +124,6 @@ class Karma(commands.Cog):
             return
         
         await self._count_stickers(message)
+
+        print(message.stickers)
 
