@@ -20,7 +20,7 @@ class KarmaEmbed(discord.Embed):
             url = 'https://puppy-bot.com/remibot/media/remilia_lawful_good.png'
         elif rating == "Evil":
             color = discord.Color.purple()
-            url = "https://puppy-bot.com/remibot/media/remilia_evil.png"
+            url = "https://puppy-bot.com/remibot/media/remilia_evil2.png"
         elif rating == "Chaotic Evil":
             color = discord.Color.dark_purple()
             url = "https://puppy-bot.com/remibot/media/remilia_chaotic_evil.png"
