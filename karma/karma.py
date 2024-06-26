@@ -85,9 +85,13 @@ class Karma(commands.Cog):
         if count > 0:
             karma = float(karma) / count
 
-        if karma > 0.1:
+        if karma >= 0.75:
+            rating = "Lawful Good"
+        elif karma >= 0.25:
             rating = "Good"
-        elif karma < -0.1:
+        elif karma <= -0.75:
+            rating = "Chaotic Evil"
+        elif karma <= -0.25:
             rating = "Evil"
         else:
             rating = "Neutral"

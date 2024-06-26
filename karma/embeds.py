@@ -13,14 +13,20 @@ class KarmaEmbed(discord.Embed):
             rating: str
         ):
         if rating == "Good":
+            color = discord.Color.from_rgb(225,180,180)
+            url = 'https://puppy-bot.com/remibot/media/remilia_good.webp'
+        elif rating == "Lawful Good":
             color = discord.Color.from_rgb(255,180,180)
-            url = 'https://img-9gag-fun.9cache.com/photo/aADRb6Z_700bwp.webp'
+            url = 'https://puppy-bot.com/remibot/media/remilia_good.webp'
         elif rating == "Evil":
+            color = discord.Color.purple()
+            url = "https://puppy-bot.com/remibot/media/remilia_evil.png"
+        elif rating == "Chaotic Evil":
             color = discord.Color.dark_purple()
-            url = "https://images-ng.pixai.art/images/orig/72ce3b43-10e1-4c22-a54f-db80786819df"
-        else:
+            url = "https://puppy-bot.com/remibot/media/remilia_evil.png"
+        elif rating == "Neutral":
             color = discord.Color.from_rgb(205,200,237)
-            url = "https://en.touhouwiki.net/images/e/e7/Th105Remilia.png"
+            url = "https://puppy-bot.com/remibot/media/remilia_default.png"
         super().__init__(
             title=f"{user.display_name}'s Karma",
             color=color
