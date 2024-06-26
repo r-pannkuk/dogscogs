@@ -128,6 +128,3 @@ class Karma(commands.Cog):
             return
         
         await self._count_stickers(message)
-
-        print(message.stickers)
-
