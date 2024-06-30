@@ -180,7 +180,7 @@ class Karma(commands.Cog):
         for i in valid_stickers.keys():
             sticker : discord.Sticker = next((sticker for sticker in ctx.guild.stickers if sticker.id == int(i)), None)
             if sticker == None:
-                sticker = {"name": i}
+                continue
 
             desc = ""
 
@@ -193,7 +193,7 @@ class Karma(commands.Cog):
                 desc += f"{place}) {user.mention}: {j[1][i]}\n"
                 place += 1
 
-            embed.add_field(name=f"{sticker['name']} Usage", value=desc, inline=False)
+            embed.add_field(name=f"{sticker.name} Usage", value=desc, inline=False)
 
         await ctx.send(embed=embed)
 
