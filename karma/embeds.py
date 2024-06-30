@@ -34,12 +34,12 @@ class KarmaEmbed(discord.Embed):
         self.set_thumbnail(url=url)
         guild = ctx.guild
         counts = ""
-        for sticker_id, messages in sticker_counts.items():
+        for sticker_id, count in sticker_counts.items():
             sticker : discord.Sticker = next((sticker for sticker in guild.stickers if sticker.id == int(sticker_id)), None)
             if sticker == None:
                 continue
 
-            counts += f"`{sticker.name}` used {len(messages)} time{'s' if len(messages) > 1 else ''}\n"
+            counts += f"`{sticker.name}` used {count} time{'s' if count > 1 else ''}\n"
 
         self.description = f"Karma: {karma:.0%}\nRating: {rating}\n\n{counts}"
 

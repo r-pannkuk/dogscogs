@@ -77,10 +77,13 @@ class Karma(commands.Cog):
 
         karma = 0.0
         count = 0
+        
+        sticker_count = {str(sticker_id): 0 for sticker_id in valid_stickers.keys()}
 
         for sticker_id, message_ids in stickers_found.items():
             karma += valid_stickers[sticker_id] * len(message_ids)
             count += len(message_ids)
+            sticker_count[str(sticker_id)] += len(message_ids)
 
         if count > 0:
             karma = float(karma) / count
@@ -96,7 +99,7 @@ class Karma(commands.Cog):
         else:
             rating = "Neutral"
 
-        embed = KarmaEmbed(ctx, title=f"{user.display_name}'s Karma", sticker_counts=stickers_found, karma=karma, rating=rating)
+        embed = KarmaEmbed(ctx, title=f"{user.display_name}'s Karma", sticker_counts=sticker_count, karma=karma, rating=rating)
         await ctx.send(embed=embed)
 
         pass
@@ -128,12 +131,16 @@ class Karma(commands.Cog):
         karma = 0.0
         count = 0
 
+        sticker_counts = {str(sticker_id): 0 for sticker_id in valid_stickers.keys()}
+
         for i in members:
             stickers_found : typing.Dict[str, typing.List[int]]= members[i]['stickers_found']
 
             for sticker_id, message_ids in stickers_found.items():
                 karma += valid_stickers[sticker_id] * len(message_ids)
                 count += len(message_ids)
+
+                sticker_counts[str(sticker_id)] += len(message_ids)
 
         if count > 0:
             karma = float(karma) / count
@@ -149,7 +156,7 @@ class Karma(commands.Cog):
         else:
             rating = "Neutral"
 
-        embed = KarmaEmbed(ctx, title=f"Total {ctx.guild} Karma", sticker_counts=stickers_found, karma=karma, rating=rating)
+        embed = KarmaEmbed(ctx, title=f"Total {ctx.guild} Karma", sticker_counts=sticker_counts, karma=karma, rating=rating)
         await ctx.send(embed=embed)
 
     @commands.Cog.listener()
