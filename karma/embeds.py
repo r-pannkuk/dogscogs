@@ -7,9 +7,9 @@ class KarmaEmbed(discord.Embed):
             self, 
             ctx: commands.Context, 
             *, 
-            user: discord.Member,
-            sticker_counts: typing.Dict[str, int],
-            karma: int,
+            title: str,
+            sticker_counts: typing.Dict[str, typing.List[int]],
+            karma: float,
             rating: str
         ):
         if rating == "Good":
@@ -28,7 +28,7 @@ class KarmaEmbed(discord.Embed):
             color = discord.Color.from_rgb(205,200,237)
             url = "https://puppy-bot.com/remibot/media/remilia_neutral.jpg"
         super().__init__(
-            title=f"{user.display_name}'s Karma",
+            title=title,
             color=color
         )
         self.set_thumbnail(url=url)
