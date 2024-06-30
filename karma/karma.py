@@ -159,6 +159,44 @@ class Karma(commands.Cog):
         embed = KarmaEmbed(ctx, title=f"Total {ctx.guild} Karma", sticker_counts=sticker_counts, karma=karma, rating=rating)
         await ctx.send(embed=embed)
 
+    @commands.command(aliases=["top_karma", "karmastats", "karma_stats"])
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_users=True)
+    async def topkarma(self, ctx: commands.Context) -> None:
+        members = await self.config.all_members(ctx.guild)
+        valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
+
+        count : typing.Dict[str, typing.Dict[str, int]]= {}
+
+        for i in members:
+            stickers_found : typing.Dict[str, typing.List[int]]= members[i]['stickers_found']
+            count[i] = {str(i): 0 for i in valid_stickers.keys()}
+
+            for sticker_id, message_ids in stickers_found.items():
+                count[i][sticker_id] += len(message_ids)
+
+        embed = discord.Embed(title=f"Most Frequent Karma Manipulators")
+
+        for i in valid_stickers.keys():
+            sticker : discord.Sticker = next((sticker for sticker in ctx.guild.stickers if sticker.id == int(i)), None)
+            if sticker == None:
+                sticker = {"name": i}
+
+            desc = ""
+
+            sorted_count = sorted(count.items(), key=lambda x: x[1][i], reverse=True)
+
+            place = 1
+
+            for j in sorted_count[:10]:
+                user = ctx.guild.get_member(j[0])
+                desc += f"{place}) {user.mention}: {j[1][i]}\n"
+                place += 1
+
+            embed.add_field(name=f"{sticker['name']} Usage", value=desc, inline=False)
+
+        await ctx.send(embed=embed)
+
     @commands.Cog.listener()
     @commands.guild_only()
     async def on_message(self, message: discord.Message) -> None:
