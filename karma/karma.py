@@ -62,6 +62,7 @@ class Karma(commands.Cog):
 
         if write:
             await self.config.member(message.author).stickers_found.set(stickers_found)
+            print(f"Found: {stickers_found}")
 
     @commands.command()
     @commands.guild_only()
@@ -115,6 +116,12 @@ class Karma(commands.Cog):
 
         pass
 
+    @commands.command()
+    @commands.guild_only()
+    @commands.is_owner()
+    async def reset_karma(self, ctx: commands.Context) -> None:
+        await self.config.clear_all_members(ctx.guild)
+        await ctx.send("Karma reset.")
             
 
     @commands.command()
