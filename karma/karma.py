@@ -40,7 +40,10 @@ class Karma(commands.Cog):
         self.config.register_guild(**DEFAULT_GUILD)
         self.config.register_member(**DEFAULT_MEMBER)
 
-    async def _count_stickers(self, message: discord.Message) -> None:        
+    async def _count_stickers(self, message: discord.Message) -> None:    
+        if message.type != discord.MessageType.reply:
+            return
+            
         valid_sticker_ids = await self.config.guild(message.guild).valid_stickers()
         message_sticker_ids = [sticker.id for sticker in message.stickers]
 
@@ -62,15 +65,17 @@ class Karma(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
-    async def karma(self, ctx: commands.Context, *, user: typing.Optional[discord.Member]) -> None:
-        """Displays the karma for the user.
+    @commands.cooldown(1, 60 * 60 * 24 * 14, lambda ctx: ctx.author.id if not ctx.author.guild_permissions.manage_roles else datetime.datetime.now().timestamp())
+    async def karma(self, ctx: commands.Context, *, user: discord.Member) -> None:
+        """Displays the karma for the user.y
 
         Args:
             user (typing.Optional[discord.Member]): An optional user to look up.
         """
+        if user == ctx.author and not ctx.author.guild_permissions.manage_roles:
+            await ctx.reply("It's pretty cringe to care about your own Karma so much.")
+            return
 
-        if user is None:
-            user = ctx.author
 
         stickers_found : typing.Dict[str, typing.List[int]]= await self.config.member(user).stickers_found()
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
@@ -99,10 +104,18 @@ class Karma(commands.Cog):
         else:
             rating = "Neutral"
 
-        embed = KarmaEmbed(ctx, title=f"{user.display_name}'s Karma", sticker_counts=sticker_count, karma=karma, rating=rating)
+        embed = KarmaEmbed(
+            ctx, 
+            title=f"{user.display_name}'s Karma", 
+            sticker_counts=sticker_count if ctx.author.guild_permissions.manage_roles else {}, 
+            karma=karma, 
+            rating=rating
+        )
         await ctx.send(embed=embed)
 
         pass
+
+            
 
     @commands.command()
     @commands.guild_only()
@@ -121,9 +134,9 @@ class Karma(commands.Cog):
 
         await ctx.send("Karma counted.")
 
-    @commands.command(aliases=["karmaserver", "karmaall", "karma_all", "totalkarma", "total_karma"])
+    @commands.command(aliases=["serverkarma", "karma_server", "karmaserver", "karmaall", "karma_all", "totalkarma", "total_karma"])
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_users=True)
+    @commands.mod_or_permissions(manage_roles=True)
     async def server_karma(self, ctx: commands.Context) -> None:
         members = await self.config.all_members(ctx.guild)
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
@@ -161,7 +174,7 @@ class Karma(commands.Cog):
 
     @commands.command(aliases=["top_karma", "karmastats", "karma_stats"])
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_users=True)
+    @commands.mod_or_permissions(manage_roles=True)
     async def topkarma(self, ctx: commands.Context) -> None:
         members = await self.config.all_members(ctx.guild)
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
@@ -193,7 +206,7 @@ class Karma(commands.Cog):
                 desc += f"{place}) {user.mention}: {j[1][i]}\n"
                 place += 1
 
-            embed.add_field(name=f"{sticker.name} Usage", value=desc, inline=False)
+            embed.add_field(name=f"`{sticker.name}` Usage", value=desc, inline=False)
 
         await ctx.send(embed=embed)
 

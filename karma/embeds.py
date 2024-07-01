@@ -8,7 +8,7 @@ class KarmaEmbed(discord.Embed):
             ctx: commands.Context, 
             *, 
             title: str,
-            sticker_counts: typing.Dict[str, typing.List[int]],
+            sticker_counts: typing.Dict[str, int],
             karma: float,
             rating: str
         ):
