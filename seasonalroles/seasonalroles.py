@@ -101,7 +101,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    async def channels(self, ctx: commands.Context) -> None:
+    async def channels(self, ctx: commands.GuildContext) -> None:
         """List the channels with seasonal roles."""
         channels = await self.config.all_channels()
         if not channels:
@@ -114,10 +114,14 @@ class SeasonalRoles(commands.Cog):
         text = ""
         for channel_id, data in channels.items():
             channel = ctx.guild.get_channel_or_thread(channel_id)
+            if channel is None:
+                continue
+
             roles = [ctx.guild.get_role(role_id) for role_id in data["roles"]]
-            roles = [role for role in roles if role]
+            roles = [role for role in roles if role is not None]
             if not roles:
                 continue
+
             text += f"{channel.mention}: {', '.join(role.mention for role in roles)}\n"
         embed.add_field(name="Channels", value=text)
 
