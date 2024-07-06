@@ -13,11 +13,11 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
     "valid_stickers": {
-        1226341561495851030 : 1,
+        1258093939076890726 : 1,
         1254952247343972393 : 0,
-        1254608441234821171 : -1,
+        1258094007460954123 : -1,
     },
-    "after_timestamp": 1719147600
+    "after_timestamp": 1719990000
 }
 
 DEFAULT_MEMBER = {
@@ -62,7 +62,6 @@ class Karma(commands.Cog):
 
         if write:
             await self.config.member(message.author).stickers_found.set(stickers_found)
-            print(f"Found: {stickers_found}")
 
     @commands.command()
     @commands.guild_only()

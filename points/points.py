@@ -906,6 +906,9 @@ class Points(commands.Cog):
         if message.author.bot:
             return
 
+        if not message.guild:
+            return
+
         if not await self.config.guild(message.guild).is_enabled():
             return
 
