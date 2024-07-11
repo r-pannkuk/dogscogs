@@ -390,7 +390,7 @@ class Nickname(commands.Cog):
 
     @commands.guild_only()
     @nickname.command(usage="<member> <name>")
-    async def curse(self, ctx: commands.Context, target: discord.Member, *, name: str):
+    async def curse(self, ctx: commands.GuildContext, target: discord.Member, *, name: str):
         """Attempts to curse a member with a given nickname.
 
         __Args__:
@@ -407,11 +407,11 @@ class Nickname(commands.Cog):
                 tz=pytz.timezone("US/Eastern")
             ), '%b %d, %Y  %H:%M:%S')
             await ctx.reply(
-                f"You aren't yet available to curse again.  Next available curse is at ``{formatted_time}``.")
+                f"{ctx.author.mention}'s curse power is on cooldown.  Next available at ``{formatted_time}``.")
             return
 
         if len(name) > DISCORD_MAX_NICK_LENGTH:
-            await ctx.reply(f"That name is too long to curse a user with.")
+            await ctx.reply(f"{ctx.author.mention} attempted to curse with too long a name (must be less than {DISCORD_MAX_NICK_LENGTH} characters).")
             return
 
         global_curse_cooldown = await self.config.guild(ctx.guild).curse_cooldown()
@@ -424,7 +424,7 @@ class Nickname(commands.Cog):
         seconds = int(global_curse_cooldown) % 60
         minutes = int(global_curse_cooldown / 60) % 60
         hours = int(global_curse_cooldown / 60 / 60)
-        cooldown_msg = f"Your ability to curse is on cooldown for {duration_string(hours, minutes, seconds)}."
+        cooldown_msg = f"{ctx.author.mention}'s ability to curse is on cooldown for {duration_string(hours, minutes, seconds)}."
 
         attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
         defender_strength = await self.config.guild(ctx.guild).defender_strength()
@@ -491,7 +491,7 @@ class Nickname(commands.Cog):
         elif predicate(attacker_roll.total, defender_roll.total):
             cursed_users.append(target)
         else:
-            prefix += f"You failed to curse {target.display_name}.\n"
+            prefix += f"{ctx.author.mention} failed to curse {target.display_name}.\n"
 
         seconds = int(curse_duration) % 60
         minutes = int(curse_duration / 60) % 60
@@ -543,12 +543,12 @@ class Nickname(commands.Cog):
 
                 jobs = scheduler.get_jobs()
 
-                prefix += f"Cursed {original_name}'s nickname to {name} for {duration_string(hours, minutes, seconds)}.\n"
+                prefix += f"{ctx.author.mention} cursed {original_name}'s nickname to {name} for {duration_string(hours, minutes, seconds)}.\n"
 
             except (PermissionError, Forbidden) as e:
                 if target.id == victim.id:
                     await self.config.member(ctx.author).next_curse_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
-                    await ctx.reply(f"ERROR: Bot does not have permission to edit {victim.display_name}'s nickname. Your curse cooldown was refunded.")
+                    await ctx.reply(f"ERROR: Bot does not have permission to edit {victim.display_name}'s nickname. {ctx.author.mention}'s curse cooldown was refunded.")
                     return
                 else:
                     continue
