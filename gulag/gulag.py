@@ -183,7 +183,7 @@ class Gulag(commands.Cog):
         group = self.config.member(member)
 
         if gulag_channel is None:
-            gulag_channel: discord.TextChannel = guild.get_channel(await self.config.member(member).gulag_channel_id())
+            gulag_channel = guild.get_channel(await self.config.member(member).gulag_channel_id())
 
             if gulag_channel is None:
                 await self.create_category_channel(guild)
@@ -256,7 +256,7 @@ class Gulag(commands.Cog):
 
         if logs_enabled and log_channel is not None and gulag_channel is not None:
 
-            messages: list[discord.Message] = await gulag_channel.history(limit=200).flatten()
+            messages: list[discord.Message] = [message async for message in gulag_channel.history(limit=200)]
             log = ''
 
             if len(messages) > 0:
@@ -299,8 +299,9 @@ class Gulag(commands.Cog):
             if len(log) > 0:
                 try:
                     await log_channel.send(log)
-                except:
+                except Exception as e:
                     print(f"Couldn't send to channel: {log_channel.name}")
+                    print(e)
         # END OF DUMB LOGGING THING THAT SHOULD BE AN EVENT
 
         restore_role_ids = await group.restore_role_ids()
