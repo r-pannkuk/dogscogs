@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 from typing import Literal
 import typing
@@ -136,6 +137,10 @@ class Karma(commands.Cog):
                         continue
                     await self._count_stickers(message)
             except discord.Forbidden:
+                continue
+            except discord.DiscordServerError:
+                await ctx.send("Rate limited. Continuing in 5 seconds.")
+                await asyncio.sleep(5)
                 continue
 
         await ctx.send("Karma counted.")
