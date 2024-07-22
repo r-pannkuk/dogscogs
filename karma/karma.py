@@ -41,8 +41,8 @@ class Karma(commands.Cog):
         self.config.register_member(**DEFAULT_MEMBER)
 
     async def _count_stickers(self, message: discord.Message) -> None:    
-        if message.type != discord.MessageType.reply:
-            return
+        # if message.type != discord.MessageType.reply:
+        #     return
             
         valid_sticker_ids = await self.config.guild(message.guild).valid_stickers()
         message_sticker_ids = [sticker.id for sticker in message.stickers]
@@ -181,7 +181,7 @@ class Karma(commands.Cog):
     @commands.command(aliases=["top_karma", "karmastats", "karma_stats"])
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
-    async def topkarma(self, ctx: commands.Context) -> None:
+    async def topkarma(self, ctx: commands.GuildContext) -> None:
         members = await self.config.all_members(ctx.guild)
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
 
@@ -208,8 +208,8 @@ class Karma(commands.Cog):
             place = 1
 
             for j in sorted_count[:10]:
-                user = ctx.guild.get_member(j[0])
-                desc += f"{place}) {user.mention}: {j[1][i]}\n"
+                user = ctx.bot.get_user(int(j[0]))
+                desc += f"{place}) {user.mention if user is not None else f'`{j[0]}`'}: {j[1][i]}\n"
                 place += 1
 
             embed.add_field(name=f"`{sticker.name}` Usage", value=desc, inline=False)
