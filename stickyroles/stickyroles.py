@@ -84,7 +84,11 @@ class StickyRoles(commands.Cog):
         roles = [role for role in roles if role.id in previous_roles and not role.is_default() and role.position < bot_top_role.position]
 
         if len(roles) > 0:
-            await member.add_roles(*roles, reason="Reapplying user roles on rejoin.")
+            for role in roles:
+                try:
+                    await member.add_roles([role], reason="Reapplying user roles on rejoin.")
+                except discord.Forbidden:
+                    print(f"Failed to apply role '{role.name}' to {member.name} ({member.id})")
         pass
 
     @commands.Cog.listener()

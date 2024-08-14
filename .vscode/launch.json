@@ -8,7 +8,8 @@
             "args": [
                 "Remibot",
                 "--dev",
-                "--debug"
+                "--debug",
+                "--message-cache-size=10000"
             ],
             "console": "integratedTerminal",
             "justMyCode": false
