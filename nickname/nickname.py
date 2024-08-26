@@ -360,6 +360,105 @@ class Nickname(commands.Cog):
         await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
 
         return entry
+    
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @nickname.command(usage="<member>", aliases=["catify"])
+    async def nyame(self, ctx: commands.GuildContext, member: discord.Member):
+        """Forces a nyew nyame on a member."""
+
+        name = ""
+
+        i = 0
+
+        while i < len(member.display_name) - 1:
+            if member.display_name[i] == "n" or member.display_name[i] == 'y':
+                name += "ny"
+            elif member.display_name[i] == "N" or member.display_name[i] == 'Y':
+                name += "Ny"
+            elif member.display_name[i] == "a" and member.display_name[i + 1] == "i":
+                name += "any"
+                i += 1
+            elif member.display_name[i] == "A" and member.display_name[i + 1] == "i":
+                name += "Any"
+                i += 1
+            else:
+                name += member.display_name[i]
+
+            i += 1
+
+        name += member.display_name[len(member.display_name) - 1]
+
+        if name[-1] == "n":
+            name += "ya"
+
+        if name == member.display_name:
+            name = member.display_name \
+            .replace("pr", "purr").replace("Pr", "Purr") \
+            .replace("me", "meow").replace("Me", "Meow")
+
+        if name == member.display_name:
+            name = random.choice([
+                f"🐱 {member.display_name} 🐱",
+                f"{member.display_name} Nyaa~",
+            ])
+    
+        bot_role: discord.Role = ctx.guild.me.top_role
+        target_role: discord.Role = member.top_role
+        curse_duration = await self.config.guild(ctx.guild).curse_duration()
+
+
+        if bot_role.position < target_role.position or member.guild_permissions.administrator:
+            await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded.")
+            return
+        
+        expiration = datetime.now(tz=pytz.timezone(
+            "US/Eastern")).timestamp() + curse_duration
+
+        async def curse_end(v : discord.Member):
+            try:
+                await self._unset(v, "Cursed")
+                await ctx.send(f"{ctx.author.display_name}'s Curse on {v.display_name} has ended.")
+            except (PermissionError, Forbidden) as e:
+                await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded.")
+
+        original_name: str = member.display_name
+
+        entry = NickQueueEntry(
+            name=name,
+            target_id=member.id,
+            author_id=ctx.author.id,
+            type="Cursed",
+            created_at=datetime.now(
+                tz=pytz.timezone("US/Eastern")).timestamp(),
+            expiration=expiration
+        )
+
+        try:
+            await self._set(member, entry=entry)
+
+            if not scheduler.running:
+                scheduler.start()
+
+            scheduler.add_job(
+                # Need to use partial here as it keeps sending the same user
+                partial(curse_end, member),
+                id=str(entry["id"]),
+                trigger='date',
+                next_run_time=datetime.fromtimestamp(
+                    expiration,
+                    tz=pytz.timezone("US/Eastern")
+                ),
+                replace_existing=True
+            )
+
+            await ctx.send(f"{ctx.author.mention} nyamed {original_name}'s to {name} until <t:{int(expiration)}:F>.\n")
+
+        except (PermissionError, Forbidden) as e:
+            await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded.")
+            return
+
+
 
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
@@ -387,6 +486,7 @@ class Nickname(commands.Cog):
         except (PermissionError, Forbidden) as e:
             await ctx.send(f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname.")
         pass
+
 
     @commands.guild_only()
     @nickname.command(usage="<member> <name>")
