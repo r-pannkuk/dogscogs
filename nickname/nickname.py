@@ -392,7 +392,9 @@ class Nickname(commands.Cog):
         """Forces a nyew nyame on a member."""
         next_nyame_available = await self.config.member(ctx.author).next_nyame_available()
 
-        if next_nyame_available != None and next_nyame_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
+        if not ctx.author.guild_permissions.manage_roles and \
+            next_nyame_available != None and \
+            next_nyame_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
             await ctx.reply(
                 f"{ctx.author.mention}'s nyaming power is unyavailable.  Nyext available at <t:{int(next_nyame_available)}:F>.")
             return
@@ -539,7 +541,9 @@ class Nickname(commands.Cog):
         name = name.strip("\"\'")
         next_curse_available = await self.config.member(ctx.author).next_curse_available()
 
-        if next_curse_available != None and next_curse_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
+        if not ctx.author.guild_permissions.manage_roles and \
+            next_curse_available != None and \
+            next_curse_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
             await ctx.reply(
                 f"{ctx.author.mention}'s curse power is on cooldown.  Next available at <t:{int(next_curse_available)}:F>.")
             return
