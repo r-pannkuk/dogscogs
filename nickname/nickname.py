@@ -387,7 +387,6 @@ class Nickname(commands.Cog):
     
     
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
     @nickname.command(usage="<member>", aliases=["catify"])
     async def nyame(self, ctx: commands.GuildContext, member: discord.Member):
         """Forces a nyew nyame on a member."""
