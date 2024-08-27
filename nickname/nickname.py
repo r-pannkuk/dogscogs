@@ -53,7 +53,8 @@ def NickQueueEntry(
 
 DEFAULT_MEMBER = {
     "nick_queue": [],
-    "next_curse_available": None
+    "next_curse_available": None,
+    "next_nyame_available": None,
 }
 
 DEFAULT_GUILD = {
@@ -62,7 +63,7 @@ DEFAULT_GUILD = {
     "attacker_strength": "1d20",
     "defender_strength": "1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
-    "curse_duration": 30 * 60  # 30 minutes
+    "curse_duration": 30 * 60,  # 30 minutes
 }
 
 
@@ -77,9 +78,14 @@ def bind_member(group: config.Group):
 
     async def is_cursed(self):
         return await is_type(self, "Cursed")
+    
+    async def is_nyamed(self):
+        return await is_type(self, "Nyamed")
+
     group.is_type = MethodType(is_type, group)
     group.is_locked = MethodType(is_locked, group)
     group.is_cursed = MethodType(is_cursed, group)
+    group.is_nyamed = MethodType(is_nyamed, group)
 
     async def get_author_id(self, type):
         nick_queue: typing.List[NickQueueEntry] = await self.nick_queue()
@@ -95,9 +101,14 @@ def bind_member(group: config.Group):
 
     async def get_cursing_author_id(self):
         return await get_author_id(self, "Cursed")
+    
+    async def get_nyaming_author_id(self):
+        return await get_author_id(self, "Nyamed")
+
     group.get_author_id = MethodType(get_author_id, group)
     group.get_locking_author_id = MethodType(get_locking_author_id, group)
     group.get_cursing_author_id = MethodType(get_cursing_author_id, group)
+    group.get_nyaming_author_id = MethodType(get_nyaming_author_id, group)
 
     async def get_latest(self, type: typing.Optional[str] = None):
         nick_queue: typing.List[NickQueueEntry] = await self.nick_queue()
@@ -116,12 +127,17 @@ def bind_member(group: config.Group):
 
     async def get_latest_lock(self):
         return await self.get_latest("Locked")
+    
+    async def get_latest_nyame(self):
+        return await self.get_latest("Nyamed")
 
     async def get_original(self):
         return await self.get_latest("Default")
+    
     group.get_latest = MethodType(get_latest, group)
     group.get_latest_curse = MethodType(get_latest_curse, group)
     group.get_latest_lock = MethodType(get_latest_lock, group)
+    group.get_latest_nyame = MethodType(get_latest_nyame, group)
     group.get_original = MethodType(get_original, group)
 
     async def remove_job(self, entry: NickQueueEntry = None, id: int = None):
@@ -179,16 +195,22 @@ def bind_member(group: config.Group):
 
     async def remove_original(self):
         return await remove(self, type="Default")
+    
+    async def remove_nyame(self):
+        return await remove(self, type="Nyamed")
+    
     group.remove_job = MethodType(remove_job, group)
     group.remove = MethodType(remove, group)
     group.remove_lock = MethodType(remove_lock, group)
     group.remove_curse = MethodType(remove_curse, group)
+    group.remove_nyame = MethodType(remove_nyame, group)
     group.remove_original = MethodType(remove_original, group)
 
     async def add_entry(self, *, entry):
         nick_queue: typing.List[NickQueueEntry] = await self.nick_queue()
         nick_queue.append(entry)
         await self.nick_queue.set(nick_queue)
+
     group.add_entry = MethodType(add_entry, group)
 
     async def replace_original(self,
@@ -349,6 +371,8 @@ class Nickname(commands.Cog):
             await member_config.remove_lock()
         elif entry["type"] == "Cursed":
             await member_config.remove_curse()
+        elif entry["type"] == "Nyamed":
+            await member_config.remove_nyame()
 
         await member_config.add_entry(entry=entry)
         await member.edit(reason=f"{author.display_name} locked nickname to {entry['name']}.", nick=entry["name"])
@@ -361,11 +385,18 @@ class Nickname(commands.Cog):
 
         return entry
     
+    
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     @nickname.command(usage="<member>", aliases=["catify"])
     async def nyame(self, ctx: commands.GuildContext, member: discord.Member):
         """Forces a nyew nyame on a member."""
+        next_nyame_available = await self.config.member(ctx.author).next_nyame_available()
+
+        if next_nyame_available != None and next_nyame_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
+            await ctx.reply(
+                f"{ctx.author.mention}'s nyaming power is unyavailable.  Nyext available at <t:{int(next_nyame_available)}:F>.")
+            return
 
         name = ""
 
@@ -395,7 +426,9 @@ class Nickname(commands.Cog):
         if name == member.display_name:
             name = member.display_name \
             .replace("pr", "purr").replace("Pr", "Purr") \
-            .replace("me", "meow").replace("Me", "Meow")
+            .replace("me", "meow").replace("Me", "Meow") \
+            .replace('mi', 'meow').replace("Mi", "Miow") \
+            .replace('my', 'myow').replace("My", "Myow")
 
         if name == member.display_name:
             name = random.choice([
@@ -405,21 +438,26 @@ class Nickname(commands.Cog):
     
         bot_role: discord.Role = ctx.guild.me.top_role
         target_role: discord.Role = member.top_role
-        curse_duration = await self.config.guild(ctx.guild).curse_duration()
-
+        nyame_duration = await self.config.guild(ctx.guild).curse_duration()
+        global_nyame_cooldown = await self.config.guild(ctx.guild).curse_cooldown()
+        next_available = datetime.now(tz=pytz.timezone(
+            "US/Eastern")).timestamp() + global_nyame_cooldown
+        await self.config.member(ctx.author).next_nyame_available.set(next_available)
 
         if bot_role.position < target_role.position or member.guild_permissions.administrator:
+            await self.config.member(ctx.author).next_nyame_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
             await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded.")
             return
         
         expiration = datetime.now(tz=pytz.timezone(
-            "US/Eastern")).timestamp() + curse_duration
+            "US/Eastern")).timestamp() + nyame_duration
 
-        async def curse_end(v : discord.Member):
+        async def nyame_end(v : discord.Member):
             try:
-                await self._unset(v, "Cursed")
+                await self._unset(v, "Nyamed")
                 await ctx.send(f"{ctx.author.display_name}'s Curse on {v.display_name} has ended.")
             except (PermissionError, Forbidden) as e:
+                await self.config.member(ctx.author).next_nyame_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
                 await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded.")
 
         original_name: str = member.display_name
@@ -428,7 +466,7 @@ class Nickname(commands.Cog):
             name=name,
             target_id=member.id,
             author_id=ctx.author.id,
-            type="Cursed",
+            type="Nyamed",
             created_at=datetime.now(
                 tz=pytz.timezone("US/Eastern")).timestamp(),
             expiration=expiration
@@ -442,7 +480,7 @@ class Nickname(commands.Cog):
 
             scheduler.add_job(
                 # Need to use partial here as it keeps sending the same user
-                partial(curse_end, member),
+                partial(nyame_end, member),
                 id=str(entry["id"]),
                 trigger='date',
                 next_run_time=datetime.fromtimestamp(
@@ -455,6 +493,7 @@ class Nickname(commands.Cog):
             await ctx.send(f"{ctx.author.mention} nyamed {original_name}'s to {name} until <t:{int(expiration)}:F>.\n")
 
         except (PermissionError, Forbidden) as e:
+            await self.config.member(ctx.author).next_nyame_available.set(datetime.now(tz=pytz.timezone("US/Eastern")).timestamp())
             await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded.")
             return
 
@@ -712,6 +751,40 @@ class Nickname(commands.Cog):
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     @nickname.command(usage="<member>")
+    async def unnyame(self, ctx: commands.Context, *, member: discord.Member):
+        """Removes a cursed nickname for a user.
+
+        __Args__:
+            ctx (commands.Context): Command Context
+            member (discord.Member): The target member whose nickname is changing.
+        """
+        member_config = bind_member(self.config.member(member))
+        author: discord.Member = ctx.author
+
+        if not await member_config.is_nyamed():
+            await ctx.send(f"{member.display_name} isn't nyamed.")
+            return
+
+        if author.id != await member_config.get_nyaming_author_id() and not author.guild_permissions.manage_roles:
+            await ctx.send(
+                f"You do not have permission to remove {member.display_name}'s nyame.")
+            return
+
+        original_name = member.display_name
+
+        try:
+            latest = await self._unset(member, "Nyamed")
+            msg = f"Removed the nyame on {original_name}, returning their nyickname to {member.display_name}"
+            if latest != None:
+                msg += f" ({latest['type']})"
+            await ctx.send(f"{msg}.")
+        except (PermissionError, Forbidden) as e:
+            await ctx.reply(f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyickname.")
+        pass
+
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    @nickname.command(usage="<member>")
     async def uncurse(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a cursed nickname for a user.
 
@@ -754,6 +827,7 @@ class Nickname(commands.Cog):
         member_config = bind_member(self.config.member(member))
         ailments = [
             await member_config.get_latest_curse(),
+            await member_config.get_latest_nyame(),
             await member_config.get_latest_lock()
         ]
         ailments = list(filter(lambda x: x != [] and x is not None, ailments))
@@ -770,12 +844,31 @@ class Nickname(commands.Cog):
                 fields["type"] = ailment['type']
                 fields["author"] = ctx.guild.get_member(
                     ailment['author_id']).display_name
-                fields["participle"] = f"{'until' if ailment['type'] == 'Cursed' else 'since'} "
+                fields["participle"] = f"{'until' if ailment['type'] == 'Cursed' or ailment['type'] == 'Nyamed' else 'since'} "
                 fields["time"] = datetime.strftime(datetime.fromtimestamp(
-                    ailment['expiration' if ailment['type'] == 'Cursed' else 'created_at'], tz=pytz.timezone('US/Eastern')), '%b %d, %Y  %H:%M:%S')
+                    ailment['expiration' if ailment['type'] == 'Cursed' or ailment['type'] == 'Nyamed' else 'created_at'], tz=pytz.timezone('US/Eastern')), '%b %d, %Y  %H:%M:%S')
                 return fields
             pass
         pass
+
+    @commands.guild_only()
+    @nickname.command(usage="<member>")
+    async def checknyame(self, ctx: commands.Context, member: typing.Optional[discord.Member]):
+        """Checks the remainying nyame durationya for a user.
+
+        __Args__:
+            ctx (commands.Context): Command Context
+            member (typing.Optional[discord.Member], optional): The member to check against. Defaults to None.
+
+        """
+        if member is None:
+            member = ctx.author
+
+        fields = await self.check(ctx, member, "Nyamed")
+        if fields == None:
+            await ctx.reply(f"{'You are' if member == ctx.author else f'{member.display_name} is'} not currently nyamed.")
+            return
+        await ctx.reply(f"{fields['target']} is {fields['type']} by {fields['author']} {fields['participle']} `{fields['time']}`.")
 
     @commands.guild_only()
     @nickname.command(usage="<member>")
@@ -854,7 +947,7 @@ class Nickname(commands.Cog):
         # Sort by time locked.
         values = sorted(
             values,
-            key=lambda x: x["expiration"] if x["type"] == "Cursed" else x["created_at"],
+            key=lambda x: x["expiration"] if x["type"] == "Cursed" or x["type"] == "Nyamed" else x["created_at"],
             reverse=True
         )
 
@@ -868,7 +961,7 @@ class Nickname(commands.Cog):
                 member = guild.get_member(value["target_id"])
                 author = guild.get_member(value["author_id"])
 
-                if value["type"] == "Cursed":
+                if value["type"] == "Cursed" or value["type"] == "Nyamed":
                     time_field = datetime.fromtimestamp(
                         value["expiration"], tz=pytz.timezone("US/Eastern"))
                 elif value["type"] == "Locked":
@@ -876,10 +969,12 @@ class Nickname(commands.Cog):
                         value["created_at"], tz=pytz.timezone("US/Eastern"))
 
                 string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}` by {author.mention}: "
-                string += f" {'Releases on' if value['type'] == 'Cursed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
+                string += f" {'Releases on' if value['type'] == 'Cursed' or value['type'] == 'Nyamed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
 
                 if value["type"] == "Cursed":
                     string = f":skull:{string}"
+                elif value["type"] == "Nyamed":
+                    string = f":cat:{string}"
                 elif value["type"] == "Locked":
                     string = f":lock:{string}"
 
@@ -986,11 +1081,12 @@ class Nickname(commands.Cog):
 
         nick_queue = await member_config.nick_queue()
         nick_queue = list(
-            filter(lambda entry: entry["type"] == "Cursed", nick_queue)
+            filter(lambda entry: entry["type"] == "Cursed" or entry["type"] == "Nyamed", nick_queue)
         )
 
         async def undo_curse():
             await self._unset(member, "Cursed")
+            await self._unset(member, "Nyamed")
             try:
                 # await member.send(f"{guild.get_member(curse['author_id']).display_name}'s Curse on you has ended.")
                 pass
@@ -1046,7 +1142,7 @@ class Nickname(commands.Cog):
         member_config = bind_member(self.config.member(before))
 
         # Check if nickname isn't locked.
-        if not await member_config.is_locked() and not await member_config.is_cursed():
+        if not await member_config.is_locked() and not await member_config.is_cursed() and not await member_config.is_nyamed():
             await member_config.replace_original(after.display_name)
             return
 
@@ -1070,7 +1166,7 @@ class Nickname(commands.Cog):
         member_config = bind_member(self.config.member(member))
 
         # Check if nickname isn't locked.
-        if not await member_config.is_locked() and not await member_config.is_cursed():
+        if not await member_config.is_locked() and not await member_config.is_cursed() and not await member_config.is_nyamed():
             await member_config.replace_original(member.display_name)
             return
 
