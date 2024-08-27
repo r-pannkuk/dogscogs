@@ -436,6 +436,8 @@ class Nickname(commands.Cog):
                 f"🐱 {member.display_name} 🐱",
                 f"{member.display_name} Nyaa~",
             ])
+
+        name = name[:DISCORD_MAX_NICK_LENGTH]
     
         bot_role: discord.Role = ctx.guild.me.top_role
         target_role: discord.Role = member.top_role
