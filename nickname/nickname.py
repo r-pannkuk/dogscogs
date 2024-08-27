@@ -403,17 +403,28 @@ class Nickname(commands.Cog):
 
         i = 0
 
+        def check_for_vowel(letter: str) -> bool:
+            return letter.lower() in ['a', 'e', 'i', 'o', 'u']
+
         while i < len(member.display_name) - 1:
             if member.display_name[i] == "n" or member.display_name[i] == 'y':
                 name += "ny"
+                if not check_for_vowel(member.display_name[i + 1]):
+                    name += "a"
             elif member.display_name[i] == "N" or member.display_name[i] == 'Y':
                 name += "Ny"
+                if not check_for_vowel(member.display_name[i + 1]):
+                    name += "a"
             elif member.display_name[i] == "a" and member.display_name[i + 1] == "i":
                 name += "any"
                 i += 1
+                if not check_for_vowel(member.display_name[i + 1]):
+                    name += "a"
             elif member.display_name[i] == "A" and member.display_name[i + 1] == "i":
                 name += "Any"
                 i += 1
+                if not check_for_vowel(member.display_name[i + 1]):
+                    name += "a"
             else:
                 name += member.display_name[i]
 
