@@ -540,12 +540,8 @@ class Nickname(commands.Cog):
         next_curse_available = await self.config.member(ctx.author).next_curse_available()
 
         if next_curse_available != None and next_curse_available > datetime.now(tz=pytz.timezone("US/Eastern")).timestamp():
-            formatted_time = datetime.strftime(datetime.fromtimestamp(
-                next_curse_available,
-                tz=pytz.timezone("US/Eastern")
-            ), '%b %d, %Y  %H:%M:%S')
             await ctx.reply(
-                f"{ctx.author.mention}'s curse power is on cooldown.  Next available at ``{formatted_time}``.")
+                f"{ctx.author.mention}'s curse power is on cooldown.  Next available at <t:{int(next_curse_available)}:F>.")
             return
 
         if len(name) > DISCORD_MAX_NICK_LENGTH:
@@ -562,7 +558,7 @@ class Nickname(commands.Cog):
         seconds = int(global_curse_cooldown) % 60
         minutes = int(global_curse_cooldown / 60) % 60
         hours = int(global_curse_cooldown / 60 / 60)
-        cooldown_msg = f"{ctx.author.mention}'s ability to curse is on cooldown for {duration_string(hours, minutes, seconds)}."
+        cooldown_msg = f"{ctx.author.mention}'s ability to curse is on cooldown for until <t:{int(next_available)}:F>."
 
         attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
         defender_strength = await self.config.guild(ctx.guild).defender_strength()
@@ -681,7 +677,7 @@ class Nickname(commands.Cog):
 
                 jobs = scheduler.get_jobs()
 
-                prefix += f"{ctx.author.mention} cursed {original_name}'s nickname to {name} for {duration_string(hours, minutes, seconds)}.\n"
+                prefix += f"{ctx.author.mention} cursed {original_name}'s nickname to {name} until <t:{int(expiration)}:F>.\n"
 
             except (PermissionError, Forbidden) as e:
                 if target.id == victim.id:
@@ -968,7 +964,7 @@ class Nickname(commands.Cog):
                         value["created_at"], tz=pytz.timezone("US/Eastern"))
 
                 string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}` by {author.mention}: "
-                string += f" {'Releases on' if value['type'] == 'Cursed' or value['type'] == 'Nyamed' else 'Since'} `{datetime.strftime(time_field, '%b %d, %Y  %H:%M:%S')}`"
+                string += f" {'Releases on' if value['type'] == 'Cursed' or value['type'] == 'Nyamed' else 'Since'} <t:{time_field.timestamp()}:F>"
 
                 if value["type"] == "Cursed":
                     string = f":skull:{string}"
