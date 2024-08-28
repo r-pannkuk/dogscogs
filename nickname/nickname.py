@@ -418,12 +418,12 @@ class Nickname(commands.Cog):
             elif member.display_name[i] == "a" and member.display_name[i + 1] == "i":
                 name += "any"
                 i += 1
-                if not check_for_vowel(member.display_name[i + 1]):
+                if i < len(member.display_name) - 1 and not check_for_vowel(member.display_name[i + 1]):
                     name += "a"
             elif member.display_name[i] == "A" and member.display_name[i + 1] == "i":
                 name += "Any"
                 i += 1
-                if not check_for_vowel(member.display_name[i + 1]):
+                if i < len(member.display_name) - 1 and not check_for_vowel(member.display_name[i + 1]):
                     name += "a"
             else:
                 name += member.display_name[i]
@@ -572,9 +572,6 @@ class Nickname(commands.Cog):
 
         curse_duration = await self.config.guild(ctx.guild).curse_duration()
 
-        seconds = int(global_curse_cooldown) % 60
-        minutes = int(global_curse_cooldown / 60) % 60
-        hours = int(global_curse_cooldown / 60 / 60)
         cooldown_msg = f"{ctx.author.mention}'s ability to curse is on cooldown for until <t:{int(next_available)}:F>."
 
         attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
