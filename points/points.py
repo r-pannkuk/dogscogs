@@ -50,6 +50,7 @@ DEFAULT_USER = {
 
 timezone = pytz.timezone("US/Eastern")
 
+
 class PercentageOrFloat(commands.Converter):
     async def convert(self, ctx, argument: str) -> float:
         try:
@@ -63,11 +64,12 @@ class PercentageOrFloat(commands.Converter):
                 value /= 100
         except ValueError:
             raise commands.BadArgument("Invalid percentage. Must be a float.")
-        
+
         if value < 0 or value > 1:
             raise commands.BadArgument("Invalid percentage. Must be between 0 and 1.")
-        
+
         return value
+
 
 class BalanceAdjustmentButtons(discord.ui.View):
 
@@ -312,6 +314,18 @@ class Points(commands.Cog):
         )
         offset = await config.guild(user.guild).offset()
         return await bank.get_balance(user) + offset
+    
+    @staticmethod
+    async def _get_currency_name(guild: discord.Guild) -> str:
+        """Get the local currency name.
+
+        Args:
+            guild (discord.Guild): The guild to get the currency name for.
+
+        Returns:
+            str: The local currency name.
+        """
+        return await bank.get_currency_name(guild)  # type: ignore[arg-type]
 
     @commands.group()
     async def points(self, ctx: commands.Context):
@@ -460,7 +474,7 @@ class Points(commands.Cog):
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def daily_channels(
-        self, ctx: commands.Context, *channels: discord.TextChannel
+        self, ctx: commands.GuildContext, *channels: discord.TextChannel
     ):
         """Set the channels where the daily award can be claimed.
 
@@ -636,7 +650,9 @@ class Points(commands.Cog):
             await ctx.send("No responses.")
             return
 
-        response_list = "\n".join([f"{i+1}. {response}" for i, response in enumerate(responses)])
+        response_list = "\n".join(
+            [f"{i+1}. {response}" for i, response in enumerate(responses)]
+        )
         await ctx.send(f"Responses:\n{response_list}")
         pass
 
@@ -693,7 +709,7 @@ class Points(commands.Cog):
 
     @points.command()
     @commands.guild_only()
-    async def claim(self, ctx: commands.Context):
+    async def claim(self, ctx: commands.GuildContext):
         """Claim your daily points."""
         tomorrow = (
             datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)
@@ -783,7 +799,7 @@ class Points(commands.Cog):
     @points.command()
     @commands.guild_only()
     async def balance(
-        self, ctx: commands.Context, user: typing.Optional[discord.Member]
+        self, ctx: commands.GuildContext, user: typing.Optional[discord.Member]
     ):
         """Check your points balance.
 
@@ -792,7 +808,11 @@ class Points(commands.Cog):
         """
         claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
         claim_channels = [
-            ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids
+            channel
+            for channel in [
+                ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids
+            ]
+            if channel is not None
         ]
 
         if (
@@ -858,7 +878,7 @@ class Points(commands.Cog):
     @points.command()
     @commands.cooldown(1, 60, commands.BucketType.channel)
     @commands.guild_only()
-    async def leaderboard(self, ctx: commands.Context):
+    async def leaderboard(self, ctx: commands.GuildContext):
         """Check the points leaderboard."""
         claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
         claim_channels = [
@@ -916,10 +936,14 @@ class Points(commands.Cog):
 
         if random.random() > passive_chance:
             return
-        
+
         passive_channel_ids = await self.config.guild(message.guild).passive_channels()
 
-        if passive_channel_ids and len(passive_channel_ids) > 0 and message.channel.id not in passive_channel_ids:
+        if (
+            passive_channel_ids
+            and len(passive_channel_ids) > 0
+            and message.channel.id not in passive_channel_ids
+        ):
             return
 
         user = message.author
@@ -932,14 +956,15 @@ class Points(commands.Cog):
         last_passive_count = await self.config.user(user).last_passive_count()
 
         if (
-            last_passive_time.date() == datetime.datetime.now(tz=timezone).date() and 
-            last_passive_count >= await self.config.guild(message.guild).passive_max_count_per_day()
+            last_passive_time.date() == datetime.datetime.now(tz=timezone).date()
+            and last_passive_count
+            >= await self.config.guild(message.guild).passive_max_count_per_day()
         ):
             return
-        
+
         if last_passive_time.date() != datetime.datetime.now(tz=timezone).date():
             last_passive_count = 0
-        
+
         passive_amount = await self.config.guild(message.guild).passive_award_amount()
 
         new_balance = await Points._add_balance(user, passive_amount)  # type: ignore[arg-type]
@@ -949,22 +974,45 @@ class Points(commands.Cog):
         )
         await self.config.user(user).last_passive_count.set(last_passive_count + 1)
 
-        passive_response_chance = await self.config.guild(message.guild).passive_response_chance()
+        passive_response_chance = await self.config.guild(
+            message.guild
+        ).passive_response_chance()
 
         message_reply = ":coin: "
         currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
 
         if random.random() <= passive_response_chance:
-            passive_responses = await self.config.guild(message.guild).passive_award_responses()
+            passive_responses = await self.config.guild(
+                message.guild
+            ).passive_award_responses()
 
             if passive_responses and len(passive_responses) > 0:
                 passive_response = random.choice(passive_responses)
-                passive_response = passive_response.replace("$POINTS$", f"`{passive_amount} {currency_name}`")
+                passive_response = passive_response.replace(
+                    "$POINTS$", f"`{passive_amount} {currency_name}`"
+                )
 
                 message_reply += f"{passive_response}\n"
 
         message_reply += f"New Balance: `{new_balance} {currency_name}`"
 
-        await message.reply(message_reply, delete_after=20) 
+        await message.reply(message_reply, delete_after=20)
 
         pass
+
+
+def consume_points(cost: int):
+    async def predicate(ctx: commands.GuildContext):
+        if not await bank.can_spend(ctx.author, cost):
+            currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
+            await ctx.reply(
+                f"You don't have enough {currency_name} to use this command.",
+                delete_after=15,
+                ephemeral=True,
+            )
+            return False
+        
+        await bank.withdraw_credits(ctx.author, cost)
+        return True
+
+    return commands.check(predicate)
