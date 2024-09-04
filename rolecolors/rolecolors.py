@@ -500,15 +500,15 @@ class RoleColors(commands.Cog):
 
     @rolecolors.command()
     @commands.mod_or_permissions(manage_roles=True)
-    async def cooldown(self, ctx: commands.GuildContext, seconds: typing.Optional[int]):
+    async def duration(self, ctx: commands.GuildContext, seconds: typing.Optional[int]):
         """
-        Sets the cooldown for color changes.
+        Sets how long cursing someone's color should last.
         """
         if seconds is None:
             seconds = await self.config.guild_from_id(ctx.guild.id).color_change_duration_secs()
         
         await self.config.guild_from_id(ctx.guild.id).color_change_duration_secs.set(seconds)
-        await ctx.channel.send(f"Color change curse cooldown set to {seconds} seconds.")
+        await ctx.channel.send(f"Color change curse duration set to {seconds} seconds.")
 
     @rolecolors.command()
     @commands.mod_or_permissions(manage_roles=True)
