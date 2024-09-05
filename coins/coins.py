@@ -9,7 +9,7 @@ from redbot.core import commands, bank
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from .embed import PointsPassiveConfigurationView, PointsPassiveConfigurationEmbed
+from .embed import CoinsPassiveConfigurationView, CoinsPassiveConfigurationEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -18,30 +18,30 @@ DEFAULT_GUILD = {
     "daily_award": 10,
     "daily_award_channels": [],
     "offset": -50000,
-    "passive_chance": 0.005,
+    "passive_chance": 0.0750,
     "passive_award_amount": 1,
-    "passive_max_count_per_day": 5,
+    "passive_max_count_per_day": 20,
     "passive_channels": [],
     "passive_award_responses": [
-        "That was a particularly good statement. Here, have $POINTS$.",
-        "I don't like you, but I can't deny this take. Have $POINTS$.",
-        "You're not as bad as I thought. Have $POINTS$.",
-        "Your opinions continue to confuse me. Have $POINTS$.",
-        "For your loyalty to the server, have $POINTS$.",
-        "I'm insulted by this take, but I'll give you $POINTS$ anyway.",
-        "Hazelyn told me to give $POINTS$ to the worst poster today. Here you go.",
-        "I feel bad that you're constantly getting beat up in the server. Have $POINTS$.",
-        "I'm sorry for the way you're treated. Have $POINTS$.",
-        "Every once in a while I feel generous. Have $POINTS$. I hope you're happy.",
-        "I'm not sure why you're still here, but have $POINTS$.",
-        "You're not the worst. Have $POINTS$.",
-        "You need to improve your skills. Maybe $POINTS$ can serve as motivation.",
-        "Maybe if I give you $POINTS$ you'll shut up for once.",
-        "You're annoying me. Will $POINTS$ make it stop?",
-        "On the list of best users in the server, you're name isn't on it. Here's $POINTS$ anyway.",
-        "Your skills might be a joke, but it makes me laugh. Here's $POINTS$.",
+        "That was a particularly good statement. Here, have $COINS$.",
+        "I don't like you, but I can't deny this take. Have $COINS$.",
+        "You're not as bad as I thought. Have $COINS$.",
+        "Your opinions continue to confuse me. Have $COINS$.",
+        "For your loyalty to the server, have $COINS$.",
+        "I'm insulted by this take, but I'll give you $COINS$ anyway.",
+        "Hazelyn told me to give $COINS$ to the worst poster today. Here you go.",
+        "I feel bad that you're constantly getting beat up in the server. Have $COINS$.",
+        "I'm sorry for the way you're treated. Have $COINS$.",
+        "Every once in a while I feel generous. Have $COINS$. I hope you're happy.",
+        "I'm not sure why you're still here, but have $COINS$.",
+        "You're not the worst. Have $COINS$.",
+        "You need to improve your skills. Maybe $COINS$ can serve as motivation.",
+        "Maybe if I give you $COINS$ you'll shut up for once.",
+        "You're annoying me. Will $COINS$ make it stop?",
+        "On the list of best users in the server, you're name isn't on it. Here's $COINS$ anyway.",
+        "Your skills might be a joke, but it makes me laugh. Here's $COINS$.",
     ],
-    "passive_response_chance": 0.05,
+    "passive_response_chance": 0.0666666666667,
     "passive_response_multiplier": 3.0,
     "passive_response_jackpot_chance": 0.2,
     "passive_response_jackpot_multiplier": 5.0,
@@ -64,7 +64,7 @@ class BalanceEmbed(discord.Embed):
         pass
 
     async def collect(self):
-        balance = await Points._get_balance(self.member)  # type: ignore[arg-type]
+        balance = await Coins._get_balance(self.member)  # type: ignore[arg-type]
         currency_name = await bank.get_currency_name(self.guild)  # type: ignore[arg-type]
 
         account = await bank.get_account(self.member)  # type: ignore[arg-type]
@@ -127,8 +127,8 @@ class BalanceAdjustmentButtons(discord.ui.View):
         async def init(self, *, title: str, label: str):
             """Fetch values from the bank."""
             currency_name = await bank.get_currency_name(self.ctx.guild)  # type: ignore[arg-type]
-            self.title = title.replace("$POINTS$", currency_name)
-            self.answer.label = label.replace("$POINTS$", currency_name)
+            self.title = title.replace("$COINS$", currency_name)
+            self.answer.label = label.replace("$COINS$", currency_name)
             self.answer.required = True
 
         async def interaction_check(self, interaction: discord.Interaction):
@@ -151,12 +151,12 @@ class BalanceAdjustmentButtons(discord.ui.View):
     class AddModal(_Modal):
         async def init(self):
             await super().init(
-                title=f"How many $POINTS$ to award?",
+                title=f"How many $COINS$ to award?",
                 label="Amount",
             )
 
         async def on_submit(self, interaction: discord.Interaction):
-            new_balance = await Points._add_balance(self.target, int(self.answer.value))  # type: ignore[arg-type]
+            new_balance = await Coins._add_balance(self.target, int(self.answer.value))  # type: ignore[arg-type]
             await interaction.response.send_message(
                 f"Awarded {self.answer.value} to {self.target.mention}. New Balance: `{new_balance}`",
                 delete_after=15,
@@ -165,12 +165,12 @@ class BalanceAdjustmentButtons(discord.ui.View):
     class TakeModal(_Modal):
         async def init(self):
             await super().init(
-                title=f"How many $POINTS$ to remove?",
+                title=f"How many $COINS$ to remove?",
                 label="Amount",
             )
 
         async def on_submit(self, interaction: discord.Interaction):
-            new_balance = await Points._remove_balance(self.target, int(self.answer.value))  # type: ignore[arg-type]
+            new_balance = await Coins._remove_balance(self.target, int(self.answer.value))  # type: ignore[arg-type]
             await interaction.response.send_message(
                 f"Removed {self.target.mention}'s balance by {self.answer.value}. New Balance: `{new_balance}`",
                 delete_after=15,
@@ -179,12 +179,12 @@ class BalanceAdjustmentButtons(discord.ui.View):
     class SetModal(_Modal):
         async def init(self):
             await super().init(
-                title=f"What value to set $POINTS$ balance to",
+                title=f"What value to set $COINS$ balance to",
                 label=f"Amount",
             )
 
         async def on_submit(self, interaction: discord.Interaction):
-            new_balance = await Points._set_balance(self.target, int(self.answer.value))  # type: ignore[arg-type]
+            new_balance = await Coins._set_balance(self.target, int(self.answer.value))  # type: ignore[arg-type]
             await interaction.response.send_message(
                 f"Set {self.target.mention}'s balance to {new_balance}.",
                 delete_after=15,
@@ -201,7 +201,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
     async def award(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.moderate_members:   # type: ignore
             await interaction.response.send_message(
-                "You don't have permission to award points.",
+                "You don't have permission to award coins.",
                 ephemeral=True,
                 delete_after=10,
             )
@@ -216,7 +216,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
     async def set(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.moderate_members:  # type: ignore
             await interaction.response.send_message(
-                "You don't have permission to set points.",
+                "You don't have permission to set coins.",
                 ephemeral=True,
                 delete_after=10,
             )
@@ -232,7 +232,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
     async def take(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not interaction.user.guild_permissions.moderate_members:  # type: ignore
             await interaction.response.send_message(
-                "You don't have permission to remove points.",
+                "You don't have permission to remove coins.",
                 ephemeral=True,
                 delete_after=10,
             )
@@ -243,9 +243,9 @@ class BalanceAdjustmentButtons(discord.ui.View):
         await modal.wait()
         await self.embed_message.edit(view=self, embed=await BalanceEmbed(self.config, self.target).collect())
 
-class Points(commands.Cog):
+class Coins(commands.Cog):
     """
-    Manages local guild points.
+    Manages local guild coins.
     """
 
     def __init__(self, bot: Red) -> None:
@@ -270,12 +270,12 @@ class Points(commands.Cog):
         """
         config = Config.get_conf(
             cog_instance=None,
-            cog_name="Points",
+            cog_name="Coins",
             identifier=260288776360820736,
             force_registration=True,
         )
         offset = await config.guild(user.guild).offset()
-        current_balance = await Points._get_balance(user)
+        current_balance = await Coins._get_balance(user)
         max_balance = await bank.get_max_balance(user.guild)  # type: ignore[arg-type]
         if current_balance + amount - offset > max_balance:
             amount = max_balance - current_balance + offset
@@ -291,12 +291,12 @@ class Points(commands.Cog):
         """
         config = Config.get_conf(
             cog_instance=None,
-            cog_name="Points",
+            cog_name="Coins",
             identifier=260288776360820736,
             force_registration=True,
         )
         offset = await config.guild(user.guild).offset()
-        # current_balance = await Points._get_balance(user)
+        # current_balance = await Coins._get_balance(user)
         # if current_balance - amount < 0:
         #     amount = current_balance
         return await bank.withdraw_credits(user, amount) + offset  # type: ignore[arg-type]
@@ -313,7 +313,7 @@ class Points(commands.Cog):
         """
         config = Config.get_conf(
             cog_instance=None,
-            cog_name="Points",
+            cog_name="Coins",
             identifier=260288776360820736,
             force_registration=True,
         )
@@ -333,7 +333,7 @@ class Points(commands.Cog):
         """
         config = Config.get_conf(
             cog_instance=None,
-            cog_name="Points",
+            cog_name="Coins",
             identifier=260288776360820736,
             force_registration=True,
         )
@@ -359,7 +359,7 @@ class Points(commands.Cog):
         """
         config = Config.get_conf(
             cog_instance=None,
-            cog_name="Points",
+            cog_name="Coins",
             identifier=260288776360820736,
             force_registration=True,
         )
@@ -379,48 +379,48 @@ class Points(commands.Cog):
         return await bank.get_currency_name(guild)  # type: ignore[arg-type]
 
     @commands.group()
-    async def points(self, ctx: commands.Context):
-        """Manage local guild points."""
+    async def coins(self, ctx: commands.Context):
+        """Manage local guild coins."""
         pass
 
-    @points.group()
+    @coins.group()
     @commands.mod_or_permissions(manage_roles=True)
     async def settings(self, ctx: commands.Context):
-        """Manage local guild points settings."""
+        """Manage local guild coins settings."""
         pass
 
     @settings.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def enable(self, ctx: commands.Context):
-        """Enable points in this guild."""
+        """Enable coins in this guild."""
         await self.config.guild(ctx.guild).is_enabled.set(True)
-        await ctx.send("Points `ENABLED`.")
+        await ctx.send("Coins `ENABLED`.")
         pass
 
     @settings.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def disable(self, ctx: commands.Context):
-        """Disable points in this guild."""
+        """Disable coins in this guild."""
         await self.config.guild(ctx.guild).is_enabled.set(False)
-        await ctx.send("Points `DISABLED`.")
+        await ctx.send("Coins `DISABLED`.")
         pass
 
     @settings.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
-        """Check or set if points are enabled in this guild.
+        """Check or set if coins are enabled in this guild.
 
         Args:
-            bool (typing.Optional[bool]): Set if points are enabled or not.
+            bool (typing.Optional[bool]): Set if coins are enabled or not.
         """
         if bool is None:
             bool = await self.config.guild(ctx.guild).is_enabled()
 
         await self.config.guild(ctx.guild).is_enabled.set(bool)
-        await ctx.send(f"Points are {'`ENABLED`' if bool else '`DISABLED`'}.")
+        await ctx.send(f"Coins are {'`ENABLED`' if bool else '`DISABLED`'}.")
         pass
 
     @settings.command()
@@ -593,9 +593,9 @@ class Points(commands.Cog):
         self, ctx: commands.GuildContext
     ):
         """View the passive point generation configuration."""
-        embed = await PointsPassiveConfigurationEmbed(self.bot, self.config, ctx.guild).collect()
+        embed = await CoinsPassiveConfigurationEmbed(self.bot, self.config, ctx.guild).collect()
         message = await ctx.send(embed=embed)
-        view = PointsPassiveConfigurationView(self.bot, self.config, message, ctx.author)
+        view = CoinsPassiveConfigurationView(self.bot, self.config, message, ctx.author)
         await message.edit(embed=embed, view=view, delete_after=60*10)
         pass
 
@@ -610,7 +610,7 @@ class Points(commands.Cog):
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def passive_response_add(self, ctx: commands.Context, *, response: str):
-        """Add a passive point generation response.  Use `$POINTS$` to represent the amount of points awarded.
+        """Add a passive point generation response.  Use `$COINS$` to represent the amount of coins awarded.
 
         Args:
             response (str): The response to add.
@@ -656,16 +656,16 @@ class Points(commands.Cog):
         await ctx.send(f"Responses:\n{response_list}")
         pass
 
-    @points.command()
+    @coins.command()
     @commands.guild_only()
     async def claim(self, ctx: commands.GuildContext):
-        """Claim your daily points."""
+        """Claim your daily coins."""
         tomorrow = (
             datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)
         ).replace(hour=0, minute=0, second=0, microsecond=0)
         currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
 
-        if await Points._is_daily_award_claimed(ctx.author):
+        if await Coins._is_daily_award_claimed(ctx.author):
             await ctx.reply(
                 f"You have already claimed your daily {currency_name}. Try again at <t:{int(tomorrow.timestamp())}:F>.",
                 delete_after=15,
@@ -689,7 +689,7 @@ class Points(commands.Cog):
 
         daily_amount = await self.config.guild(ctx.guild).daily_award()
 
-        new_balance = await Points._add_balance(ctx.author, daily_amount)  # type: ignore[arg-type]
+        new_balance = await Coins._add_balance(ctx.author, daily_amount)  # type: ignore[arg-type]
         await self.config.user(ctx.author).last_claim_timestamp.set(
             datetime.datetime.now().timestamp()
         )
@@ -700,57 +700,57 @@ class Points(commands.Cog):
         )
         pass
 
-    @points.command()
+    @coins.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def award(self, ctx: commands.Context, user: discord.Member, amount: int):
-        """Award points to a user.
+        """Award coins to a user.
 
         Args:
-            user (discord.Member): The user to award points to.
-            amount (int): The amount of points to award.
+            user (discord.Member): The user to award coins to.
+            amount (int): The amount of coins to award.
         """
-        await Points._add_balance(user, amount)
+        await Coins._add_balance(user, amount)
         currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
         await ctx.reply(f"Awarded {amount} {currency_name} to {user.mention}.")
         pass
 
-    @points.command()
+    @coins.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def take(self, ctx: commands.Context, user: discord.Member, amount: int):
-        """Take points from a user.
+        """Take coins from a user.
 
         Args:
-            user (discord.Member): The user to take points from.
-            amount (int): The amount of points to take.
+            user (discord.Member): The user to take coins from.
+            amount (int): The amount of coins to take.
         """
-        await Points._remove_balance(user, amount)
+        await Coins._remove_balance(user, amount)
         currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
         await ctx.reply(f"Taken {amount} {currency_name} from {user.mention}.")
         pass
 
-    @points.command()
+    @coins.command()
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def set(self, ctx: commands.Context, user: discord.Member, amount: int):
-        """Set a user's points.
+        """Set a user's coins.
 
         Args:
-            user (discord.Member): The user to set points for.
-            amount (int): The amount of points to set.
+            user (discord.Member): The user to set coins for.
+            amount (int): The amount of coins to set.
         """
-        before = await Points._get_balance(user)
-        await Points._set_balance(user, amount)
-        await ctx.reply(f"Set {user.mention}'s points from `{before}` --> `{amount}`.")
+        before = await Coins._get_balance(user)
+        await Coins._set_balance(user, amount)
+        await ctx.reply(f"Set {user.mention}'s coins from `{before}` --> `{amount}`.")
         pass
 
-    @points.command()
+    @coins.command()
     @commands.guild_only()
     async def balance(
         self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]
     ):
-        """Check your points balance.
+        """Check your coins balance.
 
         Args:
             user (typing.Optional[discord.Member]): The user to check the balance for.
@@ -796,11 +796,11 @@ class Points(commands.Cog):
 
         pass
 
-    @points.command()
+    @coins.command()
     @commands.cooldown(1, 60, commands.BucketType.channel)
     @commands.guild_only()
     async def leaderboard(self, ctx: commands.GuildContext):
-        """Check the points leaderboard."""
+        """Check the coins leaderboard."""
         claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
         claim_channels = [
             ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids
@@ -843,7 +843,7 @@ class Points(commands.Cog):
 
     @commands.Cog.listener(name="on_message")
     @commands.guild_only()
-    async def listen_passive_points_earned(self, message: discord.Message):
+    async def listen_passive_coins_earned(self, message: discord.Message):
         if message.author.bot:
             return
 
@@ -913,7 +913,7 @@ class Points(commands.Cog):
             else:
                 passive_amount *= int(await self.config.guild(message.guild).passive_response_multiplier())
 
-        new_balance = await Points._add_balance(user, passive_amount)  # type: ignore[arg-type]
+        new_balance = await Coins._add_balance(user, passive_amount)  # type: ignore[arg-type]
 
         if roll <= passive_response_chance * passive_chance:
             passive_responses = await self.config.guild(
@@ -923,7 +923,7 @@ class Points(commands.Cog):
             if passive_responses and len(passive_responses) > 0:
                 passive_response = random.choice(passive_responses)
                 passive_response = passive_response.replace(
-                    "$POINTS$", f"`{passive_amount} {currency_name}`"
+                    "$COINS$", f"`{passive_amount} {currency_name}`"
                 )
 
             message_reply = f"{passive_response}\n"
@@ -933,7 +933,7 @@ class Points(commands.Cog):
         pass
 
 
-def consume_points(cost: int):
+def consume_coins(cost: int):
     async def predicate(ctx: commands.GuildContext):
         if not await bank.can_spend(ctx.author, cost):
             currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]

@@ -18,7 +18,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from points import Points
+from coins import Coins
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.jobstores.base import JobLookupError
@@ -549,19 +549,19 @@ class RoleColors(commands.Cog):
             await ctx.channel.send("You cannot curse yourself. Try `set` instead.")
             return
 
-        if self.bot.get_cog("Points") is None:
-            await ctx.channel.send("Points cog is not loaded.")
+        if self.bot.get_cog("Coins") is None:
+            await ctx.channel.send("Coins cog is not loaded.")
             return
 
-        current_balance = await Points._get_balance(ctx.author)
+        current_balance = await Coins._get_balance(ctx.author)
 
         if current_balance < color_change_cost:
             await ctx.channel.send(
-                f"You do not have enough points to change colors.  You need {color_change_cost} points and have {current_balance}."
+                f"You do not have enough {await Coins._get_currency_name(ctx.guild)} to change colors.  You need {color_change_cost} {await Coins._get_currency_name(ctx.guild)} and have {current_balance}."
             )
             return
         
-        message = await ctx.send(f"Spend {color_change_cost} {await Points._get_currency_name(ctx.guild)} to curse {member.mention} to use {hex_or_roleid} for {duration} seconds?")
+        message = await ctx.send(f"Spend {color_change_cost} {await Coins._get_currency_name(ctx.guild)} to curse {member.mention} to use {hex_or_roleid} for {duration} seconds?")
 
         await message.add_reaction("✅")
         await message.add_reaction("❌")
@@ -608,7 +608,7 @@ class RoleColors(commands.Cog):
         if set_role is not None:
 
             # if not ctx.author.guild_permissions.manage_roles:
-            await Points._remove_balance(ctx.author, color_change_cost)
+            await Coins._remove_balance(ctx.author, color_change_cost)
 
             release_timestamp = (
                 datetime.now(tz=pytz.timezone("US/eastern")).timestamp() + duration

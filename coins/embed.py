@@ -7,14 +7,14 @@ from redbot.core.bot import Red
 
 from .utils import PercentageOrFloat
 
-class PointsPassiveConfigurationEmbed(discord.Embed):
+class CoinsPassiveConfigurationEmbed(discord.Embed):
     def __init__(
             self, 
             client: Red, 
             config: Config,
             guild: discord.Guild
     ):
-        super().__init__(title=f"Points Passive Award Configuration", color=discord.Color.gold())
+        super().__init__(title=f"Coins Passive Award Configuration", color=discord.Color.gold())
 
         self.config = config
         self.client = client
@@ -58,7 +58,7 @@ class PointsPassiveConfigurationEmbed(discord.Embed):
             name="Bonus Trigger",
             value=f"__Bonus Chance__: {self.passive_response_chance:,.2%} of award messages ({self.passive_response_chance * self.passive_chance:,.2%} overall)\n" +
             f"__Bonus Multiplier__: {self.passive_response_multiplier}x ({int(self.passive_response_multiplier * self.passive_award_amount)} {self.currency_name})\n" +
-            f"__Bonus Responses__: {f'See `{(await self.client.get_valid_prefixes(self.guild))[0]}points settings passive response list`' if len(responses_string) > 800 else responses_string}\n",
+            f"__Bonus Responses__: {f'See `{(await self.client.get_valid_prefixes(self.guild))[0]}coins settings passive response list`' if len(responses_string) > 800 else responses_string}\n",
             inline=False
         )
 
@@ -144,7 +144,7 @@ class _ConfigurationView(abc.ABC, discord.ui.View):
         super().__init__(timeout=10*60)
 
 
-class PointsPassiveConfigurationView(_ConfigurationView):
+class CoinsPassiveConfigurationView(_ConfigurationView):
     @discord.ui.button(label="Edit Chance", style=discord.ButtonStyle.secondary, row=0)
     async def edit_base_chance(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user != self.author:
@@ -163,7 +163,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_chance.set(PercentageOrFloat.to_float_or_percentage(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -188,7 +188,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_award_amount.set(int(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -212,7 +212,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_max_count_per_day.set(int(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -233,7 +233,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
 
         channels = [c.id for c in [self.guild.get_channel(v.id) for v in select.values] if c is not None] # type: ignore
         await self.config.guild(self.guild).passive_channels.set(channels) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -258,7 +258,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_response_chance.set(PercentageOrFloat.to_float_or_percentage(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -282,7 +282,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_response_multiplier.set(float(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -306,7 +306,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_response_jackpot_chance.set(PercentageOrFloat.to_float_or_percentage(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
@@ -330,7 +330,7 @@ class PointsPassiveConfigurationView(_ConfigurationView):
         await interaction.response.send_modal(modal)
         await modal.wait()
         await self.config.guild(self.guild).passive_response_jackpot_multiplier.set(float(modal.item.value)) # type: ignore
-        await self.embed_message.edit(embed=await PointsPassiveConfigurationEmbed(
+        await self.embed_message.edit(embed=await CoinsPassiveConfigurationEmbed(
             self.client, 
             self.config, 
             self.guild      # type: ignore
