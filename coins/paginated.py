@@ -54,6 +54,8 @@ class PaginatedEmbed(discord.ui.View):
         await self.message.edit(embed=embed, view=self)
 
     def update_buttons(self):
+        self.children[0].disabled = self.index == 0
+        self.children[3].disabled = self.index == self.total_pages - 1
         pass
 
     @discord.ui.button(emoji="⏪", style=discord.ButtonStyle.secondary)
@@ -61,24 +63,34 @@ class PaginatedEmbed(discord.ui.View):
         if self.index > 0:
             self.index = 0
             await self.edit_page()
+        await interaction.response.defer()
 
     @discord.ui.button(emoji="◀️", style=discord.ButtonStyle.blurple)
     async def previous(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.index > 0:
             self.index -= 1
             await self.edit_page()
+        elif self.index == 0:
+            self.index = self.total_pages - 1
+            await self.edit_page()
+        await interaction.response.defer()
 
     @discord.ui.button(emoji="▶️", style=discord.ButtonStyle.blurple)
     async def next(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.index < self.total_pages - 1:
             self.index += 1
             await self.edit_page()
+        elif self.index == self.total_pages - 1:
+            self.index = 0
+            await self.edit_page()
+        await interaction.response.defer()
 
     @discord.ui.button(emoji="⏩", style=discord.ButtonStyle.secondary)
     async def last(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.index < self.total_pages - 1:
             self.index = self.total_pages - 1
             await self.edit_page()
+        await interaction.response.defer()
 
     async def on_timeout(self):
         await self.message.edit(view=None)
