@@ -9,6 +9,7 @@ from redbot.core import commands, bank
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from .paginated import PaginatedEmbed
 from .embed import CoinsPassiveConfigurationView, CoinsPassiveConfigurationEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
@@ -52,6 +53,8 @@ DEFAULT_USER = {
     "last_passive_timestamp": 0,
     "last_passive_count": 0,
 }
+
+LIMIT_PER_PAGE = 5
 
 timezone = pytz.timezone("US/Eastern")
 
@@ -498,12 +501,12 @@ class Coins(commands.Cog):
         await ctx.send(f"The starting balance for a user is set to `{int}`.")
         pass
 
-    # @settings.group()
-    # @commands.guild_only()
-    # @commands.mod_or_permissions(manage_roles=True)
-    # async def daily(self, ctx: commands.Context):
-    #     """Manage daily award settings."""
-    #     pass
+    @settings.group()
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def daily(self, ctx: commands.Context):
+        """Manage daily award settings."""
+        pass
 
     # @daily.command(name="amount")
     # @commands.guild_only()
@@ -521,28 +524,28 @@ class Coins(commands.Cog):
     #     await ctx.send(f"The daily award is set to `{int}`.")
     #     pass
 
-    # @daily.command(name="channels", aliases=["channel"])
-    # @commands.guild_only()
-    # @commands.mod_or_permissions(manage_roles=True)
-    # async def daily_channels(
-    #     self, ctx: commands.GuildContext, *channels: discord.TextChannel
-    # ):
-    #     """Set the channels where the daily award can be claimed.
+    @daily.command(name="channels", aliases=["channel"])
+    @commands.guild_only()
+    @commands.mod_or_permissions(manage_roles=True)
+    async def daily_channels(
+        self, ctx: commands.GuildContext, *channels: discord.TextChannel
+    ):
+        """Set the channels where the daily award can be claimed.
 
-    #     Args:
-    #         channels (discord.TextChannel): The channels where the daily award can be claimed.
-    #     """
-    #     if not channels:
-    #         channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
-    #         channels = [ctx.guild.get_channel(channel_id) for channel_id in channel_ids]
-    #         channels = [channel for channel in channels if channel is not None]  # type: ignore[arg-type]
-    #     await self.config.guild(ctx.guild).daily_award_channels.set(
-    #         [channel.id for channel in channels]
-    #     )
-    #     await ctx.send(
-    #         f"Daily award can be claimed in {', '.join([channel.mention for channel in channels])}."
-    #     )
-    #     pass
+        Args:
+            channels (discord.TextChannel): The channels where the daily award can be claimed.
+        """
+        if not channels:
+            channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
+            channels = [ctx.guild.get_channel(channel_id) for channel_id in channel_ids]
+            channels = [channel for channel in channels if channel is not None]  # type: ignore[arg-type]
+        await self.config.guild(ctx.guild).daily_award_channels.set(
+            [channel.id for channel in channels]
+        )
+        await ctx.send(
+            f"Daily award can be claimed in {', '.join([channel.mention for channel in channels])}."
+        )
+        pass
 
     @settings.command()
     @commands.guild_only()
@@ -656,49 +659,49 @@ class Coins(commands.Cog):
         await ctx.send(f"Responses:\n{response_list}")
         pass
 
-    @coins.command()
-    @commands.guild_only()
-    async def claim(self, ctx: commands.GuildContext):
-        """Claim your daily coins."""
-        tomorrow = (
-            datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)
-        ).replace(hour=0, minute=0, second=0, microsecond=0)
-        currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
+    # @coins.command()
+    # @commands.guild_only()
+    # async def claim(self, ctx: commands.GuildContext):
+    #     """Claim your daily coins."""
+    #     tomorrow = (
+    #         datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)
+    #     ).replace(hour=0, minute=0, second=0, microsecond=0)
+    #     currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
 
-        if await Coins._is_daily_award_claimed(ctx.author):
-            await ctx.reply(
-                f"You have already claimed your daily {currency_name}. Try again at <t:{int(tomorrow.timestamp())}:F>.",
-                delete_after=15,
-                ephemeral=True,
-            )
-            return
+    #     if await Coins._is_daily_award_claimed(ctx.author):
+    #         await ctx.reply(
+    #             f"You have already claimed your daily {currency_name}. Try again at <t:{int(tomorrow.timestamp())}:F>.",
+    #             delete_after=15,
+    #             ephemeral=True,
+    #         )
+    #         return
 
-        claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
-        claim_channels = [
-            ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids
-        ]
+    #     claim_channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
+    #     claim_channels = [
+    #         ctx.guild.get_channel(channel_id) for channel_id in claim_channel_ids
+    #     ]
 
-        if claim_channels and ctx.channel not in claim_channels:
-            await ctx.message.delete(delay=15)
-            await ctx.reply(
-                f"You can only claim your daily {currency_name} in {', '.join([channel.mention for channel in claim_channels])}.",  # type: ignore
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
+    #     if claim_channels and ctx.channel not in claim_channels:
+    #         await ctx.message.delete(delay=15)
+    #         await ctx.reply(
+    #             f"You can only claim your daily {currency_name} in {', '.join([channel.mention for channel in claim_channels])}.",  # type: ignore
+    #             ephemeral=True,
+    #             delete_after=10,
+    #         )
+    #         return
 
-        daily_amount = await self.config.guild(ctx.guild).daily_award()
+    #     daily_amount = await self.config.guild(ctx.guild).daily_award()
 
-        new_balance = await Coins._add_balance(ctx.author, daily_amount)  # type: ignore[arg-type]
-        await self.config.user(ctx.author).last_claim_timestamp.set(
-            datetime.datetime.now().timestamp()
-        )
-        await ctx.reply(
-            f"Claimed {daily_amount} {currency_name}. Your new balance: `{new_balance}`\nYou can claim again at <t:{int(tomorrow.timestamp())}:F>.",
-            delete_after=15,
-            ephemeral=True,
-        )
-        pass
+    #     new_balance = await Coins._add_balance(ctx.author, daily_amount)  # type: ignore[arg-type]
+    #     await self.config.user(ctx.author).last_claim_timestamp.set(
+    #         datetime.datetime.now().timestamp()
+    #     )
+    #     await ctx.reply(
+    #         f"Claimed {daily_amount} {currency_name}. Your new balance: `{new_balance}`\nYou can claim again at <t:{int(tomorrow.timestamp())}:F>.",
+    #         delete_after=15,
+    #         ephemeral=True,
+    #     )
+    #     pass
 
     @coins.command()
     @commands.guild_only()
@@ -797,7 +800,7 @@ class Coins(commands.Cog):
         pass
 
     @coins.command()
-    @commands.cooldown(1, 60, commands.BucketType.channel)
+    @commands.cooldown(1, 1, commands.BucketType.channel)
     @commands.guild_only()
     async def leaderboard(self, ctx: commands.GuildContext):
         """Check the coins leaderboard."""
@@ -819,26 +822,29 @@ class Coins(commands.Cog):
 
         leaderboard = await bank.get_leaderboard(100, ctx.guild)  # type: ignore[arg-type]
 
-        description = ""
-
-        offset = await self.config.guild(ctx.guild).offset()
-
-        for i, (user_id, stats) in enumerate(leaderboard):
-            user = ctx.guild.get_member(user_id)  # type: ignore[arg-type]
-            if user is None:
-                user = await self.bot.fetch_user(user_id)  # type: ignore
-            balance = stats["balance"] + offset
-            description += f"{i+1}. {user.mention} - `{balance}`\n"  # type: ignore
-
         bank_name = await bank.get_bank_name(ctx.guild)
+        balance_offset = await self.config.guild(ctx.guild).offset()
 
-        embed = discord.Embed(
-            title=f"{bank_name} Leaderboard",
-            description=description,
-            color=discord.Color.gold(),
-        )
+        async def get_page(page: int):
+            embed = discord.Embed(
+                title=f"{bank_name} Leaderboard",
+                color=discord.Color.gold(),
+                description=""
+            )
+            offset = page * LIMIT_PER_PAGE
 
-        await ctx.reply(embed=embed)
+            for i, (user_id, stats) in enumerate(leaderboard[offset:offset + LIMIT_PER_PAGE]):
+                user = ctx.guild.get_member(user_id)  # type: ignore[arg-type]
+                if user is None:
+                    user = await self.bot.fetch_user(user_id)  # type: ignore
+                balance = stats["balance"] + balance_offset
+                embed.description += f"{i+1+offset}. {user.mention} - `{balance}`\n"  # type: ignore
+
+            n = PaginatedEmbed.compute_total_pages(len(leaderboard), LIMIT_PER_PAGE)
+            embed.set_footer(text=f"Page {page+1}/{n}")
+            return embed, n
+
+        await PaginatedEmbed(message=ctx.message, get_page=get_page).send() # type: ignore
         pass
 
     @commands.Cog.listener(name="on_message")
