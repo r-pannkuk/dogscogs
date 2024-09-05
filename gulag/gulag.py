@@ -329,7 +329,7 @@ class Gulag(commands.Cog):
                     pass
         pass
 
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @commands.command(usage="<user>", aliases=["moderate"], show_aliases=True)
     async def restrict(self, ctx: commands.Context, *, member: discord.Member):
         """
@@ -353,7 +353,7 @@ class Gulag(commands.Cog):
 
         await ctx.channel.send(f"{member.display_name} has been moderated. See: {gulag_channel.mention}")
 
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @commands.command(usage="<user>", aliases=["unmoderate"], show_aliases=True)
     async def unrestrict(self, ctx: commands.Context, *, member: discord.Member):
         """
@@ -374,7 +374,7 @@ class Gulag(commands.Cog):
         if ctx.channel.id in [channel.id for channel in guild.channels]:
             await ctx.channel.send(f"{member.display_name} has been unmoderated.")
 
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @commands.group()
     async def gulag(self, ctx: commands.Context):
         """
@@ -382,7 +382,7 @@ class Gulag(commands.Cog):
         """
         pass
 
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @ gulag.command(usage="<user|role>", aliases=["allow"], show_aliases=True)
     async def permit(self, ctx: commands.Context, *, target: typing.Union[discord.Member, discord.Role]):
         """
@@ -416,7 +416,7 @@ class Gulag(commands.Cog):
         await ctx.channel.send(f"{name} is now set to view moderation channels.")
         return
 
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @ gulag.command(usage="<user|role>", aliases=["disallow", "unpermit"], show_aliases=True)
     async def prohibit(self, ctx: commands.Context, *, target: typing.Union[discord.Member, discord.Role]):
         """
@@ -449,7 +449,7 @@ class Gulag(commands.Cog):
         await ctx.channel.send(f"{name} will no longer be able to view moderation channels.")
         return
 
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     @ gulag.command()
     async def list(self, ctx: commands.Context):
         """
@@ -515,7 +515,7 @@ class Gulag(commands.Cog):
             await ctx.send(embed=embed)
         return
 
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @gulag.command(usage="[category]")
     async def category(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[discord.CategoryChannel, str]]):
         """
@@ -557,7 +557,7 @@ class Gulag(commands.Cog):
         await ctx.channel.send(f'Category channel is now set to **{category.mention}**.')
         return
 
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     @ gulag.command()
     async def role(self, ctx: commands.Context):
         """
@@ -581,7 +581,7 @@ class Gulag(commands.Cog):
             await ctx.channel.send(f'Gulag global role is currently set to {global_role.mention}.')
         return
 
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     @ gulag.command(usage="[name]", name="setrole")
     async def set_role(self, ctx: commands.Context, *, target: typing.Optional[typing.Union[discord.Role, str, int]]):
         """
@@ -634,7 +634,7 @@ class Gulag(commands.Cog):
 
         return
 
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     @ gulag.group()
     async def logs(self, ctx: commands.Context):
         """
@@ -642,7 +642,7 @@ class Gulag(commands.Cog):
         """
         pass
 
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     @ logs.command(usage="<channel>")
     async def channel(self, ctx: commands.Context, *, channel: typing.Optional[typing.Union[discord.TextChannel, str]]):
         """
@@ -673,7 +673,7 @@ class Gulag(commands.Cog):
         await ctx.channel.send(f'Gulag logs channel is now set to {channel.mention}.')
         return
 
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     @ logs.command(usage="<name>", name="create")
     async def create_logs(self, ctx: commands.Context, *, name: typing.Optional[str]):
         """
@@ -709,7 +709,7 @@ class Gulag(commands.Cog):
         return
 
     @ logs.command(usage="<True|False>")
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """
         Sets whether or not gulag histories are logged.
@@ -756,7 +756,7 @@ class Gulag(commands.Cog):
         return
 
     @ logs.command()
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     async def enable(self, ctx: commands.Context):
         """
         Enables gulag logging for this server.
@@ -765,7 +765,7 @@ class Gulag(commands.Cog):
         return
 
     @ logs.command()
-    @ commands.mod_or_permissions(manage_roles=True)
+    @ commands.mod_or_permissions(manage_channels=True)
     async def disable(self, ctx: commands.Context):
         """
         Disables logging for this server.

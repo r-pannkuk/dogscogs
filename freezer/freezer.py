@@ -100,14 +100,14 @@ class Freezer(commands.Cog):
 
 
     @commands.group()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def freezer(self, ctx: commands.Context):
         """Settings for freezing channel order and structure of server.
         """
         pass
 
     @freezer.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enable(self, ctx: commands.Context):
         """Enable the freezer.
         """
@@ -116,7 +116,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def disable(self, ctx: commands.Context):
         """Disable the freezer.
         """
@@ -125,7 +125,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Check if the freezer is enabled.
 
@@ -141,7 +141,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def ismoving(self, ctx:commands.Context, bool: typing.Optional[bool]):
         """Check if the freezer is moving categories when a channel is moved.
         """
@@ -154,7 +154,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command(aliases=["lock"])
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def freeze(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[str, discord.CategoryChannel]]):
         """Freezes a specific category channel, or all channels in the server.
 
@@ -186,7 +186,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command(aliases=["unlock"])
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def unfreeze(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[str, discord.CategoryChannel]]):
         """Unlocks a specific cateogry channel, or all channels in the server.
 
@@ -218,7 +218,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def state(self, ctx: commands.Context):
         """Displays the current state of any active locks on the server's channels.
         """
@@ -265,7 +265,7 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def sort(self, ctx: commands.GuildContext):
         """Sorts the channel order to the recorded state.
         """
@@ -273,14 +273,14 @@ class Freezer(commands.Cog):
         pass
 
     @freezer.group()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def settings(self, ctx: commands.Context):
         """Settings for freezing channel order and structure of server.
         """
         pass
 
     @settings.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def categories(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not to move categories when a channel is moved.
 

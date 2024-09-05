@@ -159,7 +159,7 @@ class Logger(commands.Cog):
         pass
 
     @commands.group()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     @commands.guild_only()
     async def logger(self, ctx):
         """
@@ -168,7 +168,7 @@ class Logger(commands.Cog):
         pass
 
     @logger.command(usage="<True|False>")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """
         Sets whether or not logging is eanbled for deleted / edited messages.
@@ -227,7 +227,7 @@ class Logger(commands.Cog):
         return
 
     @logger.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enable(self, ctx: commands.Context):
         """
         Enables logging for this bot.
@@ -236,7 +236,7 @@ class Logger(commands.Cog):
         return
 
     @logger.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def disable(self, ctx: commands.Context):
         """
         Disables logging for this bot.
@@ -245,7 +245,7 @@ class Logger(commands.Cog):
         return
 
     @logger.command(name="links", usage="<True|False>")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def links_enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """
         Sets whether or not links to original messages will appear in logs.
@@ -269,7 +269,7 @@ class Logger(commands.Cog):
         return
 
     @logger.command(usage="<channel>")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def channel(
         self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]
     ):
@@ -310,7 +310,7 @@ class Logger(commands.Cog):
         return
 
     @logger.command(usage="<name>")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def create(self, ctx: commands.Context, name: typing.Optional[str]):
         """
         Creates a new logger channel to store message edits and deletions in.
@@ -347,7 +347,7 @@ class Logger(commands.Cog):
         return
 
     @logger.command(usage="<True|False>")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def inline(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """
         Sets whether or not to use inline formatting for log printouts.

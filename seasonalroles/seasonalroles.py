@@ -47,7 +47,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enable(self, ctx: commands.Context) -> None:
         """Enable seasonal roles."""
         await self.config.guild(ctx.guild).enabled.set(True)
@@ -55,7 +55,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def disable(self, ctx: commands.Context) -> None:
         """Disable seasonal roles."""
         await self.config.guild(ctx.guild).enabled.set(False)
@@ -63,7 +63,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enabled(self, ctx: commands.Context, is_enabled: typing.Optional[bool]) -> None:
         """Check if seasonal roles are enabled."""
         if is_enabled is None:
@@ -75,7 +75,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def channel(self, ctx: commands.Context, channel: typing.Union[discord.TextChannel, discord.Thread], roles: commands.Greedy[discord.Role]) -> None:
         """Set the channel to watch for seasonal roles."""
         if not roles or len(roles) == 0:
@@ -93,7 +93,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def clear(self, ctx: commands.Context, channel: discord.TextChannel) -> None:
         """Clear the seasonal roles for a channel."""
         await self.config.channel(channel).roles.set([])
@@ -129,7 +129,7 @@ class SeasonalRoles(commands.Cog):
 
     @seasonalroles.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def cleanup(self, ctx: commands.Context, will_delete: typing.Optional[bool]) -> None:
         """Set whether or not the bot will delete messages after applying roles."""
         if will_delete is None:

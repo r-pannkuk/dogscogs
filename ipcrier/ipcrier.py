@@ -201,7 +201,7 @@ class ipcrier(commands.Cog):
         pass
 
     @ipcrier.command()
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not the cog is currently enabled.
 
@@ -246,7 +246,7 @@ class ipcrier(commands.Cog):
         pass
 
     @ipcrier.command(name="set-output-channel")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def set_output_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         """Sets the output channel to echo IP's into.
 
@@ -269,7 +269,7 @@ class ipcrier(commands.Cog):
         await ctx.send(f"Now echoing IP's into {channel.mention}.")
 
     @ipcrier.command(name="set-input-channel")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def set_input_channel(self, ctx: commands.Context, channel: discord.TextChannel):
         """Sets the input channel to read IP's from.
 
@@ -292,7 +292,7 @@ class ipcrier(commands.Cog):
         await ctx.send(f"Now reading IP's from {channel.mention}.")
 
     @ipcrier.command(name="use-pings")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def use_pings(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not to ping users in the echoed channel.
 
@@ -315,7 +315,7 @@ class ipcrier(commands.Cog):
         pass
 
     @ipcrier.command(name="use-rich-embeds")
-    @commands.mod_or_permissions(manage_roles=True)
+    @commands.mod_or_permissions(manage_channels=True)
     async def use_rich_embeds(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not to use rich embed messages for IP crier.
 

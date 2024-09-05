@@ -303,26 +303,26 @@ class Random(commands.Cog):
         pass
 
     # @commands.group()
-    # @commands.mod_or_permissions(manage_roles=True)
+    # @commands.mod_or_permissions(manage_channels=True)
     # async def rng(self, ctx: commands.Context):
     #     pass
 
     # @random.group()
-    # @commands.mod_or_permissions(manage_roles=True)
+    # @commands.mod_or_permissions(manage_channels=True)
     # async def ask(self, ctx: commands.Context):
     #     pass
 
     # @ask.command()
-    # @commands.mod_or_permissions(manage_roles=True)
+    # @commands.mod_or_permissions(manage_channels=True)
     # async def answers(self, ctx: commands.Context):
     #     pass
 
     # @ask.command()
-    # @commands.mod_or_permissions(manage_roles=True)
+    # @commands.mod_or_permissions(manage_channels=True)
     # async def remove_answer(self, ctx: commands.Context, index: int):
     #     pass
 
     # @ask.command()
-    # @commands.mod_or_permissions(manage_roles=True)
+    # @commands.mod_or_permissions(manage_channels=True)
     # async def add_answer(self, ctx: commands.Context, text: str):
     #     pass
