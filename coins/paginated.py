@@ -44,7 +44,7 @@ class PaginatedEmbed(discord.ui.View):
         elif self.total_pages > 1:
             self.update_buttons()
             if self.original_message is not None:
-                self.message = await self.original_message.edit(embed=embed, view=self)
+                self.message = await self.original_message.reply(embed=embed, view=self)
             elif self.interaction is not None:
                 self.message = await self.interaction.response.send_message(embed=embed, view=self)
 
