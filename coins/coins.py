@@ -800,7 +800,7 @@ class Coins(commands.Cog):
         pass
 
     @coins.command()
-    @commands.cooldown(1, 1, commands.BucketType.channel)
+    @commands.cooldown(1, 60, commands.BucketType.channel)
     @commands.guild_only()
     async def leaderboard(self, ctx: commands.GuildContext):
         """Check the coins leaderboard."""
