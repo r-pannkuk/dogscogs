@@ -9,15 +9,17 @@ from redbot.core import commands, bank
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from .embed import PointsPassiveConfigurationView, PointsPassiveConfigurationEmbed
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
     "is_enabled": False,
-    "daily_award": 100,
+    "daily_award": 10,
     "daily_award_channels": [],
     "offset": -50000,
     "passive_chance": 0.005,
-    "passive_award_amount": 100,
+    "passive_award_amount": 1,
     "passive_max_count_per_day": 5,
     "passive_channels": [],
     "passive_award_responses": [
@@ -40,6 +42,9 @@ DEFAULT_GUILD = {
         "Your skills might be a joke, but it makes me laugh. Here's $POINTS$.",
     ],
     "passive_response_chance": 0.05,
+    "passive_response_multiplier": 3.0,
+    "passive_response_jackpot_chance": 0.2,
+    "passive_response_jackpot_multiplier": 5.0,
 }
 
 DEFAULT_USER = {
@@ -50,31 +55,69 @@ DEFAULT_USER = {
 
 timezone = pytz.timezone("US/Eastern")
 
+class BalanceEmbed(discord.Embed):
+    def __init__(self, config: Config, member: discord.Member):
+        self.config = config
+        self.member = member
+        self.guild = member.guild
+        super().__init__(title=f"{self.member.name}'s Balance")
+        pass
 
-class PercentageOrFloat(commands.Converter):
-    async def convert(self, ctx, argument: str) -> float:
-        try:
-            is_percentage = False
-            if argument.endswith("%"):
-                argument = argument[:-1]
-                is_percentage = True
+    async def collect(self):
+        balance = await Points._get_balance(self.member)  # type: ignore[arg-type]
+        currency_name = await bank.get_currency_name(self.guild)  # type: ignore[arg-type]
 
-            value = float(argument)
-            if is_percentage:
-                value /= 100
-        except ValueError:
-            raise commands.BadArgument("Invalid percentage. Must be a float.")
+        account = await bank.get_account(self.member)  # type: ignore[arg-type]
 
-        if value < 0 or value > 1:
-            raise commands.BadArgument("Invalid percentage. Must be between 0 and 1.")
+        description = f"**User**: {self.member.mention}\n"
+        description += f"**Balance**: {balance} {currency_name}\n"
 
-        return value
+        last_passive_timestamp = await self.config.user(self.member).last_passive_timestamp()
+        last_passive_time = datetime.datetime.fromtimestamp(
+            last_passive_timestamp, tz=timezone
+        )
+        max_passive_claims = await self.config.guild(self.guild).passive_max_count_per_day()
+        last_passive_count = await self.config.user(self.member).last_passive_count()
+
+        if last_passive_time.date() != datetime.datetime.now(tz=timezone).date():
+            last_passive_count = 0
+            await self.config.user(self.member).last_passive_count.set(0)
+
+        description += (
+            f"**Claimed Passives**: {last_passive_count}/{max_passive_claims}\n"
+        )
+
+        if last_passive_count >= max_passive_claims:
+            description += f"**Next Passive**: <t:{int((datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)).timestamp())}:F>\n"
+
+        description += (
+            f"**Leaderboard Position**: {await bank.get_leaderboard_position(self.member)}\n"
+        )
+        description += f"**Created At**: {account.created_at.replace(tzinfo=timezone):%Y-%m-%d %H:%M:%S %Z}\n"
+
+        offset = await self.config.guild(self.guild).offset()
+        max_balance = await bank.get_max_balance(self.guild) + offset  # type: ignore[arg-type]
+
+        color = discord.Color.dark_grey()  # Dark Grey
+        if balance > 0.8 * max_balance:
+            color = discord.Color.from_str("0x941A8D")  # Purple
+        elif balance > 0.5 * max_balance:
+            color = discord.Color.gold()  # Gold
+        elif balance > 0.3 * max_balance:
+            color = discord.Color.from_str("0xC0C0C0")  # Silver
+        elif balance > 0.1 * max_balance:
+            color = discord.Color.from_str("0xB87333")  # Copper
+
+        self.description=description
+        self.color=color
+        self.set_footer(text=f"Requested by {self.member.nick or self.member.name}")
+
+        return self
 
 
 class BalanceAdjustmentButtons(discord.ui.View):
-
     class _Modal(discord.ui.Modal, title="Placeholder"):
-        answer = discord.ui.TextInput(label="Answer", style=discord.TextStyle.short)
+        answer : discord.ui.TextInput = discord.ui.TextInput(label="Answer", style=discord.TextStyle.short)
 
         def __init__(self, ctx: commands.Context, target: discord.Member):
             super().__init__(timeout=None)
@@ -95,7 +138,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
                 test = int(self.answer.value)
             except ValueError:
                 raise commands.BadArgument(
-                    "The value you provided is invalid. Please enter a positive integer."
+                    "The value you provided is invalid. Please enter an integer."
                 )
             return True
 
@@ -147,14 +190,16 @@ class BalanceAdjustmentButtons(discord.ui.View):
                 delete_after=15,
             )
 
-    def __init__(self, ctx: commands.Context, target: discord.Member):
+    def __init__(self, config: Config, embed_message: discord.Message, ctx: commands.Context, target: discord.Member):
         super().__init__(timeout=None)
+        self.config = config
         self.ctx = ctx
+        self.embed_message = embed_message
         self.target = target
 
     @discord.ui.button(label="Add", style=discord.ButtonStyle.green)
     async def award(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.moderate_members:
+        if not interaction.user.guild_permissions.moderate_members:   # type: ignore
             await interaction.response.send_message(
                 "You don't have permission to award points.",
                 ephemeral=True,
@@ -164,10 +209,12 @@ class BalanceAdjustmentButtons(discord.ui.View):
         modal = self.AddModal(self.ctx, self.target)
         await modal.init()
         await interaction.response.send_modal(modal)
+        await modal.wait()
+        await self.embed_message.edit(view=self, embed=await BalanceEmbed(self.config, self.target).collect())
 
     @discord.ui.button(label="Set", style=discord.ButtonStyle.blurple)
     async def set(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.moderate_members:
+        if not interaction.user.guild_permissions.moderate_members:  # type: ignore
             await interaction.response.send_message(
                 "You don't have permission to set points.",
                 ephemeral=True,
@@ -177,10 +224,13 @@ class BalanceAdjustmentButtons(discord.ui.View):
         modal = self.SetModal(self.ctx, self.target)
         await modal.init()
         await interaction.response.send_modal(modal)
+        await modal.wait()
+        await self.embed_message.edit(view=self, embed=await BalanceEmbed(self.config, self.target).collect())
+
 
     @discord.ui.button(label="Remove", style=discord.ButtonStyle.red)
     async def take(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.moderate_members:
+        if not interaction.user.guild_permissions.moderate_members:  # type: ignore
             await interaction.response.send_message(
                 "You don't have permission to remove points.",
                 ephemeral=True,
@@ -190,7 +240,8 @@ class BalanceAdjustmentButtons(discord.ui.View):
         modal = self.TakeModal(self.ctx, self.target)
         await modal.init()
         await interaction.response.send_modal(modal)
-
+        await modal.wait()
+        await self.embed_message.edit(view=self, embed=await BalanceEmbed(self.config, self.target).collect())
 
 class Points(commands.Cog):
     """
@@ -447,51 +498,51 @@ class Points(commands.Cog):
         await ctx.send(f"The starting balance for a user is set to `{int}`.")
         pass
 
-    @settings.group()
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def daily(self, ctx: commands.Context):
-        """Manage daily award settings."""
-        pass
+    # @settings.group()
+    # @commands.guild_only()
+    # @commands.mod_or_permissions(manage_roles=True)
+    # async def daily(self, ctx: commands.Context):
+    #     """Manage daily award settings."""
+    #     pass
 
-    @daily.command(name="amount")
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def daily_amount(self, ctx: commands.Context, int: typing.Optional[int]):
-        """Set the daily award for a user.
+    # @daily.command(name="amount")
+    # @commands.guild_only()
+    # @commands.mod_or_permissions(manage_roles=True)
+    # async def daily_amount(self, ctx: commands.Context, int: typing.Optional[int]):
+    #     """Set the daily award for a user.
 
-        Args:
-            int (typing.Optional[int]): The daily award for a user.
-        """
-        if int is None:
-            int = await self.config.guild(ctx.guild).daily_award()
+    #     Args:
+    #         int (typing.Optional[int]): The daily award for a user.
+    #     """
+    #     if int is None:
+    #         int = await self.config.guild(ctx.guild).daily_award()
 
-        await self.config.guild(ctx.guild).daily_award.set(int)
-        await ctx.send(f"The daily award is set to `{int}`.")
-        pass
+    #     await self.config.guild(ctx.guild).daily_award.set(int)
+    #     await ctx.send(f"The daily award is set to `{int}`.")
+    #     pass
 
-    @daily.command(name="channels", aliases=["channel"])
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def daily_channels(
-        self, ctx: commands.GuildContext, *channels: discord.TextChannel
-    ):
-        """Set the channels where the daily award can be claimed.
+    # @daily.command(name="channels", aliases=["channel"])
+    # @commands.guild_only()
+    # @commands.mod_or_permissions(manage_roles=True)
+    # async def daily_channels(
+    #     self, ctx: commands.GuildContext, *channels: discord.TextChannel
+    # ):
+    #     """Set the channels where the daily award can be claimed.
 
-        Args:
-            channels (discord.TextChannel): The channels where the daily award can be claimed.
-        """
-        if not channels:
-            channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
-            channels = [ctx.guild.get_channel(channel_id) for channel_id in channel_ids]
-            channels = [channel for channel in channels if channel is not None]  # type: ignore[arg-type]
-        await self.config.guild(ctx.guild).daily_award_channels.set(
-            [channel.id for channel in channels]
-        )
-        await ctx.send(
-            f"Daily award can be claimed in {', '.join([channel.mention for channel in channels])}."
-        )
-        pass
+    #     Args:
+    #         channels (discord.TextChannel): The channels where the daily award can be claimed.
+    #     """
+    #     if not channels:
+    #         channel_ids = await self.config.guild(ctx.guild).daily_award_channels()
+    #         channels = [ctx.guild.get_channel(channel_id) for channel_id in channel_ids]
+    #         channels = [channel for channel in channels if channel is not None]  # type: ignore[arg-type]
+    #     await self.config.guild(ctx.guild).daily_award_channels.set(
+    #         [channel.id for channel in channels]
+    #     )
+    #     await ctx.send(
+    #         f"Daily award can be claimed in {', '.join([channel.mention for channel in channels])}."
+    #     )
+    #     pass
 
     @settings.command()
     @commands.guild_only()
@@ -535,75 +586,24 @@ class Points(commands.Cog):
         """Manages passive point generation settings."""
         pass
 
-    @passive.command(name="chance")
+    @passive.command(name="config")
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
-    async def passive_chance(
-        self, ctx: commands.Context, chance: typing.Optional[PercentageOrFloat]
+    async def passive_config(
+        self, ctx: commands.GuildContext
     ):
-        """Set the chance of passive point generation.
-
-        Args:
-            chance (typing.Optional[float]): The chance of passive point generation.
-        """
-        if chance is None:
-            chance = await self.config.guild(ctx.guild).passive_chance()
-
-        if chance > 1:
-            chance = 1
-        elif chance < 0:
-            chance = 0
-
-        await self.config.guild(ctx.guild).passive_chance.set(chance)
-        currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
-        await ctx.send(
-            f"The chance of passive {currency_name} generation is set to `{chance:,.2%}`."
-        )
-        pass
-
-    @passive.command(name="amount")
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def passive_amount(self, ctx: commands.Context, amount: typing.Optional[int]):
-        """Set the amount of passive points generated.
-
-        Args:
-            amount (typing.Optional[int]): The amount of passive points generated.
-        """
-        if amount is None:
-            amount = await self.config.guild(ctx.guild).passive_award_amount()
-
-        await self.config.guild(ctx.guild).passive_award_amount.set(amount)
-        currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
-        await ctx.send(
-            f"The amount of passive {currency_name} generated is set to `{amount}`."
-        )
-        pass
-
-    @passive.command(name="max")
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def passive_max(self, ctx: commands.Context, max: typing.Optional[int]):
-        """Set the max number of times passive points can be obtained daily.
-
-        Args:
-            max (typing.Optional[int]): The max number of instances allowed.
-        """
-        if max is None:
-            max = await self.config.guild(ctx.guild).passive_max_count_per_day()
-
-        await self.config.guild(ctx.guild).passive_max_count_per_day.set(max)
-        currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
-        await ctx.send(
-            f"The max number of instances passive {currency_name} can be earned daily is: `{max}`."
-        )
+        """View the passive point generation configuration."""
+        embed = await PointsPassiveConfigurationEmbed(self.bot, self.config, ctx.guild).collect()
+        message = await ctx.send(embed=embed)
+        view = PointsPassiveConfigurationView(self.bot, self.config, message, ctx.author)
+        await message.edit(embed=embed, view=view, delete_after=60*10)
         pass
 
     @passive.group(name="response", aliases=["responses"])
     @commands.guild_only()
     @commands.mod_or_permissions(manage_roles=True)
     async def passive_response(self, ctx: commands.Context):
-        """Manage passive point generation responses."""
+        """If triggered, the user will receive a bonus and a response will trigger."""
         pass
 
     @passive_response.command(name="add")
@@ -656,57 +656,6 @@ class Points(commands.Cog):
         await ctx.send(f"Responses:\n{response_list}")
         pass
 
-    @passive_response.command(name="chance")
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def passive_response_chance(
-        self, ctx: commands.Context, chance: typing.Optional[PercentageOrFloat]
-    ):
-        """Set the chance of a passive point generation response.
-
-        Args:
-            chance (typing.Optional[float]): The chance of a passive point generation response.
-        """
-        if chance is None:
-            chance = await self.config.guild(ctx.guild).passive_response_chance()
-
-        if chance > 1:
-            chance = 1
-        elif chance < 0:
-            chance = 0
-
-        await self.config.guild(ctx.guild).passive_response_chance.set(chance)
-        await ctx.send(f"The chance of a passive response is set to `{chance:,.2%}`.")
-        pass
-
-    @passive.command(name="channels", aliases=["channel"])
-    @commands.guild_only()
-    @commands.mod_or_permissions(manage_roles=True)
-    async def passive_channels(
-        self, ctx: commands.Context, *channels: discord.TextChannel
-    ):
-        """Set the channels where passive points can be obtained.
-
-        Args:
-            channels (discord.TextChannel): The channels where passive points can be obtained.
-        """
-        if not channels:
-            channel_ids = await self.config.guild(ctx.guild).passive_channels()
-            channels = [ctx.guild.get_channel(channel_id) for channel_id in channel_ids]
-            channels = [channel for channel in channels if channel is not None]  # type: ignore[arg-type]
-        await self.config.guild(ctx.guild).passive_channels.set(
-            [channel.id for channel in channels]
-        )
-        currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
-
-        if len(channels) == 0:
-            await ctx.send(f"Passive {currency_name} can be obtained in any channel.")
-        else:
-            await ctx.send(
-                f"Passive {currency_name} can be obtained in {', '.join([channel.mention for channel in channels])}."
-            )
-        pass
-
     @points.command()
     @commands.guild_only()
     async def claim(self, ctx: commands.GuildContext):
@@ -732,7 +681,7 @@ class Points(commands.Cog):
         if claim_channels and ctx.channel not in claim_channels:
             await ctx.message.delete(delay=15)
             await ctx.reply(
-                f"You can only claim your daily {currency_name} in {', '.join([channel.mention for channel in claim_channels])}.",
+                f"You can only claim your daily {currency_name} in {', '.join([channel.mention for channel in claim_channels])}.",  # type: ignore
                 ephemeral=True,
                 delete_after=10,
             )
@@ -799,7 +748,7 @@ class Points(commands.Cog):
     @points.command()
     @commands.guild_only()
     async def balance(
-        self, ctx: commands.GuildContext, user: typing.Optional[discord.Member]
+        self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]
     ):
         """Check your points balance.
 
@@ -826,53 +775,25 @@ class Points(commands.Cog):
             )
             return
 
-        if user is None:
-            user = ctx.author
-        elif not ctx.author.guild_permissions.moderate_members and user != ctx.author:
+        if member is None:
+            member = ctx.author
+        elif not ctx.author.guild_permissions.moderate_members and member != ctx.author:
             await ctx.reply(
                 "You don't have permission to check another user's balance."
             )
             return
+        
+        embed = await BalanceEmbed(self.config, member).collect()
 
-        balance = await Points._get_balance(user)  # type: ignore[arg-type]
-        currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
-
-        account = await bank.get_account(user)  # type: ignore[arg-type]
-
-        description = f"**User**: {user.mention}\n"
-        description += f"**Balance**: {balance} {currency_name}\n"
-        description += (
-            f"**Claimed Daily Award**: {await Points._is_daily_award_claimed(user)}\n"
-        )
-        description += (
-            f"**Leaderboard Position**: {await bank.get_leaderboard_position(user)}\n"
-        )
-        description += f"**Created At**: {account.created_at.replace(tzinfo=timezone):%Y-%m-%d %H:%M:%S %Z}\n"
-
-        offset = await self.config.guild(ctx.guild).offset()
-        max_balance = await bank.get_max_balance(ctx.guild) + offset  # type: ignore[arg-type]
-
-        color = discord.Color.dark_grey()  # Dark Grey
-        if balance > 0.8 * max_balance:
-            color = discord.Color.from_str("0x941A8D")  # Purple
-        elif balance > 0.5 * max_balance:
-            color = discord.Color.gold()  # Gold
-        elif balance > 0.3 * max_balance:
-            color = discord.Color.from_str("0xC0C0C0")  # Silver
-        elif balance > 0.1 * max_balance:
-            color = discord.Color.from_str("0xB87333")  # Copper
-
-        embed = discord.Embed(
-            title=f"{user.name}'s Balance", description=description, color=color
-        )
-        embed.set_footer(text=f"Requested by {ctx.author.nick or ctx.author.name}")
-
+        embed_message : discord.Message = await ctx.reply(embed=embed)
+        
         if ctx.author.guild_permissions.moderate_members:
-            view = BalanceAdjustmentButtons(ctx, user)
+            view = BalanceAdjustmentButtons(self.config, embed_message, ctx, member)
         else:
             view = None
 
-        await ctx.reply(embed=embed, view=view)
+        await embed_message.edit(embed=embed, view=view)
+
         pass
 
     @points.command()
@@ -890,7 +811,7 @@ class Points(commands.Cog):
         ) and not ctx.author.guild_permissions.moderate_members:
             await ctx.message.delete(delay=15)
             await ctx.reply(
-                f"You can only view the leaderboard in {', '.join([channel.mention for channel in claim_channels])}.",
+                f"You can only view the leaderboard in {', '.join([channel.mention for channel in claim_channels])}.",  # type: ignore
                 ephemeral=True,
                 delete_after=10,
             )
@@ -905,9 +826,9 @@ class Points(commands.Cog):
         for i, (user_id, stats) in enumerate(leaderboard):
             user = ctx.guild.get_member(user_id)  # type: ignore[arg-type]
             if user is None:
-                user = await self.bot.fetch_user(user_id)
+                user = await self.bot.fetch_user(user_id)  # type: ignore
             balance = stats["balance"] + offset
-            description += f"{i+1}. {user.mention} - `{balance}`\n"
+            description += f"{i+1}. {user.mention} - `{balance}`\n"  # type: ignore
 
         bank_name = await bank.get_bank_name(ctx.guild)
 
@@ -934,7 +855,9 @@ class Points(commands.Cog):
 
         passive_chance = await self.config.guild(message.guild).passive_chance()
 
-        if random.random() > passive_chance:
+        roll = random.random()
+
+        if roll > passive_chance:
             return
 
         passive_channel_ids = await self.config.guild(message.guild).passive_channels()
@@ -967,21 +890,32 @@ class Points(commands.Cog):
 
         passive_amount = await self.config.guild(message.guild).passive_award_amount()
 
-        new_balance = await Points._add_balance(user, passive_amount)  # type: ignore[arg-type]
+        passive_response_chance = await self.config.guild(
+            message.guild
+        ).passive_response_chance()
+
+        passive_jackpot_chance = await self.config.guild(
+            message.guild
+        ).passive_response_jackpot_chance()
 
         await self.config.user(user).last_passive_timestamp.set(
             datetime.datetime.now().timestamp()
         )
         await self.config.user(user).last_passive_count.set(last_passive_count + 1)
 
-        passive_response_chance = await self.config.guild(
-            message.guild
-        ).passive_response_chance()
-
-        message_reply = ":coin: "
         currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
 
-        if random.random() <= passive_response_chance:
+        await message.add_reaction("🪙")
+
+        if roll <= passive_response_chance * passive_chance:
+            if roll <= passive_jackpot_chance * passive_response_chance * passive_chance:
+                passive_amount *= int(await self.config.guild(message.guild).passive_response_jackpot_multiplier())
+            else:
+                passive_amount *= int(await self.config.guild(message.guild).passive_response_multiplier())
+
+        new_balance = await Points._add_balance(user, passive_amount)  # type: ignore[arg-type]
+
+        if roll <= passive_response_chance * passive_chance:
             passive_responses = await self.config.guild(
                 message.guild
             ).passive_award_responses()
@@ -992,11 +926,9 @@ class Points(commands.Cog):
                     "$POINTS$", f"`{passive_amount} {currency_name}`"
                 )
 
-                message_reply += f"{passive_response}\n"
-
-        message_reply += f"New Balance: `{new_balance} {currency_name}`"
-
-        await message.reply(message_reply, delete_after=20)
+            message_reply = f"{passive_response}\n"
+            message_reply += f"New Balance: `{new_balance} {currency_name}`"
+            await message.reply(message_reply, delete_after=20)
 
         pass
 

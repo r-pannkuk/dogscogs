@@ -317,10 +317,14 @@ class EmbedWatcher(commands.Cog):
     async def on_raw_message_edit(self, event: discord.RawMessageUpdateEvent):
         if isinstance(event, discord.RawMessageDeleteEvent):
             return
+        
+        if event.guild_id is None:
+            return
 
         guild: discord.Guild = self.bot.get_guild(event.guild_id)
         before = event.cached_message
         after = event.data
+
 
         if (
             "author" not in after
