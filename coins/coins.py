@@ -64,7 +64,7 @@ class BalanceEmbed(discord.Embed):
         self.config = config
         self.member = member
         self.guild = member.guild
-        super().__init__(title=f"{self.member.name}'s Balance")
+        super().__init__(title=f"{self.member.display_name}'s Balance")
         pass
 
     async def collect(self):
@@ -73,7 +73,7 @@ class BalanceEmbed(discord.Embed):
 
         account = await bank.get_account(self.member)  # type: ignore[arg-type]
 
-        description = f"**User**: {self.member.mention}\n"
+        description = f"**User**: {self.member.mention} ({self.member.name})\n"
         description += f"**Balance**: {balance} {currency_name}\n"
 
         last_passive_timestamp = await self.config.user(self.member).last_passive_timestamp()
@@ -88,16 +88,15 @@ class BalanceEmbed(discord.Embed):
             await self.config.user(self.member).last_passive_count.set(0)
 
         description += (
-            f"**Claimed Passives**: {last_passive_count}/{max_passive_claims}\n"
+            f"**Daily Claims**: {last_passive_count}/{max_passive_claims}\n"
         )
 
         if last_passive_count >= max_passive_claims:
-            description += f"**Next Passive**: <t:{int((datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)).timestamp())}:F>\n"
+            description += f"**Next Passive**: <t:{int((datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)).replace(hour=0, second=0, minute=0, microsecond=0).timestamp())}:F>\n"
 
         description += (
             f"**Leaderboard Position**: {await bank.get_leaderboard_position(self.member)}\n"
         )
-        description += f"**Created At**: {account.created_at.replace(tzinfo=timezone):%Y-%m-%d %H:%M:%S %Z}\n"
 
         offset = await self.config.guild(self.guild).offset()
         max_balance = await bank.get_max_balance(self.guild) + offset  # type: ignore[arg-type]
@@ -194,6 +193,24 @@ class BalanceAdjustmentButtons(discord.ui.View):
                 delete_after=15,
             )
 
+    class ChangePassive(_Modal):
+        def __init__(self, config: Config, ctx: commands.Context, target: discord.Member):
+            super().__init__(ctx, target)
+            self.config = config
+
+        async def init(self):
+            await super().init(
+                title=f"Set current Daily Passive Claim",
+                label=f"Amount (out of {await self.config.guild(self.target.guild).passive_max_count_per_day()})",
+            )
+
+        async def on_submit(self, interaction: discord.Interaction):
+            new_passive = await self.config.user(self.target).last_passive_count.set(int(self.answer.value))
+            await interaction.response.send_message(
+                f"Set {self.target.mention}'s daily passive claim count to {new_passive}.",
+                delete_after=15,
+            )
+
     def __init__(self, config: Config, embed_message: discord.Message, ctx: commands.Context, target: discord.Member):
         super().__init__(timeout=None)
         self.config = config
@@ -203,7 +220,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
 
     @discord.ui.button(label="Add", style=discord.ButtonStyle.green)
     async def award(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.moderate_members:   # type: ignore
+        if not interaction.user.guild_permissions.manage_roles:   # type: ignore
             await interaction.response.send_message(
                 "You don't have permission to award coins.",
                 ephemeral=True,
@@ -218,7 +235,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
 
     @discord.ui.button(label="Set", style=discord.ButtonStyle.blurple)
     async def set(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.moderate_members:  # type: ignore
+        if not interaction.user.guild_permissions.manage_roles:  # type: ignore
             await interaction.response.send_message(
                 "You don't have permission to set coins.",
                 ephemeral=True,
@@ -234,7 +251,7 @@ class BalanceAdjustmentButtons(discord.ui.View):
 
     @discord.ui.button(label="Remove", style=discord.ButtonStyle.red)
     async def take(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not interaction.user.guild_permissions.moderate_members:  # type: ignore
+        if not interaction.user.guild_permissions.manage_roles:  # type: ignore
             await interaction.response.send_message(
                 "You don't have permission to remove coins.",
                 ephemeral=True,
@@ -242,6 +259,21 @@ class BalanceAdjustmentButtons(discord.ui.View):
             )
             return
         modal = self.TakeModal(self.ctx, self.target)
+        await modal.init()
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        await self.embed_message.edit(view=self, embed=await BalanceEmbed(self.config, self.target).collect())
+
+    @discord.ui.button(label="Adjust Daily Count", style=discord.ButtonStyle.grey, row=1)
+    async def passive(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.manage_roles:  # type: ignore
+            await interaction.response.send_message(
+                "You don't have permission to adjust passive claims count.",
+                ephemeral=True,
+                delete_after=10,
+            )
+            return
+        modal = self.ChangePassive(self.config, self.ctx, self.target)
         await modal.init()
         await interaction.response.send_modal(modal)
         await modal.wait()
@@ -770,7 +802,7 @@ class Coins(commands.Cog):
 
         if (
             claim_channels and ctx.channel not in claim_channels
-        ) and not ctx.author.guild_permissions.moderate_members:
+        ) and not ctx.author.guild_permissions.manage_roles:
             await ctx.message.delete(delay=15)
             await ctx.reply(
                 f"You can only view the balance in {', '.join([channel.mention for channel in claim_channels])}.",
@@ -781,7 +813,7 @@ class Coins(commands.Cog):
 
         if member is None:
             member = ctx.author
-        elif not ctx.author.guild_permissions.moderate_members and member != ctx.author:
+        elif not ctx.author.guild_permissions.manage_roles and member != ctx.author:
             await ctx.reply(
                 "You don't have permission to check another user's balance."
             )
@@ -791,7 +823,7 @@ class Coins(commands.Cog):
 
         embed_message : discord.Message = await ctx.reply(embed=embed)
         
-        if ctx.author.guild_permissions.moderate_members:
+        if ctx.author.guild_permissions.manage_roles:
             view = BalanceAdjustmentButtons(self.config, embed_message, ctx, member)
         else:
             view = None
@@ -812,7 +844,7 @@ class Coins(commands.Cog):
 
         if (
             claim_channels and ctx.channel not in claim_channels
-        ) and not ctx.author.guild_permissions.moderate_members:
+        ) and not ctx.author.guild_permissions.manage_roles:
             await ctx.message.delete(delay=15)
             await ctx.reply(
                 f"You can only view the leaderboard in {', '.join([channel.mention for channel in claim_channels])}.",  # type: ignore
