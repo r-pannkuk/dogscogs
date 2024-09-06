@@ -163,7 +163,7 @@ class HostCrier(commands.Cog):
         await ctx.send('Done')
 
     @hostcrier.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]):
         """Provides or sets the output channel for host commands.
 
@@ -188,7 +188,7 @@ class HostCrier(commands.Cog):
     
 
     @hostcrier.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def interval(self, ctx: commands.Context, mins: typing.Optional[int]):
         """Sets the interval at which messages auto delete in minutes.
 

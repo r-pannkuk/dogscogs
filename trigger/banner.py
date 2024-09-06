@@ -70,7 +70,7 @@ class Banner(ReactCog):
     ############################################################################################################
 
     @commands.hybrid_group(aliases=["kicker"])
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner(self, ctx: commands.Context):
         """Commands for configuring the server banned / kicked messages."""
         pass
@@ -82,25 +82,25 @@ class Banner(ReactCog):
         pass
 
     @banner.command(name="toggle", help=ReactCog.enable.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_toggle(self, ctx: commands.Context):
         await super().toggle(ctx)
         pass
 
     @banner.command(name="enable", help=DogCog.enable.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_enable(self, ctx: commands.Context):
         await DogCog.enable(self, ctx)
         pass
 
     @banner.command(name="disable", help=DogCog.disable.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_disable(self, ctx: commands.Context):
         await DogCog.disable(self, ctx)
         pass
 
     @banner.command(name="enabled", help=DogCog.enabled.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_enabled(
         self, ctx: commands.Context, bool: typing.Optional[bool] = None
     ):
@@ -108,13 +108,13 @@ class Banner(ReactCog):
         pass
 
     @banner.group(name="response")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_response(self, ctx: commands.Context):
         """Configure responses for the given trigger."""
         pass
 
     @banner_response.command(name="list", help=ReactCog.response_list.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_response_list(self, ctx: commands.Context):
         await super().response_list(ctx)
         pass
@@ -125,7 +125,7 @@ class Banner(ReactCog):
     @app_commands.describe(
         msg=f"Use these escaped strings: {','.join([t.value for t in Token._member_map_.values()])}"
     )
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_response_add(self, ctx: commands.Context, *, msg: str):
         """Adds a response for when the trigger fires.
 
@@ -136,25 +136,25 @@ class Banner(ReactCog):
         pass
 
     @banner_response.command(name="remove", help=ReactCog.response_remove.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_response_remove(self, ctx: commands.Context, index: int):
         await super().response_remove(ctx, index)
         pass
 
     @banner.group(name="channel")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_channel(self, ctx: commands.Context):
         """Manages channels for the trigger to respond into."""
         pass
 
     @banner_channel.command(name="list", help=ReactCog.channel_list.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_channel_list(self, ctx: commands.Context):
         await super().channel_list(ctx)
         pass
 
     @banner_channel.command(name="add", help=ReactCog.channel_add.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_channel_add(
         self, ctx: commands.Context, channel: discord.TextChannel
     ):
@@ -162,7 +162,7 @@ class Banner(ReactCog):
         pass
 
     @banner_channel.command(name="remove", help=ReactCog.channel_remove.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_channel_remove(
         self, ctx: commands.Context, channel: discord.TextChannel
     ):
@@ -170,13 +170,13 @@ class Banner(ReactCog):
         pass
 
     @banner.group(name="embed")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_embed(self, ctx: commands.Context):
         """Settings for embed configuration."""
         pass
 
     @banner_embed.command(name="enabled", help=ReactCog.embed_enabled.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_embed_enabled(
         self, ctx: commands.Context, bool: typing.Optional[bool] = None
     ):
@@ -186,7 +186,7 @@ class Banner(ReactCog):
     @banner_embed.command(
         name="image", aliases=["thumbnail"], help=ReactCog.embed_image.__doc__
     )
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_embed_image(
         self, ctx: commands.Context, *, url: typing.Optional[str] = None
     ):
@@ -194,7 +194,7 @@ class Banner(ReactCog):
         pass
 
     @banner_embed.command(name="title", help=ReactCog.embed_title.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_embed_title(
         self, ctx: commands.Context, *, title: typing.Optional[str] = None
     ):
@@ -202,7 +202,7 @@ class Banner(ReactCog):
         pass
 
     @banner_embed.command(name="footer", help=ReactCog.embed_footer.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_embed_footer(
         self, ctx: commands.Context, *, footer: typing.Optional[str] = None
     ):
@@ -210,7 +210,7 @@ class Banner(ReactCog):
         pass
 
     @banner.command(name="template", help=ReactCog.template.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def banner_template(self, ctx: commands.Context):
         await super().template(ctx, channel=ctx.channel)
         pass

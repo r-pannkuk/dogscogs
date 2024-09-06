@@ -514,7 +514,7 @@ class Nickname(commands.Cog):
 
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command(aliases=["lock"], usage="<member> <name>")
     async def set(self, ctx: commands.Context, member: discord.Member, *, name: str):
         """Sets a stuck nickname for the user until unset.
@@ -731,7 +731,7 @@ class Nickname(commands.Cog):
         return latest
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command(aliases=["unlock"], usage="<member>")
     async def unset(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a locked nickname for a user.
@@ -758,7 +758,7 @@ class Nickname(commands.Cog):
         pass
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command(usage="<member>")
     async def unnyame(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a cursed nickname for a user.
@@ -792,7 +792,7 @@ class Nickname(commands.Cog):
         pass
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command(usage="<member>")
     async def uncurse(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a cursed nickname for a user.
@@ -917,7 +917,7 @@ class Nickname(commands.Cog):
         await ctx.reply(f"{fields['target']} is {fields['type']} by {fields['author']} {fields['participle']} `{fields['time']}`.")
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command()
     async def list(self, ctx: commands.Context):
         """Displays the list of all users whose nicknames are set.
@@ -1014,7 +1014,7 @@ class Nickname(commands.Cog):
         pass
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command()
     async def cooldown(self, ctx: commands.Context, cooldown_sec: typing.Optional[typing.Union[int, str]] = None):
         """Sets or displays the current curse attempt cooldown.
@@ -1055,7 +1055,7 @@ class Nickname(commands.Cog):
         pass
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @nickname.command()
     async def duration(self, ctx: commands.Context, duration_sec: typing.Optional[typing.Union[int, str]] = None):
         """Sets or displays the current curse duration.

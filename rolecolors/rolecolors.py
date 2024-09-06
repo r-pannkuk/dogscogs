@@ -366,7 +366,7 @@ class RoleColors(commands.Cog):
         pass
 
     @rolecolors.command(usage="<amount>", name="create")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def create_color_roles(
         self, ctx: commands.GuildContext, amount: typing.Optional[int]
     ) -> None:
@@ -447,7 +447,7 @@ class RoleColors(commands.Cog):
         return
 
     @rolecolors.command(usage="<hex_or_roleid>", name="add")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def add_color_role(
         self, ctx: commands.Context, color: typing.Union[discord.Role, str]
     ) -> None:
@@ -499,7 +499,7 @@ class RoleColors(commands.Cog):
         await ctx.channel.send(f"Added color role {role.name}.")
 
     @rolecolors.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def duration(self, ctx: commands.GuildContext, seconds: typing.Optional[int]):
         """
         Sets how long cursing someone's color should last.
@@ -511,7 +511,7 @@ class RoleColors(commands.Cog):
         await ctx.channel.send(f"Color change curse duration set to {seconds} seconds.")
 
     @rolecolors.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def cost(self, ctx: commands.GuildContext, points: typing.Optional[int]):
         """
         Sets the cost for color changes.
@@ -634,7 +634,7 @@ class RoleColors(commands.Cog):
             )
 
     @rolecolors.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def uncurse(self, ctx: commands.GuildContext, member: discord.Member):
         """
         Removes a curse from a member.

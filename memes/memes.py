@@ -36,7 +36,7 @@ class Memes(commands.Cog):
         """
         pass
 
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Sets whether or not the roulette is enabled.
 

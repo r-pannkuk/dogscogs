@@ -387,14 +387,14 @@ class Coins(commands.Cog):
         pass
 
     @coins.group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def settings(self, ctx: commands.Context):
         """Manage local guild coins settings."""
         pass
 
     @settings.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enable(self, ctx: commands.Context):
         """Enable coins in this guild."""
         await self.config.guild(ctx.guild).is_enabled.set(True)
@@ -403,7 +403,7 @@ class Coins(commands.Cog):
 
     @settings.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def disable(self, ctx: commands.Context):
         """Disable coins in this guild."""
         await self.config.guild(ctx.guild).is_enabled.set(False)
@@ -412,7 +412,7 @@ class Coins(commands.Cog):
 
     @settings.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Check or set if coins are enabled in this guild.
 
@@ -428,7 +428,7 @@ class Coins(commands.Cog):
 
     @settings.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def max(self, ctx: commands.Context, max: typing.Optional[int]):
         """Set the max balance for a user.
 
@@ -447,14 +447,14 @@ class Coins(commands.Cog):
 
     @settings.group()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def name(self, ctx: commands.Context):
         """Manage the naming settings."""
         pass
 
     @name.command(name="bank")
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def name_bank(self, ctx: commands.Context, *, name: typing.Optional[str]):
         """Set the bank name.
 
@@ -470,7 +470,7 @@ class Coins(commands.Cog):
 
     @name.command(name="currency")
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def name_currency(self, ctx: commands.Context, *, name: typing.Optional[str]):
         """Set the local currency name.
 
@@ -486,7 +486,7 @@ class Coins(commands.Cog):
 
     @settings.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def default(self, ctx: commands.Context, int: typing.Optional[int]):
         """Set the default balance for a user.
 
@@ -503,14 +503,14 @@ class Coins(commands.Cog):
 
     @settings.group()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def daily(self, ctx: commands.Context):
         """Manage daily award settings."""
         pass
 
     # @daily.command(name="amount")
     # @commands.guild_only()
-    # @commands.mod_or_permissions(manage_channels=True)
+    # @commands.has_guild_permissions(manage_roles=True)
     # async def daily_amount(self, ctx: commands.Context, int: typing.Optional[int]):
     #     """Set the daily award for a user.
 
@@ -526,7 +526,7 @@ class Coins(commands.Cog):
 
     @daily.command(name="channels", aliases=["channel"])
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def daily_channels(
         self, ctx: commands.GuildContext, *channels: discord.TextChannel
     ):
@@ -584,14 +584,14 @@ class Coins(commands.Cog):
 
     @settings.group()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def passive(self, ctx: commands.Context):
         """Manages passive point generation settings."""
         pass
 
     @passive.command(name="config")
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def passive_config(
         self, ctx: commands.GuildContext
     ):
@@ -604,14 +604,14 @@ class Coins(commands.Cog):
 
     @passive.group(name="response", aliases=["responses"])
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def passive_response(self, ctx: commands.Context):
         """If triggered, the user will receive a bonus and a response will trigger."""
         pass
 
     @passive_response.command(name="add")
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def passive_response_add(self, ctx: commands.Context, *, response: str):
         """Add a passive point generation response.  Use `$COINS$` to represent the amount of coins awarded.
 
@@ -626,7 +626,7 @@ class Coins(commands.Cog):
 
     @passive_response.command(name="remove")
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def passive_response_remove(self, ctx: commands.Context, index: int):
         """Remove a passive point generation response.
 
@@ -645,7 +645,7 @@ class Coins(commands.Cog):
 
     @passive_response.command(name="list")
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def passive_response_list(self, ctx: commands.Context):
         """List all passive point generation responses."""
         responses = await self.config.guild(ctx.guild).passive_award_responses()
@@ -705,7 +705,7 @@ class Coins(commands.Cog):
 
     @coins.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def award(self, ctx: commands.Context, user: discord.Member, amount: int):
         """Award coins to a user.
 
@@ -720,7 +720,7 @@ class Coins(commands.Cog):
 
     @coins.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def take(self, ctx: commands.Context, user: discord.Member, amount: int):
         """Take coins from a user.
 
@@ -735,7 +735,7 @@ class Coins(commands.Cog):
 
     @coins.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def set(self, ctx: commands.Context, user: discord.Member, amount: int):
         """Set a user's coins.
 

@@ -70,7 +70,7 @@ class Welcomer(ReactCog):
     ###########################################################################################################
 
     @commands.hybrid_group(aliases=["welcomer"])
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome(self, ctx: commands.Context):
         """Commands for configuring the server welcome messages."""
         pass
@@ -82,25 +82,25 @@ class Welcomer(ReactCog):
         pass
 
     @welcome.command(name="toggle", help=ReactCog.enable.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_toggle(self, ctx: commands.Context):
         await super().toggle(ctx)
         pass
 
     @welcome.command(name="enable", help=DogCog.enable.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_enable(self, ctx: commands.Context):
         await DogCog.enable(self, ctx)
         pass
 
     @welcome.command(name="disable", help=DogCog.disable.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_disable(self, ctx: commands.Context):
         await DogCog.disable(self, ctx)
         pass
 
     @welcome.command(name="enabled", help=DogCog.enabled.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_enabled(
         self, ctx: commands.Context, bool: typing.Optional[bool] = None
     ):
@@ -108,13 +108,13 @@ class Welcomer(ReactCog):
         pass
 
     @welcome.group(name="response")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_response(self, ctx: commands.Context):
         """Configure responses for the given trigger."""
         pass
 
     @welcome_response.command(name="list", help=ReactCog.response_list.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_response_list(self, ctx: commands.Context):
         await super().response_list(ctx)
         pass
@@ -127,49 +127,49 @@ class Welcomer(ReactCog):
         f"-- ``{Token.MemberCount.value}`` - The server member count\n"
         "\n" + "Args:\n" + "\tentry (str): The new welcome message to be used at random.",
     )
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_response_add(self, ctx: commands.Context, *, msg: str):
         await super().response_add(ctx, msg)
         pass
 
     @welcome_response.command(name="remove", help=ReactCog.response_remove.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_response_remove(self, ctx: commands.Context, index: int):
         await super().response_remove(ctx, index)
         pass
 
     @welcome.group(name="channel")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def wecome_channel(self, ctx: commands.Context):
         """Manages channels for the trigger to respond into.
         """
         pass
 
     @wecome_channel.command(name="list", help=ReactCog.channel_list.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def wecome_channel_list(self, ctx: commands.Context):
         await super().channel_list(ctx)
         pass
 
     @wecome_channel.command(name="add", help=ReactCog.channel_add.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def wecome_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
         await super().channel_add(ctx, channel)
         pass
 
     @wecome_channel.command(name="remove", help=ReactCog.channel_remove.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def wecome_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
         await super().channel_remove(ctx, channel)
         pass
 
     @welcome.group(name="embed")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_embed(self, ctx: commands.Context):
         """Settings for embed configuration."""
 
     @welcome_embed.command(name="enabled", help=ReactCog.embed_enabled.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_embed_enabled(
         self, ctx: commands.Context, bool: typing.Optional[bool] = None
     ):
@@ -179,7 +179,7 @@ class Welcomer(ReactCog):
     @welcome_embed.command(
         name="image", aliases=["thumbnail"], help=ReactCog.embed_image.__doc__
     )
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_embed_image(
         self, ctx: commands.Context, *, url: typing.Optional[str] = None
     ):
@@ -187,7 +187,7 @@ class Welcomer(ReactCog):
         pass
 
     @welcome_embed.command(name="title", help=ReactCog.embed_title.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_embed_title(
         self, ctx: commands.Context, *, title: typing.Optional[str] = None
     ):
@@ -195,7 +195,7 @@ class Welcomer(ReactCog):
         pass
 
     @welcome_embed.command(name="footer", help=ReactCog.embed_footer.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_embed_footer(
         self, ctx: commands.Context, *, footer: typing.Optional[str] = None
     ):
@@ -203,7 +203,7 @@ class Welcomer(ReactCog):
         pass
 
     @welcome.command(name="template", help=ReactCog.template.__doc__)
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def welcome_template(self, ctx: commands.Context):
         await super().template(ctx, channel=ctx.channel)
         pass

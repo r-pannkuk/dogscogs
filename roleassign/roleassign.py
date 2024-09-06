@@ -36,7 +36,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enable(self, ctx: commands.Context):
         """
         Enable role assignment.
@@ -46,7 +46,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def disable(self, ctx: commands.Context):
         """
         Disable role assignment.
@@ -56,7 +56,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """
         Check if role assignment is enabled.
@@ -70,7 +70,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def add(self, ctx: commands.Context, destination_role: discord.Role, permitted_source: typing.Union[discord.Member, discord.Role]):
         """
         Configures a destination role to be assignable by a member or role.
@@ -104,7 +104,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def remove(self, ctx: commands.Context, destination_role: discord.Role, permitted_source: typing.Union[discord.Member, discord.Role]):
         """
         Removes permission to grant the given role.
@@ -139,7 +139,7 @@ class RoleAssign(commands.Cog):
 
     @roleassign.command()
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def list(self, ctx: commands.Context):
         """
         List all roles with permissions.

@@ -572,7 +572,7 @@ class Birthday(commands.Cog):
         pass
 
     @birthday.group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def config(self, ctx: commands.Context):
         """Config options for the birthday cog.
 
@@ -582,7 +582,7 @@ class Birthday(commands.Cog):
         pass
 
     @config.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]):
         """Sets or displays the channel for birthday messages.
 
@@ -617,7 +617,7 @@ class Birthday(commands.Cog):
         pass
 
     @config.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def role(self, ctx: commands.Context, role: typing.Optional[discord.Role]):
         """Sets or displays the role for birthday messages.
 
@@ -651,7 +651,7 @@ class Birthday(commands.Cog):
         pass
 
     @birthday.group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def manual(self, ctx: commands.Context):
         """Manually overrides birthdays for users.
 
@@ -661,7 +661,7 @@ class Birthday(commands.Cog):
         pass
 
     @manual.command(aliases=["set"])
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def add(self, ctx: commands.Context, member: discord.Member, date: to_birthdate):
         """Sets a user's birthday in the birthday list.
 
@@ -676,7 +676,7 @@ class Birthday(commands.Cog):
         pass
 
     @manual.command(aliases=["remove", "unset"])
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def purge(self, ctx: commands.Context, member: discord.Member):
         """Removes a user's birthday in the birthday list.
 

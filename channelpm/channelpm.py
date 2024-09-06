@@ -52,7 +52,7 @@ class ChannelPM(commands.Cog):
         pass
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command(usage="<channel>")
     async def channel(self, ctx: commands.Context, channel: Optional[discord.TextChannel]):
         """
@@ -71,7 +71,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command(usage="<member>")
     async def ignore(self, ctx: commands.Context, member: typing.Union[discord.Member, discord.User]):
         """
@@ -90,7 +90,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command(usage="<member>")
     async def unignore(self, ctx: commands.Context, member: typing.Union[discord.Member, discord.User]):
         """
@@ -109,7 +109,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command()
     async def ignorelist(self, ctx: commands.Context):
         """
@@ -204,7 +204,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["message", "msg"])
     async def pm(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
         """
@@ -214,7 +214,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<message>", rest_is_raw=True, aliases=["reply"])
     async def r(self, ctx: commands.Context, *, message: str):
         """
@@ -224,7 +224,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["messageanon", "msganon", "msga"])
     async def pma(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
         """
@@ -234,7 +234,7 @@ class ChannelPM(commands.Cog):
         return
 
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["replyanon"])
     async def ra(self, ctx: commands.Context, *, message: str):
         """

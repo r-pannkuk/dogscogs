@@ -73,13 +73,13 @@ class EmbedWatcher(commands.Cog):
         await super().red_delete_data_for_user(requester=requester, user_id=user_id)
 
     @commands.hybrid_group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def embedwatcher(self, ctx: commands.Context):
         """Watches for embed edits and deletes messages to prevent them."""
         pass
 
     @embedwatcher.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, is_enabled: typing.Optional[bool]):
         """Enables or disables the watcher.
 
@@ -103,7 +103,7 @@ class EmbedWatcher(commands.Cog):
         pass
 
     @embedwatcher.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def timeout(self, ctx: commands.Context, minutes: typing.Optional[int]):
         """Defines how long a user should be timed out for after editing an embed.
 
@@ -128,7 +128,7 @@ class EmbedWatcher(commands.Cog):
         pass
 
     @embedwatcher.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def delay(self, ctx: commands.Context, minutes: typing.Optional[int]):
         """Defines how long the bot should wait before checking for edits.
 
@@ -153,7 +153,7 @@ class EmbedWatcher(commands.Cog):
         pass
 
     @embedwatcher.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def channel(
         self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]
     ):
@@ -183,13 +183,13 @@ class EmbedWatcher(commands.Cog):
         pass
 
     @embedwatcher.group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def whitelist(self, ctx: commands.Context):
         """Defines the channel whitelist for edited attachments."""
         pass
 
     @whitelist.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def add(self, ctx: commands.Context, target: ParsedMention):
         """Adds a channel to the white list so it is ignored in scanning attachment changes.
 
@@ -220,7 +220,7 @@ class EmbedWatcher(commands.Cog):
         pass
 
     @whitelist.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def remove(self, ctx: commands.Context, target: ParsedMention):
         """Removes a channel from the white list so it is scanned for attachment changes.
 
@@ -257,7 +257,7 @@ class EmbedWatcher(commands.Cog):
         pass
 
     @whitelist.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def list(self, ctx: commands.Context):
         """Lists all channels currently being ignored in attachment change scans."""
         embed = discord.Embed()

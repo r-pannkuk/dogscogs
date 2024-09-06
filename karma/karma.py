@@ -147,7 +147,7 @@ class Karma(commands.Cog):
 
     @commands.command(aliases=["serverkarma", "karma_server", "karmaserver", "karmaall", "karma_all", "totalkarma", "total_karma"])
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def server_karma(self, ctx: commands.Context) -> None:
         members = await self.config.all_members(ctx.guild)
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
@@ -185,7 +185,7 @@ class Karma(commands.Cog):
 
     @commands.command(aliases=["top_karma", "karmastats", "karma_stats"])
     @commands.guild_only()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def topkarma(self, ctx: commands.GuildContext) -> None:
         members = await self.config.all_members(ctx.guild)
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()

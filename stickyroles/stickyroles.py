@@ -36,14 +36,14 @@ class StickyRoles(commands.Cog):
 
     
     @commands.hybrid_group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def stickyroles(self, ctx: commands.Context):
         """Reapplies roles to users who rejoin.
         """
         pass
 
     @stickyroles.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, is_enabled: typing.Optional[bool]):
         """Enables or disables the cog.
 

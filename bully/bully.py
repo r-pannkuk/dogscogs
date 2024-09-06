@@ -88,7 +88,7 @@ class Bully(commands.Cog):
         pass
 
     @commands.hybrid_group()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def bully(self, ctx: commands.Context):
         """Commands for bullying users who upset the bot.
 
@@ -98,7 +98,7 @@ class Bully(commands.Cog):
         pass
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
         """Enable or disable this functionality.
 
@@ -120,7 +120,7 @@ class Bully(commands.Cog):
         pass
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def timeout(self, ctx: commands.Context, timeout: typing.Optional[float]):
         """Sets a timeout value for kicking users for a durationi.
 
@@ -141,7 +141,7 @@ class Bully(commands.Cog):
         pass
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def cooldown(self, ctx: commands.Context, *, minutes: typing.Optional[str]):
         """Sets the cooldown for triggering bully responses.
 
@@ -172,7 +172,7 @@ class Bully(commands.Cog):
     
 
     @bully.command()
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def chance(self, ctx: commands.Context, chance: typing.Optional[Percent]):
         """Sets the random chance that the greeter will go off.
 
@@ -192,14 +192,14 @@ class Bully(commands.Cog):
         pass
 
     @bully.group(name="always")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def always(self, ctx: commands.Context):
         """Sets the list of users who will always be bullied.
         """
         pass
 
     @always.command(name="list")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def always_list(self, ctx: commands.Context):
         """Gets the list of always bullied users for the server.
         """
@@ -224,7 +224,7 @@ class Bully(commands.Cog):
         pass
 
     @always.command(name="add")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def always_add(self, ctx: commands.Context, *, member: discord.Member):
         """Adds a user to always be bullied by the bot.
 
@@ -243,7 +243,7 @@ class Bully(commands.Cog):
         pass
 
     @always.command(name="remove")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def always_remove(self, ctx: commands.Context, *, member: discord.Member):
         """Removes a user from always being bullied.
 
@@ -262,14 +262,14 @@ class Bully(commands.Cog):
         pass
 
     @bully.group(name="triggers")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def triggers(self, ctx: commands.Context):
         """Sets the list of trigger phrases to generate bully responses.
         """
         pass
 
     @triggers.command(name="list")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def triggers_list(self, ctx: commands.Context):
         """Gets the list of random bully messages for the server.
         """
@@ -290,7 +290,7 @@ class Bully(commands.Cog):
         pass
 
     @triggers.command(name="add")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def triggers_add(self, ctx: commands.Context, *, phrase: str):
         """Adds a phrase which will trigger bully responses.
 
@@ -313,7 +313,7 @@ class Bully(commands.Cog):
         pass
 
     @triggers.command(name="remove")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def triggers_remove(self, ctx: commands.Context, *, phrase: str):
         """Removes a phrase from bully triggering.
 
@@ -344,14 +344,14 @@ class Bully(commands.Cog):
         pass
 
     @bully.group(name="responses")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def responses(self, ctx: commands.Context):
         """Sets the list of responses for bullying users.
         """
         pass
 
     @responses.command(name="list")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def responses_list(self, ctx: commands.Context):
         """Gets the list of random bully responses for the server.
         """
@@ -372,7 +372,7 @@ class Bully(commands.Cog):
         pass
 
     @responses.command(name="add")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def responses_add(self, ctx: commands.Context, *, phrase: str):
         """Adds a phrase for bully responses.
 
@@ -395,7 +395,7 @@ class Bully(commands.Cog):
         pass
 
     @responses.command(name="remove")
-    @commands.mod_or_permissions(manage_channels=True)
+    @commands.has_guild_permissions(manage_roles=True)
     async def responses_remove(self, ctx: commands.Context, *, phrase: str):
         """Removes a phrase from bully responses.
 
