@@ -23,6 +23,7 @@ DEFAULT_GUILD = {
     "passive_award_amount": 1,
     "passive_max_count_per_day": 20,
     "passive_channels": [],
+    "passive_channels_silent": [],
     "passive_award_responses": [
         "That was a particularly good statement. Here, have $COINS$.",
         "I don't like you, but I can't deny this take. Have $COINS$.",
@@ -866,12 +867,14 @@ class Coins(commands.Cog):
         if roll > passive_chance:
             return
 
-        passive_channel_ids = await self.config.guild(message.guild).passive_channels()
+        normal_passive_channel_ids = await self.config.guild(message.guild).passive_channels()
+        silent_passive_channel_ids = await self.config.guild(message.guild).passive_channels_silent()
+        combined_passive_channel_ids = normal_passive_channel_ids + silent_passive_channel_ids
 
         if (
-            passive_channel_ids
-            and len(passive_channel_ids) > 0
-            and message.channel.id not in passive_channel_ids
+            combined_passive_channel_ids
+            and len(combined_passive_channel_ids) > 0
+            and message.channel.id not in combined_passive_channel_ids
         ):
             return
 
@@ -911,7 +914,8 @@ class Coins(commands.Cog):
 
         currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
 
-        await message.add_reaction("🪙")
+        if not message.channel.id in silent_passive_channel_ids:
+            await message.add_reaction("🪙")
 
         if roll <= passive_response_chance * passive_chance:
             if roll <= passive_jackpot_chance * passive_response_chance * passive_chance:
@@ -934,7 +938,9 @@ class Coins(commands.Cog):
 
             message_reply = f"{passive_response}\n"
             message_reply += f"New Balance: `{new_balance} {currency_name}`"
-            await message.reply(message_reply, delete_after=20)
+
+            if not message.channel.id in silent_passive_channel_ids:
+                await message.reply(message_reply, delete_after=20)
 
         pass
 
