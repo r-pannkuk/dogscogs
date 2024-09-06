@@ -92,7 +92,7 @@ class BalanceEmbed(discord.Embed):
         )
 
         if last_passive_count >= max_passive_claims:
-            description += f"**Next Passive**: <t:{int((datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)).replace(hour=0, second=0, minute=0, microsecond=0).timestamp())}:F>\n"
+            description += f"**Daily Count Reset**: <t:{int((datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)).replace(hour=0, second=0, minute=0, microsecond=0).timestamp())}:F>\n"
 
         description += (
             f"**Leaderboard Position**: {await bank.get_leaderboard_position(self.member)}\n"
