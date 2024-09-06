@@ -205,9 +205,9 @@ class BalanceAdjustmentButtons(discord.ui.View):
             )
 
         async def on_submit(self, interaction: discord.Interaction):
-            new_passive = await self.config.user(self.target).last_passive_count.set(int(self.answer.value))
+            await self.config.user(self.target).last_passive_count.set(int(self.answer.value))
             await interaction.response.send_message(
-                f"Set {self.target.mention}'s daily passive claim count to {new_passive}.",
+                f"Set {self.target.mention}'s daily passive claim count to {int(self.answer.value)}.",
                 delete_after=15,
             )
 
