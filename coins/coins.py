@@ -9,7 +9,7 @@ from redbot.core import commands, bank
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from utils.paginated import PaginatedEmbed
+from .paginated import PaginatedEmbed
 from .embed import CoinsPassiveConfigurationView, CoinsPassiveConfigurationEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]

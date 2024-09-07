@@ -12,9 +12,9 @@ from coins.coins import Coins
 from paidemoji.classes import EmojiConfigurationPrompt, PaidEmojiConfig
 from paidemoji.embeds import PaidEmojiEmbed
 from paidemoji.views import EmojiConfigurationModal
-from utils.paginated import PaginatedEmbed
-from utils.parsers import parse_emoji_ids
-from utils.views import ConfirmationView
+from .paginated import PaginatedEmbed
+from .parsers import parse_emoji_ids
+from .views import ConfirmationView
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
