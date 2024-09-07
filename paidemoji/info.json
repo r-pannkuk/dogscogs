@@ -1,0 +1,21 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "PaidEmoji",
+    "short": "Users can pay currency to add an emoji.",
+    "description": "Users can pay currency to add an emoji.",
+    "end_user_data_statement": "This cog stores what user id created the emoji.",
+    "author": [
+        "klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "emoji",
+        "currency",
+        "economy"
+    ],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

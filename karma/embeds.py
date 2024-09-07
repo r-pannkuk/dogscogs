@@ -5,7 +5,7 @@ from redbot.core import commands, bank
 class KarmaEmbed(discord.Embed):
     def __init__(
             self, 
-            ctx: commands.Context, 
+            ctx: commands.GuildContext, 
             *, 
             title: str,
             sticker_counts: typing.Dict[str, int],
@@ -35,8 +35,8 @@ class KarmaEmbed(discord.Embed):
         guild = ctx.guild
         counts = ""
         for sticker_id, count in sticker_counts.items():
-            sticker : discord.Sticker = next((sticker for sticker in guild.stickers if sticker.id == int(sticker_id)), None)
-            if sticker == None:
+            sticker : typing.Union[discord.Sticker, None] = next((sticker for sticker in guild.stickers if sticker.id == int(sticker_id)), None)
+            if sticker is None:
                 continue
 
             counts += f"`{sticker.name}` used {count} time{'s' if count > 1 else ''}\n"

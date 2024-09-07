@@ -5,8 +5,7 @@ from redbot.core.config import Config
 from redbot.core import bank
 from redbot.core.bot import Red
 
-from .utils import PercentageOrFloat
-
+from utils.converters import PercentageOrFloat
 
 class CoinsPassiveConfigurationEmbed(discord.Embed):
     def __init__(self, client: Red, config: Config, guild: discord.Guild):

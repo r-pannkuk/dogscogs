@@ -3,7 +3,7 @@ from functools import partial
 import re
 import typing
 import discord
-import d20
+import d20   # type: ignore[import-untyped]
 
 from redbot.core.commands.context import Context
 from redbot.core.config import Config
@@ -48,10 +48,10 @@ async def validate_percent_or_diceroll(input: str, interaction: discord.Interact
         except d20.RollSyntaxError:
             return False
 
-async def validate_not_in_triggers(trigger_list: typing.List[str], input: str, interaction: discord.Interaction):
-    return input.lower() not in trigger_list
+async def validate_not_in_list(list: typing.List[str], input: str, interaction: discord.Interaction):
+    return input.lower() not in list
 
-async def validate_image(input: str, interaction: discord.Interaction):
+async def validate_image(input: str, _interaction: discord.Interaction):
     return input == "" or re.match("(http)?s?:?(\\/\\/[^\"']*\\.(?:png|jpg|jpeg|gif|png|svg))", input) is not None
 
 async def validate_length(length: int, input: str, interaction: discord.Interaction):
@@ -643,7 +643,7 @@ class EditReactTriggerView(_EditReactView):
                 prompt_style=discord.TextStyle.long,
                 placeholder="Enter any phrase that will trigger a response.  Spaces and punctuation included.",
                 converter=lambda s: s.lower(),
-                validation=partial(validate_not_in_triggers, self.config["trigger"]["list"]),
+                validation=partial(validate_not_in_list, self.config["trigger"]["list"]),
             )
             self.add_item(self.add_trigger)
 
@@ -657,7 +657,7 @@ class EditReactTriggerView(_EditReactView):
                 disabled=self.selection == None,
                 label=f"Edit Trigger",
                 row=3,
-                validation=partial(validate_not_in_triggers, self.config["trigger"]["list"]),
+                validation=partial(validate_not_in_list, self.config["trigger"]["list"]),
             )
 
             self.remove_trigger: ReactRemoveEntryButton = ReactRemoveEntryButton(

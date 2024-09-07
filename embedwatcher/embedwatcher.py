@@ -364,7 +364,10 @@ class EmbedWatcher(commands.Cog):
         delay_mins = await self.config.guild(guild).delay_mins()
 
         # ignore delay
-        after_edited_at = datetime.datetime.fromisoformat(str(after["edited_timestamp"]))
+        if after["edited_timestamp"] is not None:
+            after_edited_at = datetime.datetime.fromisoformat(str(after["edited_timestamp"]))
+        else:
+            after_edited_at = datetime.datetime.now()
         before_created_at = before.created_at
         if (after_edited_at.timestamp() - before_created_at.timestamp()) <= timedelta(
             minutes=delay_mins
