@@ -29,7 +29,7 @@ class PaidEmojiEmbed(discord.Embed):
         super().__init__(title=self.emoji.name)
         
         self.description = ""
-        self.description += f"__Name__: {self.emoji.name}\n"
+        self.description += f"__Name__: {discord.utils.escape_markdown(self.emoji.name)}\n"
         self.description += f"__ID__: {self.emoji.id}\n"
         self.description += f"__Type__: {self.emoji_config['type']}\n"
         self.description += f"__Source URL__: [Link]({self.emoji_config['source_url']})\n"
