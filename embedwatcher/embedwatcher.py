@@ -325,7 +325,6 @@ class EmbedWatcher(commands.Cog):
         before = event.cached_message
         after = event.data
 
-
         if (
             "author" not in after
             or "embeds" not in after
@@ -382,7 +381,10 @@ class EmbedWatcher(commands.Cog):
             return
         
         author: dict = after["author"]
-        member: discord.Member = await guild.fetch_member(author.get("id"))
+        try:
+            member: discord.Member = await guild.fetch_member(author.get("id"))
+        except:
+            return
         member_role_ids = [role.id for role in member.roles]
 
         if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):

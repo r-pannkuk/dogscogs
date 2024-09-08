@@ -22,6 +22,7 @@ DEFAULT_GUILD = {
     "passive_chance": 0.0750,
     "passive_award_amount": 1,
     "passive_max_count_per_day": 20,
+    "coin_emoji_id": None,
     "passive_channels": [],
     "passive_channels_silent": [],
     "passive_award_responses": [
@@ -476,6 +477,27 @@ class Coins(commands.Cog):
         await bank.set_max_balance(max - offset, ctx.guild)  # type: ignore[arg-type]
         currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
         await ctx.send(f"The max balance for {currency_name} is set to `{max}`.")
+        pass
+
+    @settings.command()
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def emoji(self, ctx: commands.GuildContext, emoji: typing.Optional[discord.Emoji]):
+        """Set the emoji for the currency.
+
+        Args:
+            emoji (typing.Optional[discord.Emoji]): The emoji for the currency.
+        """
+        if emoji is None:
+            emoji_id = await self.config.guild(ctx.guild).coin_emoji_id()
+            emoji = ctx.guild.get_emoji(emoji_id)
+
+            if emoji is None:
+                await ctx.send(f"No stored emoji found. Using 🪙 as the currency emoji.")
+                return
+
+        await self.config.guild(ctx.guild).coin_emoji_id.set(emoji.id)
+        await ctx.send(f"Using {emoji} as the currency emoji.")
         pass
 
     @settings.group()
@@ -947,7 +969,15 @@ class Coins(commands.Cog):
         currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
 
         if not message.channel.id in silent_passive_channel_ids:
-            await message.add_reaction("🪙")
+            emoji_id = await self.config.guild(message.guild).coin_emoji_id()
+
+            if emoji_id is not None:
+                emoji = message.guild.get_emoji(emoji_id) # type: ignore[arg-type]
+            
+            if emoji_id is None or emoji is None:
+                emoji = "🪙" #type: ignore[assignment]
+
+            await message.add_reaction(emoji)  # type: ignore
 
         if roll <= passive_response_chance * passive_chance:
             if roll <= passive_jackpot_chance * passive_response_chance * passive_chance:
