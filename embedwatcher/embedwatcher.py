@@ -9,7 +9,11 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from types import SimpleNamespace
+
+# Stealing this from discord.types.gateway
+class MessageUpdateEvent(discord.Message):
+    channel_id: int
+
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -30,6 +34,12 @@ class ParsedMention(commands.Converter):
     async def convert(
         self, ctx: commands.Context, mention: str
     ) -> typing.Union[discord.TextChannel, discord.Member, discord.Role]:
+        converter: typing.Union[
+            commands.TextChannelConverter,
+            commands.MemberConverter,
+            commands.RoleConverter,
+        ]
+
         try:
             converter = commands.TextChannelConverter()
             return await converter.convert(ctx, mention)
@@ -46,9 +56,7 @@ class ParsedMention(commands.Converter):
             converter = commands.RoleConverter()
             return await converter.convert(ctx, mention)
         except:
-            pass
-
-        raise commands.BadArgument("Not a valid mention.")
+            raise commands.BadArgument("Not a valid mention.")
 
 
 class EmbedWatcher(commands.Cog):
@@ -155,7 +163,7 @@ class EmbedWatcher(commands.Cog):
     @embedwatcher.command()
     @commands.has_guild_permissions(manage_roles=True)
     async def channel(
-        self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]
+        self, ctx: commands.GuildContext, channel: typing.Optional[discord.TextChannel]
     ):
         """Sets up an echo channel to announce when users attempt to edit embeds.
 
@@ -165,7 +173,7 @@ class EmbedWatcher(commands.Cog):
         if channel is None:
             channel_id = await self.config.guild(ctx.guild).channel_id()
             try:
-                channel = await ctx.guild.fetch_channel(channel_id)
+                channel = await ctx.guild.fetch_channel(channel_id)  # type: ignore[assignment]
             except:
                 channel = None
                 channel_id = None
@@ -313,134 +321,153 @@ class EmbedWatcher(commands.Cog):
         await ctx.send(embed=embed)
         pass
 
-    @commands.Cog.listener()
-    async def on_raw_message_edit(self, event: discord.RawMessageUpdateEvent):
-        if isinstance(event, discord.RawMessageDeleteEvent):
-            return
-        
-        if event.guild_id is None:
-            return
+    async def _process_message(
+        self,
+        before_data: typing.Optional[discord.Message],
+        after_data: MessageUpdateEvent,
+        delete=True,
+    ):
+        guild = self.bot.get_guild(int(after_data["guild_id"]))
 
-        guild: discord.Guild = self.bot.get_guild(event.guild_id)
-        before = event.cached_message
-        after = event.data
-
-        if (
-            "author" not in after
-            or "embeds" not in after
-            or "content" not in after
-            or "attachments" not in after
-            or "edited_timestamp" not in after
-            or ("pinned" in after and after["pinned"] == True)
-            or ("pinned" in after and before is not None and before.pinned != after["pinned"])
-        ):
+        if guild is None:
             return
 
-        if "bot" not in after["author"]:
-            after["author"]["bot"] = False
+        member = await guild.fetch_member(int(after_data["author"]["id"]))
 
-        if before is None:
-            before = SimpleNamespace(
-                **{
-                    "author": SimpleNamespace(**after["author"]),
-                    "embeds": [],
-                    "attachments": [],
-                    "content": "",
-                    "channel_id": after["channel_id"],
-                    "id": after["id"],
-                    "created_at": datetime.datetime(
-                        year=2000,
-                        month=1,
-                        day=1,
-                        hour=1,
-                        minute=1,
-                        second=1,
-                        microsecond=1,
-                    ),
-                }
-            )
-
-        delay_mins = await self.config.guild(guild).delay_mins()
-
-        # ignore delay
-        if after["edited_timestamp"] is not None:
-            after_edited_at = datetime.datetime.fromisoformat(str(after["edited_timestamp"]))
-        else:
-            after_edited_at = datetime.datetime.now()
-        before_created_at = before.created_at
-        if (after_edited_at.timestamp() - before_created_at.timestamp()) <= timedelta(
-            minutes=delay_mins
-        ).total_seconds():
-            return
-
-        # ignore whitelist
-        whitelist = await self.config.guild(guild).whitelist()
-        if int(after["channel_id"]) in whitelist["channel_ids"]:
-            return
-        if int(after["author"]["id"]) in whitelist["user_ids"]:
-            return
-        
-        author: dict = after["author"]
         try:
-            member: discord.Member = await guild.fetch_member(author.get("id"))
+            channel = self.bot.get_channel(int(after_data["channel_id"]))
+            message = await channel.fetch_message(int(after_data["id"]))  # type: ignore[assignment,union-attr]
+            jump_url = message.jump_url
+
+            if delete:
+                await message.delete()
         except:
             return
-        member_role_ids = [role.id for role in member.roles]
 
-        if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):
-            return
+        if member:
+            timeout_mins = await self.config.guild(guild).timeout_mins()
 
-        if await self.config.guild_from_id(guild.id).is_enabled():
-            if member.bot:
-                return
-
-            before_files = [embed.url for embed in before.embeds]
-            before_files.extend([attachment.url for attachment in before.attachments])
-
-            if "embeds" in after:
-                after_files = [embed["url"] for embed in after["embeds"]]
-            if "attachments" in after:
-                after_files.extend(
-                    [attachment["url"] for attachment in after["attachments"]]
-                )
-
-            if collections.Counter(before_files) == collections.Counter(after_files):
-                return
-
-            try:
-                channel = await guild.fetch_channel(after["channel_id"])
-                message = await channel.fetch_message(after["id"])
-                jump_url = message.jump_url
-                await message.delete()
-            except:
-                return
-
-            if member:
-                timeout_mins = await self.config.guild(guild).timeout_mins()
-
-                if timeout_mins > 0:
-                    try:
-                        reason = f"Embeds are currently prevented from being edited.  User has been timed out for {timeout_mins} minute{'' if timeout_mins == 1 else 's'}."
-                        await member.timeout(
-                            timedelta(minutes=timeout_mins), reason=reason
-                        )
-                        await member.send(reason)
-                    except:
-                        await member.send("Editing embeds is not allowed.")
-                    pass
+            if timeout_mins > 0:
+                try:
+                    reason = f"Embeds are currently prevented from being edited.  User has been timed out for {timeout_mins} minute{'' if timeout_mins == 1 else 's'}."
+                    await member.timeout(timedelta(minutes=timeout_mins), reason=reason)
+                    await member.send(reason)
+                except:
+                    await member.send("Editing embeds is not allowed.")
+                pass
 
             channel_id = await self.config.guild(guild).channel_id()
 
             if channel_id is not None:
                 try:
-                    channel = await guild.fetch_channel(channel_id)
+                    echo_channel: discord.TextChannel = await guild.fetch_channel(channel_id)  # type: ignore[assignment]
                 except:
                     await self.config.guild(guild).channel_id.set(None)
                     return
 
-                response = f"User {member.mention if member else author} {f'was timedout for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {jump_url}:\n"
-                response += ">>> " + before.content
-                await channel.send(response, suppress_embeds=True)
-                await channel.send(after["content"], suppress_embeds=True)
+                response = f"User {member.mention if member else after_data['id']} {f'was timed out for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {jump_url}:\n\n"
+                if before_data:
+                    response += ">>> " + before_data.content + "\n\n"
+                else:
+                    response += "``MESSAGE WAS NOT CACHED``\n\n"
+
+                await echo_channel.send(response, suppress_embeds=True)
+                await echo_channel.send(message.content, suppress_embeds=True)
             pass
+        pass
+
+    @commands.Cog.listener()
+    async def on_raw_message_edit(self, event: discord.RawMessageUpdateEvent):
+        if isinstance(event, discord.RawMessageDeleteEvent):
+            return
+
+        if event.guild_id is None:
+            return
+
+        guild = self.bot.get_guild(event.guild_id)
+
+        if guild is None:
+            return
+
+        before = event.cached_message
+        after = event.data
+
+        # Return if:
+        # - author is not in after
+        # - embeds is not in after
+        # - content is not in after
+        # - attachments is not in after
+        # - edited_timestamp is not in after
+        # - pinned is in after and is True
+        # - pinned is in after and before is not None and before.pinned != after["pinned"]
+
+        # Reconstruct before if it's not found (no cache)
+
+        # Returning if the channel ID or author ID was in the whitelist
+        whitelist = await self.config.guild(guild).whitelist()
+        if int(after["channel_id"]) in whitelist["channel_ids"]:
+            return
+
+        if int(after["author"]["id"]) in whitelist["user_ids"]:
+            return
+
+        author = after["author"]
+        try:
+            member: discord.Member = await guild.fetch_member(int(author["id"]))
+        except:
+            return
+
+        if member.bot:
+            return
+
+        member_role_ids = [role.id for role in member.roles]
+
+        # Returning if the author's roles match any of the whitelist.
+        if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):
+            return
+
+        if await self.config.guild_from_id(guild.id).is_enabled():
+            delay_mins: float = await self.config.guild(guild).delay_mins()
+            edited_at = datetime.datetime.fromisoformat(str(after["edited_timestamp"]))
+            created_at = datetime.datetime.fromisoformat(after["timestamp"])
+
+            if (edited_at - created_at).total_seconds() <= timedelta(
+                minutes=delay_mins
+            ).total_seconds():
+                return
+            
+            delete = True
+
+            # Message is cached.
+            if before:
+                before_files = []
+                if before.embeds:
+                    before_files.extend([embed.url for embed in before.embeds])
+                if before.attachments:
+                    before_files.extend(
+                        [attachment.url for attachment in before.attachments]
+                    )
+
+                after_files = []
+
+                if after["embeds"] is not None:
+                    after_files.extend([embed["url"] for embed in after["embeds"]])
+                if after["attachments"] is not None:
+                    after_files.extend(
+                        [attachment["url"] for attachment in after["attachments"]]
+                    )
+
+                before_files = list(set(before_files))
+                after_files = list(set(after_files))
+
+                if collections.Counter(before_files) == collections.Counter(
+                    after_files
+                ):
+                    return
+            # Message is not cached.
+            else:
+                # delete = False
+                pass
+
+            await self._process_message(before, after, delete)  # type: ignore[arg-type]
         pass
