@@ -323,24 +323,21 @@ class EmbedWatcher(commands.Cog):
 
     async def _process_message(
         self,
-        before_data: typing.Optional[discord.Message],
-        after_data: MessageUpdateEvent,
+        before: typing.Optional[discord.Message],
+        after: discord.Message,
         delete=True,
     ):
-        guild = self.bot.get_guild(int(after_data["guild_id"]))
+        guild = after.guild
 
         if guild is None:
             return
 
-        member = await guild.fetch_member(int(after_data["author"]["id"]))
+        member = after.author
+        jump_url = after.jump_url
 
         try:
-            channel = self.bot.get_channel(int(after_data["channel_id"]))
-            message = await channel.fetch_message(int(after_data["id"]))  # type: ignore[assignment,union-attr]
-            jump_url = message.jump_url
-
             if delete:
-                await message.delete()
+                await after.delete()
         except:
             return
 
@@ -350,7 +347,7 @@ class EmbedWatcher(commands.Cog):
             if timeout_mins > 0:
                 try:
                     reason = f"Embeds are currently prevented from being edited.  User has been timed out for {timeout_mins} minute{'' if timeout_mins == 1 else 's'}."
-                    await member.timeout(timedelta(minutes=timeout_mins), reason=reason)
+                    await member.timeout(timedelta(minutes=timeout_mins), reason=reason) # type: ignore[union-attr]
                     await member.send(reason)
                 except:
                     await member.send("Editing embeds is not allowed.")
@@ -365,14 +362,14 @@ class EmbedWatcher(commands.Cog):
                     await self.config.guild(guild).channel_id.set(None)
                     return
 
-                response = f"User {member.mention if member else after_data['id']} {f'was timed out for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {jump_url}:\n\n"
-                if before_data:
-                    response += ">>> " + before_data.content + "\n\n"
+                response = f"User {member.mention if member else after.author.id} {f'was timed out for {timeout_mins} mins for' if timeout_mins else ''} attempting to edit an embed / attachment in {jump_url}:\n\n"
+                if before:
+                    response += ">>> " + before.content + "\n\n"
                 else:
                     response += "``MESSAGE WAS NOT CACHED``\n\n"
 
                 await echo_channel.send(response, suppress_embeds=True)
-                await echo_channel.send(message.content, suppress_embeds=True)
+                await echo_channel.send(after.content, suppress_embeds=True)
             pass
         pass
 
@@ -391,6 +388,11 @@ class EmbedWatcher(commands.Cog):
 
         before = event.cached_message
         after = event.data
+        channel = self.bot.get_channel(event.channel_id)
+        message : discord.Message = await channel.fetch_message(int(after['id'])) # type: ignore[union-attr]
+
+        if message is None:
+            return
 
         # Return if:
         # - author is not in after
@@ -405,22 +407,16 @@ class EmbedWatcher(commands.Cog):
 
         # Returning if the channel ID or author ID was in the whitelist
         whitelist = await self.config.guild(guild).whitelist()
-        if int(after["channel_id"]) in whitelist["channel_ids"]:
+        if int(event.channel_id) in whitelist["channel_ids"]:
             return
 
-        if int(after["author"]["id"]) in whitelist["user_ids"]:
+        if message.author.id in whitelist["user_ids"]:
             return
 
-        author = after["author"]
-        try:
-            member: discord.Member = await guild.fetch_member(int(author["id"]))
-        except:
+        if message.author.bot:
             return
 
-        if member.bot:
-            return
-
-        member_role_ids = [role.id for role in member.roles]
+        member_role_ids : typing.List[int] = [role.id for role in message.author.roles] # type: ignore[union-attr]
 
         # Returning if the author's roles match any of the whitelist.
         if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):
@@ -428,8 +424,11 @@ class EmbedWatcher(commands.Cog):
 
         if await self.config.guild_from_id(guild.id).is_enabled():
             delay_mins: float = await self.config.guild(guild).delay_mins()
-            edited_at = datetime.datetime.fromisoformat(str(after["edited_timestamp"]))
-            created_at = datetime.datetime.fromisoformat(after["timestamp"])
+            edited_at = message.edited_at
+            created_at = message.created_at
+            
+            if edited_at is None:
+                return
 
             if (edited_at - created_at).total_seconds() <= timedelta(
                 minutes=delay_mins
@@ -450,11 +449,11 @@ class EmbedWatcher(commands.Cog):
 
                 after_files = []
 
-                if after["embeds"] is not None:
-                    after_files.extend([embed["url"] for embed in after["embeds"]])
-                if after["attachments"] is not None:
+                if message.embeds is not None:
+                    after_files.extend([embed.url for embed in message.embeds])
+                if message.attachments is not None:
                     after_files.extend(
-                        [attachment["url"] for attachment in after["attachments"]]
+                        [attachment.url for attachment in message.attachments]
                     )
 
                 before_files = list(set(before_files))
@@ -469,5 +468,5 @@ class EmbedWatcher(commands.Cog):
                 # delete = False
                 pass
 
-            await self._process_message(before, after, delete)  # type: ignore[arg-type]
+            await self._process_message(before, message, delete)  # type: ignore[arg-type]
         pass
