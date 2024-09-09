@@ -389,7 +389,10 @@ class EmbedWatcher(commands.Cog):
         before = event.cached_message
         after = event.data
         channel = self.bot.get_channel(event.channel_id)
-        message : discord.Message = await channel.fetch_message(int(after['id'])) # type: ignore[union-attr]
+        try:
+            message : discord.Message = await channel.fetch_message(int(after['id'])) # type: ignore[union-attr]
+        except:
+            return
 
         if message is None:
             return
