@@ -12,6 +12,8 @@ from redbot.core.config import Config
 from .paginated import PaginatedEmbed
 from .embed import CoinsPassiveConfigurationView, CoinsPassiveConfigurationEmbed
 
+from dogscogs.constants import TIMEZONE, COG_IDENTIFIER
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -58,8 +60,6 @@ DEFAULT_USER = {
 
 LIMIT_PER_PAGE = 5
 
-timezone = pytz.timezone("US/Eastern")
-
 class BalanceEmbed(discord.Embed):
     def __init__(self, config: Config, member: discord.Member):
         self.config = config
@@ -79,12 +79,12 @@ class BalanceEmbed(discord.Embed):
 
         last_passive_timestamp = await self.config.user(self.member).last_passive_timestamp()
         last_passive_time = datetime.datetime.fromtimestamp(
-            last_passive_timestamp, tz=timezone
+            last_passive_timestamp, tz=TIMEZONE
         )
         max_passive_claims = await self.config.guild(self.guild).passive_max_count_per_day()
         last_passive_count = await self.config.user(self.member).last_passive_count()
 
-        if last_passive_time.date() != datetime.datetime.now(tz=timezone).date():
+        if last_passive_time.date() != datetime.datetime.now(tz=TIMEZONE).date():
             last_passive_count = 0
             await self.config.user(self.member).last_passive_count.set(0)
 
@@ -93,7 +93,7 @@ class BalanceEmbed(discord.Embed):
         )
 
         if last_passive_count >= max_passive_claims:
-            description += f"**Daily Count Reset**: <t:{int((datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)).replace(hour=0, second=0, minute=0, microsecond=0).timestamp())}:F>\n"
+            description += f"**Daily Count Reset**: <t:{int((datetime.datetime.now(tz=TIMEZONE) + datetime.timedelta(days=1)).replace(hour=0, second=0, minute=0, microsecond=0).timestamp())}:F>\n"
 
         description += (
             f"**Leaderboard Position**: {await bank.get_leaderboard_position(self.member)}\n"
@@ -117,7 +117,6 @@ class BalanceEmbed(discord.Embed):
         self.set_footer(text=f"Requested by {self.member.nick or self.member.name}")
 
         return self
-
 
 class BalanceAdjustmentButtons(discord.ui.View):
     class _Modal(discord.ui.Modal, title="Placeholder"):
@@ -289,7 +288,7 @@ class Coins(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -308,7 +307,7 @@ class Coins(commands.Cog):
         config = Config.get_conf(
             cog_instance=None,
             cog_name="Coins",
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         offset = await config.guild(user.guild).offset()
@@ -329,7 +328,7 @@ class Coins(commands.Cog):
         config = Config.get_conf(
             cog_instance=None,
             cog_name="Coins",
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         offset = await config.guild(user.guild).offset()
@@ -351,14 +350,14 @@ class Coins(commands.Cog):
         config = Config.get_conf(
             cog_instance=None,
             cog_name="Coins",
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         last_claim_timestamp = await config.user(user).last_claim_timestamp()
         last_claim_time = datetime.datetime.fromtimestamp(
-            last_claim_timestamp, tz=timezone
+            last_claim_timestamp, tz=TIMEZONE
         )
-        return last_claim_time.date() == datetime.datetime.now(tz=timezone).date()
+        return last_claim_time.date() == datetime.datetime.now(tz=TIMEZONE).date()
 
     @staticmethod
     async def _set_balance(user: discord.Member, amount: int) -> int:
@@ -371,7 +370,7 @@ class Coins(commands.Cog):
         config = Config.get_conf(
             cog_instance=None,
             cog_name="Coins",
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -397,7 +396,7 @@ class Coins(commands.Cog):
         config = Config.get_conf(
             cog_instance=None,
             cog_name="Coins",
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         offset = await config.guild(user.guild).offset()
@@ -719,7 +718,7 @@ class Coins(commands.Cog):
     # async def claim(self, ctx: commands.GuildContext):
     #     """Claim your daily coins."""
     #     tomorrow = (
-    #         datetime.datetime.now(tz=timezone) + datetime.timedelta(days=1)
+    #         datetime.datetime.now(tz=TIMEZONE) + datetime.timedelta(days=1)
     #     ).replace(hour=0, minute=0, second=0, microsecond=0)
     #     currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]
 
@@ -936,19 +935,19 @@ class Coins(commands.Cog):
 
         last_passive_timestamp = await self.config.user(user).last_passive_timestamp()
         last_passive_time = datetime.datetime.fromtimestamp(
-            last_passive_timestamp, tz=timezone
+            last_passive_timestamp, tz=TIMEZONE
         )
 
         last_passive_count = await self.config.user(user).last_passive_count()
 
         if (
-            last_passive_time.date() == datetime.datetime.now(tz=timezone).date()
+            last_passive_time.date() == datetime.datetime.now(tz=TIMEZONE).date()
             and last_passive_count
             >= await self.config.guild(message.guild).passive_max_count_per_day()
         ):
             return
 
-        if last_passive_time.date() != datetime.datetime.now(tz=timezone).date():
+        if last_passive_time.date() != datetime.datetime.now(tz=TIMEZONE).date():
             last_passive_count = 0
 
         passive_amount = await self.config.guild(message.guild).passive_award_amount()
@@ -1008,6 +1007,11 @@ class Coins(commands.Cog):
 
 
 def consume_coins(cost: int):
+    """Decorator to consume points on activation of a command.
+
+    Args:
+        cost (int): _description_
+    """
     async def predicate(ctx: commands.GuildContext):
         if not await bank.can_spend(ctx.author, cost):
             currency_name = await bank.get_currency_name(ctx.guild)  # type: ignore[arg-type]

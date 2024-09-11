@@ -12,9 +12,11 @@ from coins.coins import Coins
 from paidemoji.classes import EmojiConfigurationPrompt, PaidEmojiConfig
 from paidemoji.embeds import PaidEmojiEmbed
 from paidemoji.views import EmojiConfigurationModal
-from .paginated import PaginatedEmbed
-from .parsers import parse_emoji_ids
-from .views import ConfirmationView
+
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.views.paginated import PaginatedEmbed
+from dogscogs.views.confirmation import ConfirmationView
+from dogscogs.parsers.emoji import parse_emoji_ids
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -25,7 +27,6 @@ DEFAULT_GUILD = {
     "cost": 100,
 }
 
-
 class PaidEmoji(commands.Cog):
     """
     Users can pay currency to add an emoji.
@@ -35,7 +36,7 @@ class PaidEmoji(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 

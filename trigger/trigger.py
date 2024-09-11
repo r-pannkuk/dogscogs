@@ -1,109 +1,24 @@
-from abc import ABC
-import abc
-from contextlib import suppress
 import copy
-from dataclasses import MISSING
 import datetime
-import inspect
-import logging
 import random
 import re
 import typing
-import unicodedata
 import discord
 import pytz
 from redbot.core.bot import Red
 from redbot.core import commands, app_commands
-from enum import UNIQUE, StrEnum, auto, IntFlag, verify
-import d20
-import discord_emoji
+import d20 # type: ignore[import-untyped]
+import discord_emoji # type: ignore[import-untyped]
 
-from redbot.core.commands.context import Context
 from redbot.core.config import Config
 
-from trigger.config import COG_IDENTIFIER, ReactConfig, ReactType
-from trigger.embed import ReactConfigurationEmbed, ReactEmbed
-from trigger.views import _EditReactView, EditReactEmbedView, EditReactGeneralView, EditReactTriggerView, EditReactResponsesView, EditReactOtherView, EditReactUserListView, ReactConfigList
+from .config import ReactConfig, ReactType
+from .embed import ReactConfigurationEmbed, ReactEmbed
+from .views import _EditReactView, EditReactEmbedView, EditReactGeneralView, EditReactTriggerView, EditReactResponsesView, EditReactOtherView, EditReactUserListView, ReactConfigList
 
-@verify(UNIQUE)
-class Token(StrEnum):
-    MemberName = "$MEMBER_NAME$"
-    ServerName = "$SERVER_NAME$"
-    MemberCount = "$MEMBER_COUNT$"
-    Action = "$ACTION$"
-    InstigatorName = "$INSTIGATOR_NAME$"
-    Context = "$CONTEXT$"
-    Param = "$PARAM$"
-    ReactToken = f"react({Param})"
-    WeightToken = f"weight({Param})"
-
-ActionType = typing.Literal["joined", "was banned", "was kicked", "left"]
-
-class MessageOptions(typing.TypedDict, total=False):
-    content: typing.Optional[str]
-    embed: typing.Optional[discord.Embed]
-    reactions: typing.Optional[typing.List[typing.Union[discord.Emoji, str]]]
-
-def replace_tokens(
-    text: str,
-    *,
-    member: typing.Optional[discord.Member] = None,
-    guild: typing.Optional[discord.Guild] = None,
-    action: typing.Optional[ActionType] = None,
-    instigator: typing.Optional[discord.Member] = None,
-    context: typing.Optional[str] = None,
-    use_mentions: typing.Optional[bool] = False,
-):
-    if member is not None:
-        text = text.replace(
-                Token.MemberName.value,
-                member.display_name if not use_mentions else member.mention,
-            )
-    if guild is not None:
-        text = text.replace(Token.ServerName.value, guild.name)
-        text = text.replace(Token.MemberCount.value, str(guild.member_count))
-        emoji_matches = re.findall(r"[:][a-zA-Z0-9_]+[:]", text)
-
-        for match in emoji_matches:
-            emoji_name = match[1:-1]
-            with suppress(discord.errors.HTTPException):
-                emoji = discord.utils.get(guild.emojis, name=emoji_name)
-                if emoji is not None:
-                    text = text.replace(match, str(emoji))
-        
-    if action is not None:
-        text = text.replace(Token.Action.value, action)
-    if instigator is not None:
-        text = text.replace(
-            Token.InstigatorName.value,
-            instigator.display_name if not use_mentions else instigator.mention,
-        )
-    if context is not None:
-        text = text.replace(Token.Context.value, context)
-
-    return text
-
-
-async def get_audit_log_reason(
-    guild: discord.Guild,
-    target: typing.Union[discord.abc.GuildChannel, discord.Member, discord.Role],
-    action: discord.AuditLogAction,
-) -> typing.Tuple[typing.Optional[discord.abc.User], typing.Optional[str]]:
-    perp = None
-    reason = None
-    if guild.me.guild_permissions.view_audit_log:
-        async for log in guild.audit_logs(limit=5, action=action):
-            if log.target and log.target.id == target.id and (
-                log.created_at
-                > (datetime.datetime.now(tz=pytz.timezone("UTC")) - datetime.timedelta(0, 5))
-            ):
-                perp = log.user
-                if log.reason:
-                    reason = log.reason
-                break
-    return perp, reason
-
-
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.core import get_audit_log_reason
+from dogscogs.parsers.token import Token, replace_tokens, MessageOptions, ActionType
 
 DefaultConfig: ReactConfig = {
     "enabled": True,
@@ -304,7 +219,7 @@ class Trigger(commands.Cog):
             retval["reactions"] = [e for e in emojis if e is not None]
 
             if len(config_copy["responses"][0]) == 0:
-                config_copy["responses"][0] = None
+                config_copy["responses"][0] = None # I dunno what I'm doing here
 
         if config_copy["embed"] is not None and config_copy["embed"]["use_embed"]:
             if config_copy["embed"]["title"] is not None:
@@ -350,7 +265,7 @@ class Trigger(commands.Cog):
 
         message_content = self._generate(config=config, member=ctx.author, action=action, instigator=ctx.author, context="<Context>")
 
-        message = await ctx.reply(content=message_content["content"], embed=message_content["embed"], view=view, delete_after=60)
+        message = await ctx.reply(content=message_content["content"], embed=message_content["embed"], view=view, delete_after=60) # type: ignore[arg-type]
 
         for emoji in message_content["reactions"] or []:
             if isinstance(message, discord.Message):
@@ -577,14 +492,14 @@ class Trigger(commands.Cog):
                                     len(config["channel_ids"]) == 0 or
                                     str(message.channel.id) in [str(id) for id in config["channel_ids"]]
                                 ):
-                                    new_message = await message.channel.send(content=message_contents["content"], embed=message_contents["embed"])
+                                    new_message = await message.channel.send(content=message_contents["content"], embed=message_contents["embed"]) # type: ignore[arg-type]
                                 else: 
                                     continue
                             elif config["channel_ids"] is not None:
                                 for id in config["channel_ids"]:
                                     channel = member.guild.get_channel(int(id))
                                     if channel is not None and isinstance(channel, discord.TextChannel):
-                                        new_message = await channel.send(content=message_contents["content"], embed=message_contents["embed"])
+                                        new_message = await channel.send(content=message_contents["content"], embed=message_contents["embed"]) # type: ignore[arg-type]
 
                         if message_contents["reactions"] is not None:
                             if message is not None and (

@@ -10,6 +10,8 @@ from redbot.core.config import Config
 
 from .embeds import KarmaEmbed
 
+from dogscogs.constants import COG_IDENTIFIER
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -23,7 +25,7 @@ DEFAULT_GUILD = {
 
 DEFAULT_MEMBER = {
     "stickers_found": {},
-}
+} # type: ignore[var-annotated]
 
 class Karma(commands.Cog):
     """
@@ -34,7 +36,7 @@ class Karma(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -66,8 +68,8 @@ class Karma(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
-    @commands.cooldown(1, 60 * 60 * 24 * 14, lambda ctx: ctx.author.id if not ctx.author.guild_permissions.manage_roles else datetime.datetime.now().timestamp())
-    async def karma(self, ctx: commands.Context, *, user: discord.Member) -> None:
+    @commands.cooldown(1, 60 * 60 * 24 * 14, lambda ctx: ctx.author.id if not ctx.author.guild_permissions.manage_roles else datetime.datetime.now().timestamp()) # type: ignore[union-attr]
+    async def karma(self, ctx: commands.GuildContext, *, user: discord.Member) -> None:
         """Displays the karma for the user.y
 
         Args:
@@ -119,7 +121,7 @@ class Karma(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @commands.is_owner()
-    async def reset_karma(self, ctx: commands.Context) -> None:
+    async def reset_karma(self, ctx: commands.GuildContext) -> None:
         await self.config.clear_all_members(ctx.guild)
         await ctx.send("Karma reset.")
             
@@ -127,7 +129,7 @@ class Karma(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @commands.is_owner()
-    async def count_karma(self, ctx: commands.Context) -> None:
+    async def count_karma(self, ctx: commands.GuildContext) -> None:
         after_timestamp = await self.config.guild(ctx.guild).after_timestamp()
         after = datetime.datetime.fromtimestamp(after_timestamp)
         for channel in ctx.guild.text_channels:
@@ -148,7 +150,7 @@ class Karma(commands.Cog):
     @commands.command(aliases=["serverkarma", "karma_server", "karmaserver", "karmaall", "karma_all", "totalkarma", "total_karma"])
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def server_karma(self, ctx: commands.Context) -> None:
+    async def server_karma(self, ctx: commands.GuildContext) -> None:
         members = await self.config.all_members(ctx.guild)
         valid_stickers = await self.config.guild(ctx.guild).valid_stickers()
 
@@ -202,8 +204,8 @@ class Karma(commands.Cog):
         embed = discord.Embed(title=f"Most Frequent Karma Manipulators")
 
         for i in valid_stickers.keys():
-            sticker : discord.Sticker = next((sticker for sticker in ctx.guild.stickers if sticker.id == int(i)), None)
-            if sticker == None:
+            sticker = next((sticker for sticker in ctx.guild.stickers if sticker.id == int(i)), None)
+            if sticker is None:
                 continue
 
             desc = ""

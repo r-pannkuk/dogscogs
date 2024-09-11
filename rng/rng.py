@@ -4,10 +4,12 @@ import typing
 
 import discord
 import random
-import d20
+import d20 # type: ignore[import-untyped]
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
+
+from dogscogs.constants import COG_IDENTIFIER
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -62,7 +64,7 @@ class Random(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -291,11 +293,11 @@ class Random(commands.Cog):
         await asyncio.sleep(interval)
         embed.set_field_at(1, name=answer_field_name, value=choice, inline=False)
         if responses == affirmative["responses"]:
-            embed.color = discord.Color.green()
+            embed.colour = discord.Color.green()
         elif responses == neutral["responses"]:
-            embed.color = discord.Color.gold()
+            embed.colour = discord.Color.gold()
         elif responses == negative["responses"]:
-            embed.color = discord.Color.red()
+            embed.colour = discord.Color.red()
         await message.edit(embed=embed)
         
 

@@ -3,44 +3,10 @@ import typing
 import discord
 from redbot.core import commands
 
+from dogscogs.constants.discord.emoji import MAX_NAME_LENGTH as EMOJI_MAX_NAME_LENGTH, MIN_NAME_LENGTH as EMOJI_MIN_NAME_LENGTH
+from dogscogs.constants.regex import EMOJI_NAME as REGEX_EMOJI_NAME, EMOJI_URL as REGEX_EMOJI_URL
+
 from paidemoji.classes import PaidEmojiType
-
-EMOJI_NAME_LENGTH_MIN = 2
-EMOJI_NAME_LENGTH_MAX = 32
-EMOJI_NAME_VALID_REGEX = r"^[a-zA-Z0-9_]+$"
-EMOJI_URL_VALID_REGEX = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|jpeg|gif|png)"
-
-async def async_true(i: discord.Interaction) -> bool:
-    return True
-
-class ConfirmationView(discord.ui.View):
-    value : bool = False
-
-    def __init__(
-            self, 
-            *, 
-            author: discord.Member,
-            callback: typing.Callable[[discord.Interaction], typing.Awaitable[bool]] = async_true,
-        ):
-        super().__init__()
-        self.author = author
-        self.callback = callback
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user != self.author:
-            await interaction.response.send_message("You are not allowed to interact with this message.", ephemeral=True, delete_after=10)
-            return False
-        return True
-
-    @discord.ui.button(label="Yes", style=discord.ButtonStyle.green)
-    async def yes(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.value = await self.callback(interaction)
-        self.stop()
-
-    @discord.ui.button(label="No", style=discord.ButtonStyle.red)
-    async def no(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.value = False
-        self.stop()
 
 class EmojiConfigurationModal(discord.ui.Modal):
     name_field : discord.ui.TextInput = discord.ui.TextInput(required=True, custom_id="emoji_name", label="Name", style=discord.TextStyle.short, placeholder=":emoji_name:")
@@ -78,13 +44,13 @@ class EmojiConfigurationModal(discord.ui.Modal):
         if name and name:
             name = name[1:-1]
 
-        if len(name) < EMOJI_NAME_LENGTH_MIN or len(name) > EMOJI_NAME_LENGTH_MAX:
-            raise ValueError(f"Emoji name must be between {EMOJI_NAME_LENGTH_MIN} and {EMOJI_NAME_LENGTH_MAX} characters.")
+        if len(name) < EMOJI_MIN_NAME_LENGTH or len(name) > EMOJI_MAX_NAME_LENGTH:
+            raise ValueError(f"Emoji name must be between {EMOJI_MIN_NAME_LENGTH} and {EMOJI_MAX_NAME_LENGTH} characters.")
         
-        if re.match(EMOJI_NAME_VALID_REGEX, name) is None:
+        if re.match(REGEX_EMOJI_NAME, name) is None:
             raise ValueError("Emoji name must be alphanumeric with no spaces.")
         
-        if re.match(EMOJI_URL_VALID_REGEX, self.url_field.value) is None:
+        if re.match(REGEX_EMOJI_URL, self.url_field.value) is None:
             raise ValueError("Invalid URL.")
 
         return True

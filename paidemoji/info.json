@@ -7,8 +7,12 @@
     "author": [
         "klypto"
     ],
-    "required_cogs": {},
-    "requirements": [],
+    "required_cogs": {
+        "Economy": "https://github.com/r-pannkuk/dogscogs"
+    },
+    "requirements": [
+        "git+https://github.com/r-pannkuk/dogscogs-utils.git"
+    ],
     "tags": [
         "emoji",
         "currency",

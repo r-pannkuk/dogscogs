@@ -8,13 +8,12 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
-DISCORD_MAX_MESSAGE_SIZE_LIMIT = 2000
-COG_IDENTIFIER = 260288776360820736
-
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
-USERNAME_TOKEN = "%%user%%"
+from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
+from dogscogs.parsers.token import Token
+from dogscogs.constants.discord.message import MAX_CONTENT_LENGTH as DISCORD_MESSAGE_MAX_CONTENT_LENGTH
+from dogscogs.constants.discord.embed import MAX_DESCRIPTION_LENGTH as DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT
 
 DEFAULT_MEMBER = {
     "is_gulaged": False,
@@ -40,7 +39,7 @@ DEFAULT_GUILD = {
     "category_id": None,
     "category_creation_reason": "Warnings channel for moderation of users.",
     "category_name": "Moderation",
-    "channel_name": f"warning-{USERNAME_TOKEN}",
+    "channel_name": f"warning-{Token.MemberName}",
     "gulag_reason": "User being moderated.",
     "gulag_role_id": None,
     "gulag_role_name": f"Warnings",
@@ -79,15 +78,16 @@ class Gulag(commands.Cog):
         """
         channel_id = await self.config.guild(guild).category_id()
 
-        category: discord.CategoryChannel = guild.get_channel(channel_id)
+        category: discord.CategoryChannel
+        fetched_channel = guild.get_channel(channel_id)
 
-        if category == None:
+        if fetched_channel == None:
 
             category_name = await self.config.guild(guild).category_name()
 
-            category: discord.CategoryChannel = next((
+            category = next((
                 cat for cat in guild.categories if cat.name == category_name
-            ), None)
+            ), None) # type: ignore[arg-type]
 
             if category == None:
                 category = await guild.create_category(
@@ -123,13 +123,13 @@ class Gulag(commands.Cog):
         if guild == None:
             guild = member.guild
 
-        category: discord.CategoryChannel = guild.get_channel(await self.config.guild(guild).category_id())
+        category: typing.Optional[discord.CategoryChannel] = guild.get_channel(await self.config.guild(guild).category_id()) # type: ignore[assignment]
 
-        if category == None:
-            await self.create_category_channel(guild)
+        if category is None:
+            category = await self.create_category_channel(guild)
 
         channel_name = (await self.config.guild(guild).channel_name()).replace(
-            USERNAME_TOKEN, member.display_name
+            Token.MemberName, member.display_name
         )
 
         channel = await guild.create_text_channel(
@@ -183,14 +183,14 @@ class Gulag(commands.Cog):
         group = self.config.member(member)
 
         if gulag_channel is None:
-            gulag_channel = guild.get_channel(await self.config.member(member).gulag_channel_id())
+            gulag_channel = guild.get_channel(await self.config.member(member).gulag_channel_id()) # type: ignore[assignment]
 
             if gulag_channel is None:
                 await self.create_category_channel(guild)
                 gulag_channel = await self.create_gulag_channel(guild, member)
 
         if gulag_role is None:
-            gulag_role: discord.Role = guild.get_role(await self.config.member(member).gulag_role_id())
+            gulag_role = guild.get_role(await self.config.member(member).gulag_role_id())
 
             if gulag_role is None:
                 # gulag_role = await self.create_gulag_role(guild, member, gulag_channel)
@@ -201,8 +201,10 @@ class Gulag(commands.Cog):
 
         existing_restoration_roles = await group.restore_role_ids() or list()
         restricted_date = await group.restricted_date()
-        current_roles = [r for r in member.roles if r != guild.default_role] + \
-            [guild.get_role(id) for id in existing_restoration_roles]
+        current_roles = [role for role in 
+                            [r for r in member.roles if r != guild.default_role] + \
+                            [guild.get_role(id) for id in existing_restoration_roles] \
+                        if role is not None]       
 
         # Overwrite permissions for this specific role for communication.
         await gulag_channel.set_permissions(target=member, overwrite=discord.PermissionOverwrite(
@@ -246,13 +248,13 @@ class Gulag(commands.Cog):
 
         # DUMB LOGGING THING THAT SHOULD BE AN EVENT
         logs_enabled: bool = await self.config.guild(guild).logs_enabled()
-        log_channel: discord.TextChannel = guild.get_channel(await self.config.guild(guild).log_channel_id())
+        log_channel: discord.TextChannel = guild.get_channel(await self.config.guild(guild).log_channel_id()) # type: ignore[assignment]
 
         if gulag_channel is None:
-            gulag_channel: discord.TextChannel = guild.get_channel(await self.config.member(member).gulag_channel_id())
+            gulag_channel = guild.get_channel(await self.config.member(member).gulag_channel_id()) # type: ignore[assignment]
 
         if gulag_role is None:
-            gulag_role: discord.Role = guild.get_role(await self.config.member(member).gulag_role_id())
+            gulag_role = guild.get_role(await self.config.member(member).gulag_role_id())
 
         if logs_enabled and log_channel is not None and gulag_channel is not None:
 
@@ -264,7 +266,7 @@ class Gulag(commands.Cog):
                 log = f'__Chat History of **{gulag_channel.name}**__:\n'
 
             for message in messages:
-                author: discord.Member = message.author
+                author: discord.Member = message.author # type: ignore[assignment]
                 time = datetime(
                     year=message.created_at.year,
                     month=message.created_at.month,
@@ -274,19 +276,19 @@ class Gulag(commands.Cog):
                     second=message.created_at.second,
                     tzinfo=pytz.timezone("UTC")
                 )
-                time = time.astimezone(pytz.timezone("US/Eastern"))
+                time = time.astimezone(TIMEZONE)
                 timestring = time.strftime("%m/%d/%Y %I:%M:%S %p")
                 str = f"`{timestring}` **{author.display_name}**: "
 
-                if len(message.clean_content) < DISCORD_MAX_MESSAGE_SIZE_LIMIT-100:
+                if len(message.clean_content) < DISCORD_MESSAGE_MAX_CONTENT_LENGTH-100:
                     str += f"{message.clean_content}\n"
                 else:
-                    str += f"{message.clean_content[:DISCORD_MAX_MESSAGE_SIZE_LIMIT-100]}...\n"
+                    str += f"{message.clean_content[:DISCORD_MESSAGE_MAX_CONTENT_LENGTH-100]}...\n"
 
                 for attachment in message.attachments:
                     str += attachment.url + '\n'
 
-                if len(log) + len(str) > DISCORD_MAX_MESSAGE_SIZE_LIMIT:
+                if len(log) + len(str) > DISCORD_MESSAGE_MAX_CONTENT_LENGTH:
                     try:
                         await log_channel.send(log)
                     except:
@@ -312,16 +314,16 @@ class Gulag(commands.Cog):
         await group.gulag_role_id.set(None)
         await group.restricted_date.set(None)
 
-        if gulag_channel != None:
+        if gulag_channel is not None:
             await gulag_channel.delete()
 
-        if gulag_role != None:
+        if gulag_role is not None:
             await member.remove_roles(gulag_role, atomic=True)
 
         for r in restore_role_ids:
             role = guild.get_role(r)
 
-            if role != None or role == guild.default_role:
+            if role is not None: # or role == guild.default_role:
                 try:
                     await member.add_roles(role, atomic=True)
                 except:
@@ -331,7 +333,7 @@ class Gulag(commands.Cog):
 
     @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user>", aliases=["moderate"], show_aliases=True)
-    async def restrict(self, ctx: commands.Context, *, member: discord.Member):
+    async def restrict(self, ctx: commands.GuildContext, *, member: discord.Member):
         """
         Moderates a user, preventing them from seeing any channels except their own warning channel.
         """
@@ -342,20 +344,21 @@ class Gulag(commands.Cog):
         if group == None or await group.is_gulaged():
             gulag_channel = guild.get_channel(await group.gulag_channel_id())
 
-            await ctx.channel.send(f"{member.display_name} is already gulaged. See: {gulag_channel.mention}")
-            return
+            if gulag_channel is not None:
+                await ctx.channel.send(f"{member.display_name} is already gulaged. See: {gulag_channel.mention}")
+                return
 
         await self.moderate_user(member)
 
         self.bot.dispatch("gulag_restrict_member", member)
 
-        gulag_channel: discord.TextChannel = guild.get_channel(await self.config.member(member).gulag_channel_id())
+        gulag_channel = guild.get_channel(await self.config.member(member).gulag_channel_id())
 
-        await ctx.channel.send(f"{member.display_name} has been moderated. See: {gulag_channel.mention}")
+        await ctx.channel.send(f"{member.display_name} has been moderated. See: {gulag_channel.mention}") # type: ignore[union-attr]
 
     @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user>", aliases=["unmoderate"], show_aliases=True)
-    async def unrestrict(self, ctx: commands.Context, *, member: discord.Member):
+    async def unrestrict(self, ctx: commands.GuildContext, *, member: discord.Member):
         """
         Unmoderates a user, restoring all roles they had and cleaning up any moderation roles or channels created.
         """
@@ -376,7 +379,7 @@ class Gulag(commands.Cog):
 
     @commands.has_guild_permissions(manage_roles=True)
     @commands.group()
-    async def gulag(self, ctx: commands.Context):
+    async def gulag(self, ctx: commands.GuildContext):
         """
         Settings for the gulag cog.
         """
@@ -384,11 +387,10 @@ class Gulag(commands.Cog):
 
     @commands.has_guild_permissions(manage_roles=True)
     @ gulag.command(usage="<user|role>", aliases=["allow"], show_aliases=True)
-    async def permit(self, ctx: commands.Context, *, target: typing.Union[discord.Member, discord.Role]):
+    async def permit(self, ctx: commands.GuildContext, *, target: typing.Union[discord.Member, discord.Role]):
         """
         Allows a user or role to view moderation channels.
         """
-        group = None
         if isinstance(target, discord.Member):
             group = self.config.member(target)
             name = target.display_name
@@ -418,11 +420,10 @@ class Gulag(commands.Cog):
 
     @commands.has_guild_permissions(manage_roles=True)
     @ gulag.command(usage="<user|role>", aliases=["disallow", "unpermit"], show_aliases=True)
-    async def prohibit(self, ctx: commands.Context, *, target: typing.Union[discord.Member, discord.Role]):
+    async def prohibit(self, ctx: commands.GuildContext, *, target: typing.Union[discord.Member, discord.Role]):
         """
         Prohibits a user or role from viewing moderation channels.
         """
-        group = None
         if isinstance(target, discord.Member):
             group = self.config.member(target)
             name = target.display_name
@@ -451,14 +452,14 @@ class Gulag(commands.Cog):
 
     @ commands.has_guild_permissions(manage_roles=True)
     @ gulag.command()
-    async def list(self, ctx: commands.Context):
+    async def list(self, ctx: commands.GuildContext):
         """
         Displays a list of all users currently being restricted.
         """
         guild: discord.Guild = ctx.guild
         member_list: typing.List[typing.Tuple[
             discord.Member,
-            float,
+            datetime,
             discord.Role,
             discord.TextChannel
         ]] = []
@@ -470,7 +471,7 @@ class Gulag(commands.Cog):
             date = datetime.fromtimestamp(timestamp)
             role = guild.get_role(await self.config.member(member).gulag_role_id())
             channel = guild.get_channel(await self.config.member(member).gulag_channel_id())
-            member_list.append((member, date, role, channel))
+            member_list.append((member, date, role, channel)) # type: ignore[arg-type]
 
         if len(member_list) == 0:
             await ctx.send(f"No users are being restricted on this server.")
@@ -484,10 +485,9 @@ class Gulag(commands.Cog):
             while len(member_list) > 0:
                 tuple = member_list[0]
                 member = tuple[0]
-                date = tuple[1].astimezone(
-                    tz=pytz.timezone("US/Eastern")).date()
-                role = tuple[2] or f"**ROLE NOT FOUND**"
-                channel = tuple[3] or f"**CHANNEL NOT FOUND**"
+                date = tuple[1].astimezone(tz=TIMEZONE)
+                role = tuple[2] if tuple[2] is not None else f"**ROLE NOT FOUND**"
+                channel = tuple[3] if tuple[3] is not None else f"**CHANNEL NOT FOUND**"
 
                 string = f"{member.mention} [{channel.mention}] since {date}\n"
 
@@ -517,13 +517,13 @@ class Gulag(commands.Cog):
 
     @commands.has_guild_permissions(manage_roles=True)
     @gulag.command(usage="[category]")
-    async def category(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[discord.CategoryChannel, str]]):
+    async def category(self, ctx: commands.GuildContext, *, category: typing.Optional[typing.Union[discord.CategoryChannel, str]]):
         """
         Sets or displays the current category channel used for warnings.
         """
         guild: discord.Guild = ctx.guild
-        category_id: str = await self.config.guild_from_id(guild.id).category_id()
-        old_category: discord.CategoryChannel = guild.get_channel(category_id)
+        category_id : int = await self.config.guild_from_id(guild.id).category_id()
+        old_category: discord.CategoryChannel = guild.get_channel(category_id) # type: ignore[assignment]
 
         if category is None:
             if old_category is None:
@@ -531,7 +531,6 @@ class Gulag(commands.Cog):
             else:
                 await ctx.channel.send(f'Category channel is currently set to **{old_category.mention}**.')
             return
-
         if isinstance(category, str):
             matching_categories: typing.List[discord.CategoryChannel] = [
                 cat for cat in guild.categories if str.lower(cat.name) == str.lower(category)]
@@ -549,23 +548,23 @@ class Gulag(commands.Cog):
 
         for channel in guild.channels:
             if channel.id == log_channel_id or await self.config.channel(channel).is_gulag_channel():
-                await channel.edit(category=category)
+                await channel.edit(category=category) # type: ignore[arg-type,call-overload]
 
         if old_category is not None and len(old_category.channels) == 0:
             await old_category.delete()
 
-        await ctx.channel.send(f'Category channel is now set to **{category.mention}**.')
+        await ctx.channel.send(f'Category channel is now set to **{category.mention}**.') # type: ignore[union-attr]
         return
 
     @ commands.has_guild_permissions(manage_roles=True)
     @ gulag.command()
-    async def role(self, ctx: commands.Context):
+    async def role(self, ctx: commands.GuildContext):
         """
         Displays the global role in use.
         """
         guild: discord.Guild = ctx.guild
-        global_role_id: str = await self.config.guild_from_id(guild.id).gulag_role_id()
-        global_role: discord.Role = None
+        global_role_id: int = await self.config.guild_from_id(guild.id).gulag_role_id()
+        global_role: typing.Union[discord.Role, None] = None
 
         if global_role_id is not None:
             global_role = guild.get_role(global_role_id)
@@ -583,7 +582,7 @@ class Gulag(commands.Cog):
 
     @ commands.has_guild_permissions(manage_roles=True)
     @ gulag.command(usage="[name]", name="setrole")
-    async def set_role(self, ctx: commands.Context, *, target: typing.Optional[typing.Union[discord.Role, str, int]]):
+    async def set_role(self, ctx: commands.GuildContext, *, target: typing.Optional[typing.Union[discord.Role, str, int]]):
         """
         Sets or creates a global role that will be used to moderate users.
         """
@@ -591,23 +590,26 @@ class Gulag(commands.Cog):
 
         old_role_id = await self.config.guild_from_id(guild.id).gulag_role_id()
 
+        name: str
+
         if target is None:
-            name: str = await self.config.guild_from_id(guild.id).gulag_role_name()
+            name = await self.config.guild_from_id(guild.id).gulag_role_name()
             target = name
         elif isinstance(target, discord.Role):
             name = target.name
         elif isinstance(target, int):
-            found_role: discord.Role = guild.get_role(int(target))
+            found_role = guild.get_role(int(target))
             if found_role is not None:
                 name = found_role.name
                 target = found_role
             else:
-                name = target
+                await ctx.reply("Could not find a role with that ID.")
+                return
         elif isinstance(target, str):
             name = target
 
         if old_role_id is not None:
-            old_role: discord.Role = guild.get_role(old_role_id)
+            old_role = guild.get_role(old_role_id)
 
             if old_role is not None:
 
@@ -622,21 +624,21 @@ class Gulag(commands.Cog):
             ]
 
             if len(roles) > 0:
-                target: discord.Role = roles.pop(0)
+                target = roles.pop(0)
             else:
-                target: discord.Role = await self.create_gulag_role(guild, target)
+                target = await self.create_gulag_role(guild, target)
 
         await self.config.role(target).is_gulag_role.set(True)
-        await self.config.guild(guild).gulag_role_id.set(target.id)
+        await self.config.guild(guild).gulag_role_id.set(target.id) # type: ignore[union-attr]
 
         await self.config.guild(guild).gulag_role_name.set(name)
-        await ctx.channel.send(f"Role {target.mention} will now moderate users.")
+        await ctx.channel.send(f"Role {target.mention} will now moderate users.") # type: ignore[union-attr]
 
         return
 
     @ commands.has_guild_permissions(manage_roles=True)
     @ gulag.group()
-    async def logs(self, ctx: commands.Context):
+    async def logs(self, ctx: commands.GuildContext):
         """
         Settings for gulag logging.
         """
@@ -644,38 +646,25 @@ class Gulag(commands.Cog):
 
     @ commands.has_guild_permissions(manage_roles=True)
     @ logs.command(usage="<channel>")
-    async def channel(self, ctx: commands.Context, *, channel: typing.Optional[typing.Union[discord.TextChannel, str]]):
+    async def channel(self, ctx: commands.GuildContext, *, channel: typing.Optional[discord.TextChannel]):
         """
         Sets or displays the channel in use for logging.
         """
-        guild: discord.Guild = ctx.guild
-        log_channel_id: str = await self.config.guild_from_id(guild.id).log_channel_id()
-        log_channel: discord.TextChannel = None
-
-        if log_channel_id is not None:
-            log_channel = guild.get_channel(log_channel_id)
-
         if channel is None:
+            channel_id = self.config.guild(ctx.guild).log_channel_id()
+            channel = ctx.guild.get_channel(channel_id) # type: ignore[assignment]
 
-            if log_channel is None:
-                await ctx.channel.send(f'Gulag logs channel is not currently set.  Please specify a channel name.')
-            else:
-                await ctx.channel.send(f'Gulag logs channel is currently set to {log_channel.mention}.')
-
-            return
-
-        if log_channel and log_channel.id == channel.id:
-            await ctx.channel.send(f'Gulag logs channel is already set to {channel.mention}.')
-            return
-
-        await self.config.guild_from_id(guild.id).log_channel_id.set(channel.id)
-
-        await ctx.channel.send(f'Gulag logs channel is now set to {channel.mention}.')
+            if channel is None:
+                await ctx.channel.send(f"Logging channel is not currently set. Please specify a channel.")
+                return
+            
+        await self.config.guild(ctx.guild).log_channel_id.set(channel.id)
+        await ctx.channel.send(f"Logging channel is set to {channel.mention}.")
         return
 
     @ commands.has_guild_permissions(manage_roles=True)
     @ logs.command(usage="<name>", name="create")
-    async def create_logs(self, ctx: commands.Context, *, name: typing.Optional[str]):
+    async def create_logs(self, ctx: commands.GuildContext, *, name: typing.Optional[str]):
         """
         Creates a new channel to store a history of gulag messages within.
         """
@@ -684,12 +673,13 @@ class Gulag(commands.Cog):
         if name is None:
             name = await self.config.guild_from_id(guild.id).log_channel_name()
 
-        channels: typing.List[discord.Guild] = [
-            channel for channel in guild.channels if channel.name == name]
+        channels: typing.List[discord.abc.GuildChannel] = [channel for channel in guild.channels if channel.name == name]
 
         if len(channels) > 0:
             await ctx.channel.send(f"Already found existing channel with name {channels[0].mention}. Please use a different name.")
             return
+        
+        category_id = await self.config.guild(guild).category_id()
 
         channel = await guild.create_text_channel(
             name=name,
@@ -700,7 +690,7 @@ class Gulag(commands.Cog):
                     view_channel=False
                 )
             },
-            category=guild.get_channel(await self.config.guild(guild).category_id())
+            category=guild.get_channel(category_id) if category_id is not None else None # type: ignore[arg-type]
         )
 
         await self.config.guild_from_id(guild.id).log_channel_id.set(channel.id)
@@ -710,54 +700,36 @@ class Gulag(commands.Cog):
 
     @ logs.command(usage="<True|False>")
     @ commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def enabled(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """
         Sets whether or not gulag histories are logged.
         """
         guild: discord.Guild = ctx.guild
-        logs_enabled = await self.config.guild_from_id(guild.id).logs_enabled()
 
         log_channel_id = await self.config.guild_from_id(guild.id).log_channel_id()
+        log_channel = guild.get_channel(log_channel_id)
         prefix = await ctx.bot.get_prefix(ctx.message)
 
         if isinstance(prefix, list):
             prefix = prefix[0]
 
-        channel_unset_message = f'Please set a logging channel using `{prefix}gulag logs channel <channel>` or create one with `{prefix}gulag logs create <name>`.'
-
-        if log_channel_id is not None:
-            log_channel = guild.get_channel(log_channel_id)
+        
+        if log_channel is not None:
             channel_set_message = f"Gulag logs will be displayed in {log_channel.mention}."
+        else:
+            channel_set_message = f'Please set a logging channel using `{prefix}gulag logs channel <channel>` or create one with `{prefix}gulag logs create <name>`.'
 
         if bool is None:
-            status = "**ENABLED**" if logs_enabled else "**DISABLED**"
-            if logs_enabled:
-                if log_channel_id is None:
-                    status += f".  {channel_unset_message}"
-                else:
-                    status += f".  {channel_set_message}"
-            await ctx.channel.send(f"Gulag logging is currently {status}")
-            return
+            bool = await self.config.guild_from_id(guild.id).logs_enabled()
 
         await self.config.guild_from_id(guild.id).logs_enabled.set(bool)
 
-        if bool:
-            str = f"Now recording histories of gulag channels."
-            log_channel_id = await self.config.guild_from_id(guild.id).log_channel_id()
-
-            if log_channel_id is None:
-                str += f" {channel_unset_message}"
-            else:
-                str += f"  {channel_set_message}"
-
-            await ctx.channel.send(str)
-        else:
-            await ctx.channel.send(f"No longer recording histories of gulag channels.")
+        await ctx.channel.send(f"Logging is {'**ENABLED**' if bool else '**DISABLED**'}. {channel_set_message}")
         return
 
     @ logs.command()
     @ commands.has_guild_permissions(manage_roles=True)
-    async def enable(self, ctx: commands.Context):
+    async def enable(self, ctx: commands.GuildContext):
         """
         Enables gulag logging for this server.
         """
@@ -766,7 +738,7 @@ class Gulag(commands.Cog):
 
     @ logs.command()
     @ commands.has_guild_permissions(manage_roles=True)
-    async def disable(self, ctx: commands.Context):
+    async def disable(self, ctx: commands.GuildContext):
         """
         Disables logging for this server.
         """
@@ -779,7 +751,10 @@ class Gulag(commands.Cog):
         Cleanup
         """
         if await self.config.channel(channel).is_gulag_channel():
-            member: discord.Member = channel.guild.get_member(await self.config.channel(channel).user_id())
+            member = channel.guild.get_member(await self.config.channel(channel).user_id())
+
+            if member is None:
+                return
 
             if await self.config.member(member).is_gulaged():
                 # Specifically not passing channel here because the channel is already in a deleted state.
@@ -825,19 +800,18 @@ class Gulag(commands.Cog):
 
         if await self.config.member(member).is_gulaged():
             gulag_role_id = await self.config.guild(guild).gulag_role_id()
-            gulag_role: discord.Role = guild.get_role(gulag_role_id)
+            gulag_role = guild.get_role(gulag_role_id)
 
             if gulag_role is None:
                 return
 
             gulag_channel_id = await self.config.member(member).gulag_channel_id()
-            gulag_channel: discord.TextChannel = guild.get_channel(
-                gulag_channel_id)
+            gulag_channel = guild.get_channel(gulag_channel_id)
 
             if gulag_channel is None:
                 return
 
-            await self.moderate_user(member, gulag_role=gulag_role, gulag_channel=gulag_channel)
+            await self.moderate_user(member, gulag_role=gulag_role, gulag_channel=gulag_channel) # type: ignore[arg-type]
         pass
 
     @commands.Cog.listener()

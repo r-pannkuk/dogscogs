@@ -7,7 +7,9 @@
         "Klypto"
     ],
     "required_cogs": {},
-    "requirements": [],
+    "requirements": [
+        "git+https://github.com/r-pannkuk/dogscogs-utils.git"
+    ],
     "tags": [
         "random",
         "rng"

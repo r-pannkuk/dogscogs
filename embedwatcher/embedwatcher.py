@@ -1,6 +1,5 @@
 import collections
 from datetime import timedelta
-import datetime
 from typing import Literal
 import typing
 
@@ -9,10 +8,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-
-# Stealing this from discord.types.gateway
-class MessageUpdateEvent(discord.Message):
-    channel_id: int
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.converters.mention import Mention
 
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
@@ -29,36 +26,6 @@ DEFAULT_GUILD = {
     "channel_id": None,
 }
 
-
-class ParsedMention(commands.Converter):
-    async def convert(
-        self, ctx: commands.Context, mention: str
-    ) -> typing.Union[discord.TextChannel, discord.Member, discord.Role]:
-        converter: typing.Union[
-            commands.TextChannelConverter,
-            commands.MemberConverter,
-            commands.RoleConverter,
-        ]
-
-        try:
-            converter = commands.TextChannelConverter()
-            return await converter.convert(ctx, mention)
-        except:
-            pass
-
-        try:
-            converter = commands.MemberConverter()
-            return await converter.convert(ctx, mention)
-        except:
-            pass
-
-        try:
-            converter = commands.RoleConverter()
-            return await converter.convert(ctx, mention)
-        except:
-            raise commands.BadArgument("Not a valid mention.")
-
-
 class EmbedWatcher(commands.Cog):
     """
     Watches for embed edits to lock them.
@@ -68,7 +35,7 @@ class EmbedWatcher(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -82,13 +49,13 @@ class EmbedWatcher(commands.Cog):
 
     @commands.hybrid_group()
     @commands.has_guild_permissions(manage_roles=True)
-    async def embedwatcher(self, ctx: commands.Context):
+    async def embedwatcher(self, ctx: commands.GuildContext):
         """Watches for embed edits and deletes messages to prevent them."""
         pass
 
     @embedwatcher.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, is_enabled: typing.Optional[bool]):
+    async def enabled(self, ctx: commands.GuildContext, is_enabled: typing.Optional[bool]):
         """Enables or disables the watcher.
 
         Args:
@@ -112,7 +79,7 @@ class EmbedWatcher(commands.Cog):
 
     @embedwatcher.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def timeout(self, ctx: commands.Context, minutes: typing.Optional[int]):
+    async def timeout(self, ctx: commands.GuildContext, minutes: typing.Optional[int]):
         """Defines how long a user should be timed out for after editing an embed.
 
         Args:
@@ -137,7 +104,7 @@ class EmbedWatcher(commands.Cog):
 
     @embedwatcher.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def delay(self, ctx: commands.Context, minutes: typing.Optional[int]):
+    async def delay(self, ctx: commands.GuildContext, minutes: typing.Optional[int]):
         """Defines how long the bot should wait before checking for edits.
 
         Args:
@@ -192,13 +159,13 @@ class EmbedWatcher(commands.Cog):
 
     @embedwatcher.group()
     @commands.has_guild_permissions(manage_roles=True)
-    async def whitelist(self, ctx: commands.Context):
+    async def whitelist(self, ctx: commands.GuildContext):
         """Defines the channel whitelist for edited attachments."""
         pass
 
     @whitelist.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def add(self, ctx: commands.Context, target: ParsedMention):
+    async def add(self, ctx: commands.GuildContext, target: Mention):
         """Adds a channel to the white list so it is ignored in scanning attachment changes.
 
         Args:
@@ -224,12 +191,12 @@ class EmbedWatcher(commands.Cog):
 
         await self.config.guild(ctx.guild).whitelist.set(whitelist)
 
-        await ctx.send(f"Added {target.mention} to the whitelist.")
+        await ctx.send(f"Added {target.mention} to the whitelist.") # type: ignore[attr-defined]
         pass
 
     @whitelist.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def remove(self, ctx: commands.Context, target: ParsedMention):
+    async def remove(self, ctx: commands.GuildContext, target: Mention):
         """Removes a channel from the white list so it is scanned for attachment changes.
 
         Args:
@@ -240,10 +207,10 @@ class EmbedWatcher(commands.Cog):
         BAD_ARGUMENT = "This is not a valid target for the whitelist."
 
         def remove_from_list(list: typing.List[str]):
-            if target.id not in list:
+            if target.id not in list: # type: ignore[attr-defined]
                 raise commands.BadArgument(f"That isn't in the whitelist, idiot.")
 
-            list.remove(target.id)
+            list.remove(target.id) # type: ignore[attr-defined]
 
             return list
 
@@ -261,12 +228,12 @@ class EmbedWatcher(commands.Cog):
 
         await self.config.guild(ctx.guild).whitelist.set(whitelist)
 
-        await ctx.send(f"Removed {target.mention} from the whitelist.")
+        await ctx.send(f"Removed {target.mention} from the whitelist.") # type: ignore[attr-defined]
         pass
 
     @whitelist.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def list(self, ctx: commands.Context):
+    async def list(self, ctx: commands.GuildContext):
         """Lists all channels currently being ignored in attachment change scans."""
         embed = discord.Embed()
         embed.title = f"Whitelist for Embed / Attachment Scans:"
@@ -276,9 +243,9 @@ class EmbedWatcher(commands.Cog):
         T = typing.TypeVar("T", discord.TextChannel, discord.Member, discord.Role)
 
         async def get_list(
-            list: typing.List[str],
+            list: typing.List[int],
             fetch: typing.Callable[
-                [int], typing.Coroutine[typing.Any, typing.Any, int]
+                [int], typing.Coroutine[typing.Any, typing.Any, T]
             ],
         ) -> typing.List[T]:
             objects: typing.List[T] = []
@@ -291,32 +258,32 @@ class EmbedWatcher(commands.Cog):
             return objects
 
         channels: typing.List[discord.TextChannel] = await get_list(
-            whitelist["channel_ids"], ctx.guild.fetch_channel
-        )
+            whitelist["channel_ids"], ctx.guild.fetch_channel  # type: ignore[arg-type]
+        ) 
         channels.sort(key=lambda channel: channel.name.lower())
-        channels = [channel.mention for channel in channels]
+        channel_mentions = [channel.mention for channel in channels]
 
         members: typing.List[discord.Member] = await get_list(
             whitelist["user_ids"], ctx.guild.fetch_member
         )
         members.sort(key=lambda member: member.display_name.lower())
-        members = [member.mention for member in members]
+        member_mentions = [member.mention for member in members]
 
         roles: typing.List[discord.Role] = await ctx.guild.fetch_roles()
         roles.sort(key=lambda role: role.name.lower())
-        roles = [
+        role_mentions = [
             roles[i].mention
             for i in range(len(roles))
             if roles[i].id in whitelist["role_ids"]
         ]
 
-        if len(channels) == len(members) == len(roles) == 0:
+        if len(channel_mentions) == len(member_mentions) == len(role_mentions) == 0:
             await ctx.send(f"There's nothing in the whitelist.")
             return
 
-        embed.add_field(name="Channels", value="\n".join(channels))
-        embed.add_field(name="Members", value="\n".join(members))
-        embed.add_field(name="Roles", value="\n".join(roles))
+        embed.add_field(name="Channels", value="\n".join(channel_mentions))
+        embed.add_field(name="Members", value="\n".join(member_mentions))
+        embed.add_field(name="Roles", value="\n".join(role_mentions))
 
         await ctx.send(embed=embed)
         pass

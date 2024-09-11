@@ -12,135 +12,18 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.constants.discord.channel import TEXT_TYPES as TEXT_CHANNEL_TYPES
+from dogscogs.views.confirmation import ConfirmationView
+from dogscogs.converters.user import UserList
+from dogscogs.converters.channel import ListChannelsText
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 CHUNK_SIZE = 100
-TEXT_CHANNEL_TYPES = [
-    discord.ChannelType.forum,
-    discord.ChannelType.news,
-    discord.ChannelType.news_thread,
-    discord.ChannelType.public_thread,
-    discord.ChannelType.text,
-]
 
 UPDATE_DURATION_SECS = 5
 DELETE_INTERVAL_SECS = 3
-
-class ChannelParser(commands.Converter):
-    async def convert(self, ctx: commands.Context, argument: str):
-        channels = ctx.guild.channels
-        args = argument.split()
-
-        channel_list = [
-            channel
-            for channel in channels
-            if channel.mention in args or channel.id in args
-        ]
-        args = [
-            arg
-            for arg in args
-            if not arg in [channel.mention for channel in channel_list]
-        ]
-
-        if len(args) > 0:
-            raise commands.BadArgument(f"No channels were found for: {','.join(args)}")
-
-        bad_channels = [
-            channel
-            for channel in channel_list
-            if channel.type not in TEXT_CHANNEL_TYPES
-        ]
-
-        if len(bad_channels) > 0:
-            raise commands.BadArgument(
-                f"Can't read messages for {','.join(bad_channels)}"
-            )
-
-        return channel_list
-
-
-class UserParser(commands.Converter):
-    async def convert(self, ctx: commands.Context, argument: str):
-        users = ctx.guild.members
-        args = argument.split()
-
-        user_list = [user for user in users if user.mention in args or user.id in args]
-        args = [arg for arg in args if not arg in [user.mention for user in user_list]]
-
-        if len(args) > 0:
-            pruned_args = [
-                id.replace("<", "").replace(">", "").replace("@", "") for id in args
-            ]
-            extra_users = [await ctx.bot.fetch_user(arg) for arg in pruned_args]
-
-            badUsers = []
-
-            for i in range(len(extra_users)):
-                user = extra_users[i]
-                if user is None:
-                    badUsers.append(args[i])
-                else:
-                    user_list.append(user)
-
-            if len(badUsers) > 0:
-                raise commands.BadArgument(
-                    f"No user was found for: {','.join(badUsers)}"
-                )
-
-        return user_list
-
-
-# https://github.com/Rapptz/discord.py/blob/master/examples/views/confirm.py
-# Define a simple View that gives us a confirmation menu
-class Confirm(discord.ui.View):
-    def __init__(
-        self, allowed_respondents: typing.List[discord.Member | discord.User] = []
-    ):
-        super().__init__()
-        self.value = None
-        self.allowed_respondents = allowed_respondents
-        self.is_limiting_respondents = len(allowed_respondents) > 0
-        self.interaction: discord.Interaction = None
-        self.timeout = None
-
-    # When the confirm button is pressed, set the inner value to `True` and
-    # stop the View from listening to more input.
-    # We also send the user an ephemeral message that we're confirming their choice.
-    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
-    async def confirm(
-        self, interaction: discord.Interaction, button: discord.ui.Button
-    ):
-        if (
-            self.is_limiting_respondents
-            and interaction.user not in self.allowed_respondents
-        ):
-            await interaction.response.send_message(
-                "You aren't qualified to respond to this.", ephemeral=True
-            )
-            return
-
-        await interaction.response.send_message("Confirming")
-        self.interaction = interaction
-        self.value = True
-        self.stop()
-
-    # This one is similar to the confirmation button except sets the inner value to `False`
-    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.grey)
-    async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if (
-            self.is_limiting_respondents
-            and interaction.user not in self.allowed_respondents
-        ):
-            await interaction.response.send_message(
-                "You aren't qualified to respond to this.", ephemeral=True
-            )
-            return
-
-        await interaction.response.send_message("Cancelling")
-        self.interaction = interaction
-        self.value = False
-        self.stop()
-
 
 class Purge(commands.Cog):
     """
@@ -151,7 +34,7 @@ class Purge(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         pass
@@ -182,39 +65,41 @@ class Purge(commands.Cog):
         username = f"{user.display_name}{f' ({user.name})' if user.name != user.display_name else ''}"
         return f"({message.created_at.strftime('%Y-%m-%d %H:%M:%S')}) {username}: {message.content}"
 
-    @commands.hybrid_group()
+    @commands.group()
     @commands.admin_or_can_manage_channel()
-    async def purge(self, ctx: commands.Context):
+    async def purge(self, ctx: commands.GuildContext):
         """Purges messages for the given user or channel
 
         Args:
-            ctx (commands.Context): Command context.
+            ctx (commands.GuildContext): Command context.
         """
 
     @purge.command()
     @commands.admin_or_can_manage_channel()
     async def channel(
         self,
-        ctx: commands.Context,
+        ctx: commands.GuildContext,
         number: int,
         channel: typing.Optional[discord.TextChannel],
     ):
         """Deletes up to X messages from the supplied channel (or current channel if none exists).
 
         Args:
-            ctx (commands.Context): Command context.
+            ctx (commands.GuildContext): Command context.
             number (int): The number of posts to delete.
             channel (typing.Optional[discord.TextChannel]): The channel to delete from.  Defaults to current channel.
         """
+        before_message : discord.Message    
+        
         if channel is None:
-            channel = ctx.channel
+            channel = ctx.channel # type: ignore[assignment]
             before_message = ctx.message
         else:
-            before_message = channel.last_message
+            before_message = channel.last_message # type: ignore[assignment]
 
-        deferment = await ctx.defer(ephemeral=False)
+        await ctx.defer(ephemeral=False)
 
-        messages = channel.history(limit=number, before=before_message, oldest_first=False)
+        messages = channel.history(limit=number, before=before_message, oldest_first=False) # type: ignore[union-attr]
 
         list = []
 
@@ -230,107 +115,94 @@ class Purge(commands.Cog):
 
         embed = discord.Embed()
         embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
-        embed.description = f"Channel: {channel.mention}"
+        embed.description = f"Channel: {channel.mention}"  # type: ignore[union-attr]
         embed.description += "\n"
         embed.description += f"First Message: {first_deleted_message.jump_url}"
         embed.description += "\n"
         embed.description += f"Last Message: {last_deleted_message.jump_url}"
 
-        view = Confirm(allowed_respondents=[ctx.author])
+        view = ConfirmationView(author=ctx.author)
 
         prompt = await ctx.send(embed=embed, view=view)
 
         await view.wait()
-        followup = await view.interaction.original_response()
 
-        if view.value is None:
-            followup = await ctx.channel.send("Timed out")
-            pass
-        elif view.value:
-            # for i in range(0, len(list), CHUNK_SIZE):
-            #     chunk = list[i: i + CHUNK_SIZE]
-            await channel.purge(
-                limit=number, before=before_message, bulk=True, oldest_first=False
-            )
-            # await view.response.edit(content=f"{i + CHUNK_SIZE if i + CHUNK_SIZE < number else number} out of {number} deleted.")
-            # await asyncio.sleep(3)
+        if not view.value:
+            await prompt.edit(content="Cancelled.",view=None,delete_after=15)
+            return
 
-            followup = await followup.edit(content="Deleted.")
-            pass
-        else:
-            followup - await followup.edit(content=f"Cancelled.")
-            pass
+        # for i in range(0, len(list), CHUNK_SIZE):
+        #     chunk = list[i: i + CHUNK_SIZE]
+        deleted_messages = await channel.purge( # type: ignore[union-attr]
+            limit=number, before=before_message, bulk=True, oldest_first=False
+        )
+        # await view.response.edit(content=f"{i + CHUNK_SIZE if i + CHUNK_SIZE < number else number} out of {number} deleted.")
+        # await asyncio.sleep(3)
 
-        await asyncio.sleep(3)
-        await ctx.channel.delete_messages([ctx.message, prompt, followup])
+        await ctx.channel.send(f"Deleted {len(deleted_messages)} messages.", delete_after=15)
         pass
 
     @purge.command()
     @commands.admin_or_can_manage_channel()
     async def user(
         self,
-        ctx: commands.Context,
-        users: UserParser,
-        in_channels: typing.Optional[ChannelParser],
-        ignore_channels: typing.Optional[ChannelParser],
+        ctx: commands.GuildContext,
+        users: UserList,
+        in_channels: typing.Optional[ListChannelsText],
+        ignore_channels: typing.Optional[ListChannelsText],
         limit: typing.Optional[int],
     ):
         """Purges messages for given users in channels
 
         Args:
-            ctx (commands.Context): Command Context
+            ctx (commands.GuildContext): Command Context
             users (typing.List[discord.Member]): The list of users to purge.
             inChannels (typing.Optional[typing.List[discord.TextChannel]]): (optional) The channels to screen for.
             ignoreChannels (typing.Optional[typing.List[discord.TextChannel]]): (optional) The channels to not include.
             limit (typing.Optional[int]): (optional) A limit on how many messages to purge.
         """
+        channel_list : typing.List[discord.TextChannel]
 
         if in_channels is None:
-            in_channels = ctx.guild.channels
+            channel_list = [c for c in ctx.guild.channels if isinstance(c, TEXT_CHANNEL_TYPES)]
+        else:
+            channel_list = in_channels # type: ignore[assignment]
 
-        in_channels = [
+        channel_list = [
             channel
-            for channel in in_channels
-            if channel.type in TEXT_CHANNEL_TYPES
-            and channel.permissions_for(
-                ctx.guild.get_member(self.bot.user.id)
-            ).read_messages
-            and channel.permissions_for(
-                ctx.guild.get_member(self.bot.user.id)
-            ).read_message_history
-            and channel.permissions_for(
-                ctx.guild.get_member(self.bot.user.id)
-            ).manage_messages
+            for channel in channel_list
+            if channel.permissions_for(ctx.me).read_messages
+            and channel.permissions_for(ctx.me).read_message_history
+            and channel.permissions_for(ctx.me).manage_messages
         ]
 
         if ignore_channels is not None:
-            in_channels = [
+            channel_list = [
                 channel
-                for channel in in_channels
-                if channel.id not in [channel.id for channel in ignore_channels]
+                for channel in channel_list
+                if channel.id not in [channel.id for channel in ignore_channels] # type: ignore[attr-defined]
             ]
 
-        in_channels.sort(key=lambda c: c.position)
+        channel_list.sort(key=lambda c: c.position)
 
-        messages = {}
+        messages : typing.Dict[int, typing.List[discord.Message]] = {}
         number = 0
 
         deferment = await ctx.send("Starting fetch")
 
-        user_ids = [user.id for user in users]
+        user_ids : typing.List[int] = [user.id for user in users] # type: ignore[attr-defined]
 
         response = await ctx.channel.send("Fetching...")
 
-        for channel in in_channels:
+        for channel in channel_list:
             await response.edit(content=f"Fetching...{channel.mention}")
             messages[channel.id] = []
             channel_scan_number = 0
             author_scan_number = 0
 
-            next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
+            next_update = datetime.datetime.now() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
 
-            channel : discord.TextChannel = channel
-
+            # Start with current message and then go backwards
             message = ctx.message
 
             history = channel.history(limit=None, before=message, oldest_first=False)
@@ -343,9 +215,9 @@ class Purge(commands.Cog):
                     
                     channel_scan_number += 1
 
-                    if datetime.datetime.utcnow() > next_update:
+                    if datetime.datetime.now() > next_update:
                         await response.edit(content=f"Fetching...{channel.mention}\nParsed: {channel_scan_number}\nFound: {author_scan_number}")
-                        next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
+                        next_update = datetime.datetime.now() + datetime.timedelta(seconds=UPDATE_DURATION_SECS)
                     
                     if message.author.id in user_ids:
                         messages[channel.id].append(message)
@@ -365,26 +237,23 @@ class Purge(commands.Cog):
             await ctx.send("No messages found.")
             return
 
-        channel_mentions = [f"{channel.mention} ({len(messages[channel.id])})" for channel in in_channels]
+        channel_mentions = [f"{channel.mention} ({len(messages[channel.id])})" for channel in channel_list]
 
         embed = discord.Embed()
         embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
-        embed.description = f"**User**: {', '.join([user.mention for user in users])}"
+        embed.description = f"**User**: {', '.join([user.mention for user in users])}" # type: ignore[attr-defined]
         embed.description += f"\n"
         embed.description += f"**Channels**: {', '.join(channel_mentions)}"
         embed.description += f"\n"
         embed.description += f"**Number**: {number}"
 
-        view = Confirm(allowed_respondents=[ctx.author])
+        view = ConfirmationView(author=ctx.author)
 
         prompt = await ctx.send(embed=embed, view=view)
 
         await view.wait()
 
-        if view.value is None:
-            followup = await ctx.channel.send("Timed out")
-            pass
-        elif view.value:
+        if view.value:
             completed_channels: typing.List[discord.TextChannel] = []
             current_total = 0
 
@@ -400,9 +269,9 @@ class Purge(commands.Cog):
                 followup_str += f"**Total**: {current_total} out of {number}"
                 return followup_str
 
-            for id, messages in messages.items():
-                channel = ctx.guild.get_channel(id)
-                channel_total = len(messages)
+            for id, msgs in messages.items():
+                channel = ctx.guild.get_channel(id) # type: ignore[assignment]
+                channel_total = len(msgs)
                 channel_current_total = 0
                 update_duration_secs = UPDATE_DURATION_SECS
 
@@ -412,16 +281,14 @@ class Purge(commands.Cog):
                     )
                 )
 
-                if len(messages) > 0:
-                    file = self._file_header(users, channel, messages)
+                if len(msgs) > 0:
+                    file = self._file_header(users, channel, msgs) # type: ignore[arg-type]
 
                     bulk_messages = [
                         message
-                        for message in messages
+                        for message in msgs
                         if message.created_at
-                        > (
-                            datetime.datetime.utcnow() - datetime.timedelta(days=14)
-                        ).astimezone(tz=pytz.timezone("UTC"))
+                        > (datetime.datetime.now() - datetime.timedelta(days=14))
                     ]
 
                     file += "\n".join(
@@ -434,7 +301,7 @@ class Purge(commands.Cog):
                     current_total += len(bulk_messages)
 
                     remaining_messages = [
-                        message for message in messages if message not in bulk_messages
+                        message for message in msgs if message not in bulk_messages
                     ]
 
                     for message in remaining_messages:
@@ -458,7 +325,7 @@ class Purge(commands.Cog):
                         current_total += 1
 
                         try:
-                            if datetime.datetime.utcnow() > next_update:
+                            if datetime.datetime.now() > next_update:
                                 await followup.edit(
                                     content=generate_followup_str(
                                         channel,
@@ -467,7 +334,7 @@ class Purge(commands.Cog):
                                         current_total,
                                     )
                                 )
-                                next_update = datetime.datetime.utcnow() + datetime.timedelta(seconds=update_duration_secs)
+                                next_update = datetime.datetime.now() + datetime.timedelta(seconds=update_duration_secs)
 
                         except Exception as e:
                             await followup.delete()
@@ -484,23 +351,18 @@ class Purge(commands.Cog):
                     f = io.StringIO(file)
                     await ctx.author.send(
                         file=discord.File(
-                            fp=f,
+                            fp=f, # type: ignore[arg-type]
                             filename=f"{channel.name}_{int(datetime.datetime.now().strftime('%Y%m%d'))}.txt",
                         )
                     )
 
                 completed_channels.append(channel)
 
-            followup = await followup.edit(content="Deleted.")
+            await prompt.edit(content="Deleted.",view=None,delete_after=15)
             pass
         else:
-            followup = (await view.interaction.original_response()).edit(content=f"Cancelled.")
+            await prompt.edit(content=f"Cancelled.",view=None,delete_after=15)
             pass
-
-        await asyncio.sleep(3)
-        await ctx.channel.delete_messages(
-            [ctx.message, deferment, response, prompt, followup]
-        )
         pass
 
         pass

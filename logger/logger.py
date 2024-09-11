@@ -7,7 +7,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-COG_IDENTIFIER = 260288776360820736
+from dogscogs.constants import COG_IDENTIFIER
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -23,83 +23,78 @@ FORMAT_ADDED = "`"
 FORMAT_REMOVED = "~~"
 
 
+class CachedMessageDict(typing.TypedDict):
+    content: str
+    attachments: typing.List[discord.Attachment]
+
+
+LogType = Literal["UPDATE", "DELETE"]
+
+
 class LogPayload:
+    """What type of event this is."""
+    type: LogType
+
+    """The author id"""
+    author_id: typing.Union[int, None]
+
+    """The guild ID that this message was from."""
+    guild_id: int
+
+    """The channel ID that this message was from."""
+    channel_id: int
+
+    """The message prior to the event."""
+    before: CachedMessageDict
+
+    """The url to the message."""
+    jump_url: str
+
+    """The message after the event."""
+    data : typing.Optional[typing.Any]
+
     def __init__(
         self,
         event: typing.Union[
             discord.RawMessageUpdateEvent, discord.RawMessageDeleteEvent
         ],
     ) -> None:
-        self._type = None
         if isinstance(event, discord.RawMessageUpdateEvent):
-            self._type = "UPDATE"
-            self._before = {
-                "author": event.cached_message.author
-                if event.cached_message
-                else event.data["author"]
-                if "author" in event.data
-                else None,
-                "content": event.cached_message.content
-                if event.cached_message
-                else "<<< Message was not cached. >>>",
-                "attachments": event.cached_message.attachments
-                if event.cached_message
-                else [],
-                "jump_url": f"https://discord.com/channels/{event.guild_id}/{event.channel_id}/{event.message_id}",
+            self.type = "UPDATE"
+            self.author_id = int(event.data["author"]["id"])
+            self.before = {
+                "content": (
+                    event.cached_message.content
+                    if event.cached_message
+                    else "<<< Message was not cached. >>>"
+                ),
+                "attachments": (
+                    event.cached_message.attachments if event.cached_message else []
+                ),
             }
-            self._message = event.data
+            self.data = event.data
         elif isinstance(event, discord.RawMessageDeleteEvent):
-            self._type = "DELETE"
-            self._before = {
-                "author": event.cached_message.author if event.cached_message else None,
-                "content": event.cached_message.content
-                if event.cached_message
-                else "<<< Message was not cached. >>>",
-                "attachments": event.cached_message.attachments
-                if event.cached_message
-                else [],
-                "jump_url": f"https://discord.com/channels/{event.guild_id}/{event.channel_id}/{event.message_id}",
+            self.type = "DELETE"
+            self.author_id = event.cached_message.author.id if event.cached_message else None
+            self.before = {
+                "content": (
+                    event.cached_message.content
+                    if event.cached_message
+                    else "<<< Message was not cached. >>>"
+                ),
+                "attachments": (
+                    event.cached_message.attachments if event.cached_message else []
+                ),
             }
-            self._message = None
-        self._guild_id = event.guild_id
-        self._channel_id = event.channel_id
+            self.data = None  # type: ignore[assignment]
+        else:
+            raise ValueError("Invalid event type.")
+        
+        self.jump_url = f"https://discord.com/channels/{event.guild_id}/{event.channel_id}/{event.message_id}"
+        self.guild_id = event.guild_id # type: ignore[assignment]
+        self.channel_id = event.channel_id
 
         return
-
-    @property
-    def type(self) -> str:
-        """
-        What type of event this is.
-        """
-        return self._type
-
-    @property
-    def guild_id(self) -> int:
-        """
-        The guild ID that this message was from.
-        """
-        return self._guild_id
-
-    @property
-    def channel_id(self) -> int:
-        """
-        The channel ID that this message was from.
-        """
-        return self._channel_id
-
-    @property
-    def before(self) -> typing.Union[None, discord.Message]:
-        """
-        The message prior to the event.
-        """
-        return self._before
-
-    @property
-    def data(self) -> typing.Union[None, discord.RawMessageUpdateEvent]:
-        """
-        The message after the event occurred.
-        """
-        return self._message
 
     @property
     def delta_inline(self) -> str:
@@ -108,37 +103,37 @@ class LogPayload:
         """
         import difflib
 
-        expected = self.before.content
-        actual = (
+        expected = self.before["content"]
+        actual : str = (
             ""
-            if self.data == None
+            if self.data is None
             or "content" not in self.data
             or self.data["content"] == None
             else self.data["content"]
         )
-        str = ""
+        text = ""
         prev = "  "
         for ele in difflib.Differ().compare(expected, actual):
             comparator = ele[:2]
 
             if comparator == "  ":
                 if prev == "+ ":
-                    str += FORMAT_ADDED
-                str += f"{ele[2:]}"
+                    text += FORMAT_ADDED
+                text += f"{ele[2:]}"
             elif comparator == "- ":
                 if prev == "+ ":
-                    str += FORMAT_ADDED
-                str += f"{FORMAT_REMOVED}{ele[2:]}{FORMAT_REMOVED}"
+                    text += FORMAT_ADDED
+                text += f"{FORMAT_REMOVED}{ele[2:]}{FORMAT_REMOVED}"
             elif comparator == "+ ":
                 if prev == "  " or prev == "- ":
-                    str += FORMAT_ADDED
-                str += f"{ele[2:]}"
+                    text += FORMAT_ADDED
+                text += f"{ele[2:]}"
 
             prev = comparator
 
         if prev == "+ ":
-            str += FORMAT_ADDED
-        return str
+            text += FORMAT_ADDED
+        return text
 
 
 class Logger(commands.Cog):
@@ -169,7 +164,7 @@ class Logger(commands.Cog):
 
     @logger.command(usage="<True|False>")
     @commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def enabled(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """
         Sets whether or not logging is eanbled for deleted / edited messages.
         """
@@ -228,7 +223,7 @@ class Logger(commands.Cog):
 
     @logger.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enable(self, ctx: commands.Context):
+    async def enable(self, ctx: commands.GuildContext):
         """
         Enables logging for this bot.
         """
@@ -237,7 +232,7 @@ class Logger(commands.Cog):
 
     @logger.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def disable(self, ctx: commands.Context):
+    async def disable(self, ctx: commands.GuildContext):
         """
         Disables logging for this bot.
         """
@@ -246,7 +241,7 @@ class Logger(commands.Cog):
 
     @logger.command(name="links", usage="<True|False>")
     @commands.has_guild_permissions(manage_roles=True)
-    async def links_enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def links_enabled(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """
         Sets whether or not links to original messages will appear in logs.
         """
@@ -271,54 +266,36 @@ class Logger(commands.Cog):
     @logger.command(usage="<channel>")
     @commands.has_guild_permissions(manage_roles=True)
     async def channel(
-        self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]
+        self, ctx: commands.GuildContext, channel: typing.Optional[discord.TextChannel]
     ):
         """
         Sets the logger channel to a specified channel on the server. If no channel is provided, it will display what channel is currently set.
         """
-
         guild: discord.Guild = ctx.guild
-        logger_channel_id: str = await self.config.guild_from_id(
-            guild.id
-        ).logger_channel_id()
-        logger_channel: typing.Union[discord.TextChannel, None] = None
 
-        if logger_channel_id is not None:
-            logger_channel = guild.get_channel(logger_channel_id)
+        if channel is None:
+            channel = guild.get_channel(await self.config.guild(guild).logger_channel_id) # type: ignore[assignment]
 
-        if channel == None:
-            if logger_channel == None:
+            if channel is None:
                 await ctx.channel.send(
-                    f"Logger channel currently not set. Please specify a channel name."
+                    f"No logger channel set. Please create one with `{ctx.prefix}logger create <name>`."
                 )
-            else:
-                await ctx.channel.send(
-                    f"Logger channel currently set to {logger_channel.mention}."
-                )
-
-            return
-
-        if logger_channel and logger_channel.id == channel.id:
-            await ctx.channel.send(
-                f"Logger channel is already set to {channel.mention}."
-            )
-            return
-
+                return
+            
         await self.config.guild_from_id(guild.id).logger_channel_id.set(channel.id)
-
-        await ctx.channel.send(f"Logger channel now set to {channel.mention}.")
+        await ctx.channel.send(f"Logger channel set to {channel.mention}.")
         return
 
     @logger.command(usage="<name>")
     @commands.has_guild_permissions(manage_roles=True)
-    async def create(self, ctx: commands.Context, name: typing.Optional[str]):
+    async def create(self, ctx: commands.GuildContext, name: typing.Optional[str]):
         """
         Creates a new logger channel to store message edits and deletions in.
         """
         guild: discord.Guild = ctx.guild
 
-        if name == None:
-            name = await self.config.guild_from_id(guild.id).logger_channel_name()
+        if name is None:
+            name = await self.config.guild(guild).logger_channel_name()
 
         channels: typing.List[discord.guild.GuildChannel] = [
             c for c in guild.channels if c.name == name
@@ -348,24 +325,17 @@ class Logger(commands.Cog):
 
     @logger.command(usage="<True|False>")
     @commands.has_guild_permissions(manage_roles=True)
-    async def inline(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def inline(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """
         Sets whether or not to use inline formatting for log printouts.
         """
         guild: discord.Guild = ctx.guild
-        formatted_inline = await self.config.guild_from_id(guild.id).formatted_inline()
 
         if bool == None:
-            format = "inline" if formatted_inline else "quote"
-            await ctx.channel.send(f"Currently using {format} formatting for logs.")
-            return
+            bool = await self.config.guild_from_id(guild.id).formatted_inline()
 
         await self.config.guild_from_id(guild.id).formatted_inline.set(bool)
-
-        if bool:
-            await ctx.channel.send(f"Now using inline formatting for logs.")
-        else:
-            await ctx.channel.send(f"Now using quote formatting for logs.")
+        await ctx.channel.send(f"Now using {'inline' if bool else 'quote'} formatting for logs.")
         return
 
     @commands.Cog.listener(name="on_raw_message_delete")
@@ -379,36 +349,35 @@ class Logger(commands.Cog):
         """
         Sends data to the logger channel.
         """
-        guild: discord.Guild = self.bot.get_guild(event.guild_id)
+        if event.guild_id is None:
+            return
+
+        guild: discord.Guild = self.bot.get_guild(event.guild_id) # type: ignore[assignment]
+
         if guild == None:
             return
-        
-        payload = LogPayload(event)
 
         if await self.config.guild_from_id(guild.id).is_enabled():
-            channel: discord.TextChannel = guild.get_channel(payload.channel_id)
+            payload = LogPayload(event)
 
-            logger_channel_id = await self.config.guild_from_id(
-                guild.id
-            ).logger_channel_id()
-            logger_channel: discord.TextChannel = guild.get_channel(logger_channel_id)
+            channel: discord.TextChannel = guild.get_channel(payload.channel_id) #type: ignore[assignment]
 
-            author_id = (
-                payload.before["author"].id
-                if isinstance(payload.before["author"], discord.Member)
-                else payload.before["author"]["id"]
-                if "author" in payload.before and payload.before["author"]
-                else payload.data["author"]["id"]
-                if payload.data and "author" in payload.data
-                else None
-            )
+            logger_channel_id = await self.config.guild(guild).logger_channel_id()
+            logger_channel = guild.get_channel(logger_channel_id)
 
-            if author_id == None:
+            if logger_channel is None:
                 return
+
+            author_id = payload.author_id
+
+            if author_id is None:
+                return
+            
+            author : typing.Union[discord.Member, discord.User]
 
             author = await self.bot.get_or_fetch_member(guild, author_id)
 
-            if author == None:
+            if author is None:
                 author = await self.bot.get_or_fetch_user(author_id)
 
             if author.bot:
@@ -417,12 +386,12 @@ class Logger(commands.Cog):
             link_text = ""
 
             if await self.config.guild_from_id(guild.id).is_links_enabled():
-                link_text = f"{payload.before['jump_url'] if payload.before else payload.data['jump_url']}"
+                link_text = payload.jump_url
 
             log = f"[{channel.mention}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
 
             if payload.type == "DELETE":
-                await logger_channel.send(
+                await logger_channel.send( # type: ignore[union-attr]
                     log + f"\n{payload.before['content']}",
                     files=[
                         await attachment.to_file()
@@ -433,20 +402,20 @@ class Logger(commands.Cog):
                 pass
             elif payload.type == "UPDATE":
                 if await self.config.guild_from_id(guild.id).formatted_inline():
-                    await logger_channel.send(
+                    await logger_channel.send( # type: ignore[union-attr]
                         log + f"\n{payload.delta_inline}", suppress_embeds=True
                     )
                 else:
                     before = ">>> " + payload.before["content"]
                     after = (
                         "`No content provided.`"
-                        if payload.data == None
+                        if payload.data is None
                         or "content" not in payload.data
-                        or payload.data["content"] == None
+                        or payload.data["content"] is None
                         else payload.data["content"]
                     )
-                    await logger_channel.send(f"{log}\n{before}", suppress_embeds=True)
-                    await logger_channel.send(after, suppress_embeds=True)
+                    await logger_channel.send(f"{log}\n{before}", suppress_embeds=True) # type: ignore[union-attr]
+                    await logger_channel.send(after, suppress_embeds=True) # type: ignore[union-attr]
         return
 
     @commands.Cog.listener(name="on_raw_bulk_message_delete")
@@ -454,6 +423,9 @@ class Logger(commands.Cog):
         """
         Sends bulk data for processing.
         """
+        if event.guild_id is None:
+            return
+
         for message in event.cached_messages:
             single_event: discord.RawMessageDeleteEvent = discord.RawMessageDeleteEvent(
                 {

@@ -6,6 +6,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from dogscogs.constants import COG_IDENTIFIER
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -22,14 +24,14 @@ class RoleAssign(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
         self.config.register_guild(**DEFAULT_GUILD)
 
     @commands.group()
-    async def roleassign(self, ctx: commands.Context):
+    async def roleassign(self, ctx: commands.GuildContext):
         """
         Role assignment commands.
         """
@@ -37,7 +39,7 @@ class RoleAssign(commands.Cog):
 
     @roleassign.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enable(self, ctx: commands.Context):
+    async def enable(self, ctx: commands.GuildContext):
         """
         Enable role assignment.
         """
@@ -47,7 +49,7 @@ class RoleAssign(commands.Cog):
 
     @roleassign.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def disable(self, ctx: commands.Context):
+    async def disable(self, ctx: commands.GuildContext):
         """
         Disable role assignment.
         """
@@ -57,7 +59,7 @@ class RoleAssign(commands.Cog):
 
     @roleassign.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def enabled(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """
         Check if role assignment is enabled.
         """
@@ -71,7 +73,7 @@ class RoleAssign(commands.Cog):
 
     @roleassign.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def add(self, ctx: commands.Context, destination_role: discord.Role, permitted_source: typing.Union[discord.Member, discord.Role]):
+    async def add(self, ctx: commands.GuildContext, destination_role: discord.Role, permitted_source: typing.Union[discord.Member, discord.Role]):
         """
         Configures a destination role to be assignable by a member or role.
         """
@@ -105,7 +107,7 @@ class RoleAssign(commands.Cog):
 
     @roleassign.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def remove(self, ctx: commands.Context, destination_role: discord.Role, permitted_source: typing.Union[discord.Member, discord.Role]):
+    async def remove(self, ctx: commands.GuildContext, destination_role: discord.Role, permitted_source: typing.Union[discord.Member, discord.Role]):
         """
         Removes permission to grant the given role.
         """
@@ -140,7 +142,7 @@ class RoleAssign(commands.Cog):
     @roleassign.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def list(self, ctx: commands.Context):
+    async def list(self, ctx: commands.GuildContext):
         """
         List all roles with permissions.
         """
@@ -183,7 +185,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    async def assign(self, ctx: commands.Context, role: discord.Role, member: discord.Member):
+    async def assign(self, ctx: commands.GuildContext, role: discord.Role, member: discord.Member):
         """
         Grants the target role to the appropriate member.
         """
@@ -201,7 +203,7 @@ class RoleAssign(commands.Cog):
         pass
 
     @roleassign.command()
-    async def unassign(self, ctx: commands.Context, role: discord.Role, member: discord.Member):
+    async def unassign(self, ctx: commands.GuildContext, role: discord.Role, member: discord.Member):
         """
         Removes the target role from the appropriate member.
         """

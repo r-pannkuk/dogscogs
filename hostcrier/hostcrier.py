@@ -11,6 +11,9 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.constants.regex import IP_ADDRESS as REGEX_IP_ADDRESS, PORT as REGEX_PORT
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -27,16 +30,6 @@ DEFAULT_MEMBER = {
     "host_cleanup_fn": None,
 }
 
-REGEX_IP_ADDRESS = "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
-REGEX_PORT = """(?:
-      (?![7-9]\\d\\d\\d\\d) #Ignrore anything above 7....
-      (?!6[6-9]\\d\\d\\d)  #Ignore anything abovr 69...
-      (?!65[6-9]\\d\\d)   #etc...
-      (?!655[4-9]\\d)
-      (?!6553[6-9])
-      (?!0+)            #ignore complete 0(s)
-      (?P<Port>\\d{1,5})
-    )"""
 REGEX_FULL = REGEX_IP_ADDRESS + ":" + REGEX_PORT
 
 
@@ -49,7 +42,7 @@ class HostCrier(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         self.config.register_guild(**DEFAULT_GUILD)
@@ -96,7 +89,7 @@ class HostCrier(commands.Cog):
             embed.description += f"**Message**: " + text
 
         if(creation_info):
-            # embed.timestamp = datetime.now().astimezone(tz=pytz.timezone("US/Eastern"))
+            # embed.timestamp = datetime.now().astimezone(tz=TIMEZONE)
             pass
 
         return await channel.send(embed=embed)
@@ -114,7 +107,7 @@ class HostCrier(commands.Cog):
             return await missing_error()
 
         try:
-            channel : discord.TextChannel = await self.bot.fetch_channel(channel_id)
+            channel : discord.TextChannel = await self.bot.fetch_channel(channel_id) # type: ignore[assignment]
         except:
             return await channel_error()
         
@@ -144,7 +137,7 @@ class HostCrier(commands.Cog):
 
 
     @commands.group()
-    async def hostcrier(self, ctx: commands.Context):
+    async def hostcrier(self, ctx: commands.GuildContext):
         """Command functions for host commands.
         """
         pass
@@ -153,34 +146,35 @@ class HostCrier(commands.Cog):
     @commands.is_owner()
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
         # TODO: Replace this with the proper end user data removal handling.
-        super().red_delete_data_for_user(requester=requester, user_id=user_id)
+        await super().red_delete_data_for_user(requester=requester, user_id=user_id)
 
     @hostcrier.command()   
     @commands.is_owner()
-    async def red_delete_all(self, ctx: commands.Context) -> None:
+    async def red_delete_all(self, ctx: commands.GuildContext) -> None:
         # TODO: Replace this with the proper end user data removal handling.
         await self.config.clear_all()
         await ctx.send('Done')
 
     @hostcrier.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def channel(self, ctx: commands.Context, channel: typing.Optional[discord.TextChannel]):
+    async def channel(self, ctx: commands.GuildContext, channel: typing.Optional[discord.TextChannel]):
         """Provides or sets the output channel for host commands.
 
         Args:
-            ctx (commands.Context): Command Context
+            ctx (commands.GuildContext): Command Context
             channel (discord.TextChannel): (Optional) The channel to set the outputs to.
         """
         output_channel_id = await self.config.guild(ctx.guild).output_channel_id()
 
-        if channel is not None:
-            await self.config.guild(channel.guild).output_channel_id.set(channel.id)
-        else:
+        if channel is None:
             if output_channel_id is not None:
-                channel = await self.bot.fetch_channel(output_channel_id)
-            else:
+                channel = await self.bot.fetch_channel(output_channel_id) # type: ignore[assignment]
+
+            if output_channel_id is None or channel is None:
                 await ctx.send(f"There is no channel set yet, please set one with ``hostcrier channel <channel>``")
                 return
+        
+        await self.config.guild(channel.guild).output_channel_id.set(channel.id)
         
         await ctx.send(f"Echoing hosts into {channel.mention}.")
         pass
@@ -189,11 +183,11 @@ class HostCrier(commands.Cog):
 
     @hostcrier.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def interval(self, ctx: commands.Context, mins: typing.Optional[int]):
+    async def interval(self, ctx: commands.GuildContext, mins: typing.Optional[int]):
         """Sets the interval at which messages auto delete in minutes.
 
         Args:
-            ctx (commands.Context): Command Context
+            ctx (commands.GuildContext): Command Context
             mins (typing.Optional[int]): The number of minutes inbetween checks.
         """
         interval = await self.config.guild(ctx.guild).cleanup_interval_mins()
@@ -214,27 +208,27 @@ class HostCrier(commands.Cog):
 
 
     @hostcrier.command()
-    async def info(self, ctx: commands.Context, member: typing.Optional[discord.Member]):
+    async def info(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]):
         """Displays saved info about this user.
 
         Args:
-            ctx (commands.Context): Command Context
+            ctx (commands.GuildContext): Command Context
             member (typing.Optional[discord.Member]): The user to fetch info for. 
         """
         if member is None:
             member = ctx.author
 
-        await self._output_message(ctx.channel, member, False)
+        await self._output_message(ctx.channel, member, False) # type: ignore[arg-type]
 
         pass
 
 
-    @commands.hybrid_command()
-    async def hostgr(self, ctx: commands.Context, full_ip: typing.Optional[str], *, text: typing.Optional[str]):
+    @commands.command()
+    async def hostgr(self, ctx: commands.GuildContext, full_ip: typing.Optional[str], *, text: typing.Optional[str]):
         """Hosts a game for the given user under their IP with the stated message.
 
         Args:
-            ctx (commands.Context): Command Context
+            ctx (commands.GuildContext): Command Context
             full_ip (typing.Optional[str]): The user's IP (filled in if known): <###.###.###.###:#####>
             text (typing.Optional[str]): Any message associated with this game.
         """
@@ -284,7 +278,7 @@ class HostCrier(commands.Cog):
 
         await self._delete_previous(ctx.author)
 
-        message = await self._output_message(channel, ctx.author)
+        message = await self._output_message(channel, ctx.author) # type: ignore[arg-type]
 
         await self.config.member(ctx.author).message_id.set(message.id)
         await self.config.member(ctx.author).channel_id.set(message.channel.id)
@@ -311,11 +305,11 @@ class HostCrier(commands.Cog):
         pass
 
     @commands.command()
-    async def unhost(self, ctx: commands.Context):
+    async def unhost(self, ctx: commands.GuildContext):
         """Removes the previous host message from the user.
 
         Args:
-            ctx (commands.Context): Command context.
+            ctx (commands.GuildContext): Command context.
         """
         await ctx.reply(await self._delete_previous(ctx.author))
 

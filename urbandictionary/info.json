@@ -8,7 +8,10 @@
         "Klypto"
     ],
     "required_cogs": {},
-    "requirements": [],
+    "requirements": [
+        "udpy",
+        "git+https://github.com/r-pannkuk/dogscogs-utils.git"
+    ],
     "tags": [
         "urbandictionary",
         "urban",

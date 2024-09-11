@@ -8,23 +8,22 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from dogscogs.constants import INDENT_SIZE, COG_IDENTIFIER
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
-FreezerEntryType = typing.Union[discord.CategoryChannel,
-                                discord.VoiceChannel, discord.TextChannel]
+FreezerEntryType = discord.CategoryChannel | discord.VoiceChannel | discord.TextChannel
 
-INDENT_SIZE = 2
-
-def run_once(f):
-    def wrapper(*args, **kwargs):
-        if not wrapper.has_run:
-            wrapper.has_run = True
-            return f(*args, **kwargs)
-    wrapper.has_run = False
-    return wrapper
+class _FreezerEntry(typing.TypedDict):
+    children: typing.List["_FreezerEntry"]
+    id: int
+    name: str
+    category_id: typing.Optional[int]
+    type: typing.Literal['CATEGORY','VOICE', 'TEXT']
+    position: int
 
 def FreezerEntry(category_or_channel: FreezerEntryType):
-    self = {}
+    self : _FreezerEntry = {} # type: ignore[typeddict-item]
     self["children"] = []
     self["id"] = category_or_channel.id
     self["name"] = category_or_channel.name
@@ -32,7 +31,7 @@ def FreezerEntry(category_or_channel: FreezerEntryType):
     if isinstance(category_or_channel, discord.CategoryChannel):
         self["type"] = 'CATEGORY'
         self["children"] = [
-            FreezerEntry(channel) for channel in sorted(category_or_channel.channels, key=lambda c: c.position)
+            FreezerEntry(channel) for channel in sorted(category_or_channel.channels, key=lambda c: c.position) # type: ignore[arg-type]
         ]
     elif isinstance(category_or_channel, discord.VoiceChannel):
         self["type"] = 'VOICE'
@@ -59,7 +58,7 @@ class Freezer(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -67,11 +66,11 @@ class Freezer(commands.Cog):
 
         self.is_running = False
 
-        self.current_movers : typing.List[FreezerEntry] = []
+        self.current_movers : typing.List[_FreezerEntry] = []
         pass
 
     async def sort_channels(self, guild: discord.Guild):
-        freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(guild).freezer_entries()
+        freezer_entries: typing.Dict[str, _FreezerEntry] = await self.config.guild(guild).freezer_entries()
         operations = []
         categories = guild.categories
 
@@ -101,14 +100,14 @@ class Freezer(commands.Cog):
 
     @commands.group()
     @commands.has_guild_permissions(manage_roles=True)
-    async def freezer(self, ctx: commands.Context):
+    async def freezer(self, ctx: commands.GuildContext):
         """Settings for freezing channel order and structure of server.
         """
         pass
 
     @freezer.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enable(self, ctx: commands.Context):
+    async def enable(self, ctx: commands.GuildContext):
         """Enable the freezer.
         """
         await self.config.guild(ctx.guild).is_enabled.set(True)
@@ -117,7 +116,7 @@ class Freezer(commands.Cog):
 
     @freezer.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def disable(self, ctx: commands.Context):
+    async def disable(self, ctx: commands.GuildContext):
         """Disable the freezer.
         """
         await self.config.guild(ctx.guild).is_enabled.set(False)
@@ -126,7 +125,7 @@ class Freezer(commands.Cog):
 
     @freezer.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def enabled(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """Check if the freezer is enabled.
 
         Args:
@@ -142,7 +141,7 @@ class Freezer(commands.Cog):
 
     @freezer.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def ismoving(self, ctx:commands.Context, bool: typing.Optional[bool]):
+    async def ismoving(self, ctx:commands.GuildContext, bool: typing.Optional[bool]):
         """Check if the freezer is moving categories when a channel is moved.
         """
         if bool is None:
@@ -155,13 +154,13 @@ class Freezer(commands.Cog):
 
     @freezer.command(aliases=["lock"])
     @commands.has_guild_permissions(manage_roles=True)
-    async def freeze(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[str, discord.CategoryChannel]]):
+    async def freeze(self, ctx: commands.GuildContext, *, category: typing.Optional[typing.Union[str, discord.CategoryChannel]]):
         """Freezes a specific category channel, or all channels in the server.
 
         Args:
             category (typing.Optional[FreezerEntryType]): A category channel to limit reordering in.
         """
-        freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
+        freezer_entries: typing.Dict[int, _FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
         guild: discord.Guild = ctx.guild
 
         def freeze_entry(entry: FreezerEntryType):
@@ -177,23 +176,23 @@ class Freezer(commands.Cog):
             for _category in guild.categories:
                 freeze_entry(_category)
             for _channel in [c for c in guild.channels if c.category == None]:
-                freeze_entry(_channel)
+                freeze_entry(_channel) # type: ignore[arg-type]
             pass
 
-        await ctx.send(f"Froze {category.name if category != None else 'all channels'} successfully")
+        await ctx.send(f"Froze {category.name if category is not None else 'all channels'} successfully")
 
         await self.config.guild(ctx.guild).freezer_entries.set(freezer_entries)
         pass
 
     @freezer.command(aliases=["unlock"])
     @commands.has_guild_permissions(manage_roles=True)
-    async def unfreeze(self, ctx: commands.Context, *, category: typing.Optional[typing.Union[str, discord.CategoryChannel]]):
+    async def unfreeze(self, ctx: commands.GuildContext, *, category: typing.Optional[typing.Union[str, discord.CategoryChannel]]):
         """Unlocks a specific cateogry channel, or all channels in the server.
 
         Args:
             category (typing.Optional[discord.CategoryChannel]): A category channel to unlock reordering on.
         """
-        freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
+        freezer_entries: typing.Dict[str, _FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
         guild: discord.Guild = ctx.guild
 
         def unfreeze_entry(entry: FreezerEntryType):
@@ -212,17 +211,17 @@ class Freezer(commands.Cog):
                 unfreeze_entry(_category)
             pass
 
-        await ctx.send(f"Unfroze {category.name if category != None else 'all channels'} successfully")
+        await ctx.send(f"Unfroze {category.name if category is not None else 'all channels'} successfully")
 
         await self.config.guild(ctx.guild).freezer_entries.set(freezer_entries)
         pass
 
     @freezer.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def state(self, ctx: commands.Context):
+    async def state(self, ctx: commands.GuildContext):
         """Displays the current state of any active locks on the server's channels.
         """
-        freezer_entries: typing.Dict[int, FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
+        freezer_entries: typing.Dict[int, _FreezerEntry] = await self.config.guild(ctx.guild).freezer_entries()
         guild: discord.Guild = ctx.guild
 
         embed = discord.Embed()
@@ -230,9 +229,9 @@ class Freezer(commands.Cog):
 
         description = []
 
-        def stringify_entry(entry: FreezerEntry, indent_length=0):
-            found_channel: FreezerEntryType = next(
-                (channel for channel in guild.channels if channel.id == entry['id'])
+        def stringify_entry(entry: _FreezerEntry, indent_length=0):
+            found_channel: typing.Optional[FreezerEntryType] = next(
+                (channel for channel in guild.channels if channel.id == entry['id'] and isinstance(channel, FreezerEntryType)) 
             , None)
             if found_channel:
                 if isinstance(found_channel, discord.VoiceChannel):
@@ -274,14 +273,14 @@ class Freezer(commands.Cog):
 
     @freezer.group()
     @commands.has_guild_permissions(manage_roles=True)
-    async def settings(self, ctx: commands.Context):
+    async def settings(self, ctx: commands.GuildContext):
         """Settings for freezing channel order and structure of server.
         """
         pass
 
     @settings.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def categories(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def categories(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """Sets whether or not to move categories when a channel is moved.
 
         Args:

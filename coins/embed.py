@@ -5,7 +5,8 @@ from redbot.core.config import Config
 from redbot.core import bank
 from redbot.core.bot import Red
 
-from .converters import PercentageOrFloat
+from dogscogs.converters.percent import Percent
+from dogscogs.views.prompts import NumberPromptModal
 
 class CoinsPassiveConfigurationEmbed(discord.Embed):
     def __init__(self, client: Red, config: Config, guild: discord.Guild):
@@ -104,65 +105,6 @@ class CoinsPassiveConfigurationEmbed(discord.Embed):
 
         return self
 
-
-class NumberPromptModal(discord.ui.Modal):
-    def __init__(
-        self,
-        *,
-        author: typing.Union[discord.Member, discord.User],
-        title: str,
-        label: str,
-        placeholder: str,
-        custom_id: str,
-        min: int,
-        max: int,
-        row: int = 0,
-    ):
-        super().__init__(
-            timeout=10 * 60,
-            title=title,
-        )
-
-        self.item: discord.ui.TextInput = discord.ui.TextInput(
-            label=label,
-            placeholder=placeholder,
-            required=True,
-            style=discord.TextStyle.short,
-            custom_id=custom_id,
-            row=row,
-        )
-
-        self.add_item(self.item)
-
-        self.min = min
-        self.max = max
-        self.author = author
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user != self.author:
-            return False
-
-        try:
-            value = PercentageOrFloat.to_float_or_percentage(self.item.value)
-        except:
-            raise ValueError("Please enter a valid number.")
-
-        if value < self.min or value > self.max:
-            raise ValueError(
-                f"Please enter a number between {self.min} and {self.max}."
-            )
-
-        return True
-
-    async def on_error(self, interaction: discord.Interaction, exception: Exception) -> None:  # type: ignore
-        await interaction.response.send_message(
-            str(exception), ephemeral=True, delete_after=20
-        )
-
-    async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.defer()
-
-
 class _ConfigurationView(abc.ABC, discord.ui.View):
     def __init__(
         self,
@@ -178,7 +120,6 @@ class _ConfigurationView(abc.ABC, discord.ui.View):
         self.guild = embed_message.guild
 
         super().__init__(timeout=10 * 60)
-
 
 class CoinsPassiveConfigurationView(_ConfigurationView):
     @discord.ui.button(label="Edit Chance", style=discord.ButtonStyle.secondary, row=0)
@@ -200,7 +141,7 @@ class CoinsPassiveConfigurationView(_ConfigurationView):
 
         await interaction.response.send_modal(modal)
         await modal.wait()
-        await self.config.guild(self.guild).passive_chance.set(PercentageOrFloat.to_float_or_percentage(modal.item.value))  # type: ignore
+        await self.config.guild(self.guild).passive_chance.set(await Percent.parse(modal.item.value))  # type: ignore
         await self.embed_message.edit(
             embed=await CoinsPassiveConfigurationEmbed(
                 self.client, self.config, self.guild  # type: ignore
@@ -330,7 +271,7 @@ class CoinsPassiveConfigurationView(_ConfigurationView):
 
         await interaction.response.send_modal(modal)
         await modal.wait()
-        await self.config.guild(self.guild).passive_response_chance.set(PercentageOrFloat.to_float_or_percentage(modal.item.value))  # type: ignore
+        await self.config.guild(self.guild).passive_response_chance.set(await Percent.parse(modal.item.value))  # type: ignore
         await self.embed_message.edit(
             embed=await CoinsPassiveConfigurationEmbed(
                 self.client, self.config, self.guild  # type: ignore
@@ -386,7 +327,7 @@ class CoinsPassiveConfigurationView(_ConfigurationView):
 
         await interaction.response.send_modal(modal)
         await modal.wait()
-        await self.config.guild(self.guild).passive_response_jackpot_chance.set(PercentageOrFloat.to_float_or_percentage(modal.item.value))  # type: ignore
+        await self.config.guild(self.guild).passive_response_jackpot_chance.set(await Percent.parse(modal.item.value))  # type: ignore
         await self.embed_message.edit(
             embed=await CoinsPassiveConfigurationEmbed(
                 self.client, self.config, self.guild  # type: ignore

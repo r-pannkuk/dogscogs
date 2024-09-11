@@ -1,4 +1,3 @@
-import random
 import discord
 
 from trigger.config import ReactConfig, ReactType
@@ -127,7 +126,7 @@ class ReactEmbed(discord.Embed):
         super().__init__(
             title=config["embed"]["title"],
             description=config["responses"][0],
-            colour=discord.Color.from_rgb(*config["embed"]["color"]),
+            colour=discord.Color.from_rgb(*config["embed"]["color"] or (255, 255, 255)),
         )
         if config["embed"]["image_url"]:
             self.set_thumbnail(url=config["embed"]["image_url"])

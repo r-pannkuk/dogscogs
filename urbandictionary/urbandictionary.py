@@ -2,11 +2,13 @@ from typing import Literal
 import typing
 
 import discord
-import udpy
+import udpy  # type: ignore[import-not-found]
 
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
+
+from dogscogs.constants import COG_IDENTIFIER
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -24,14 +26,14 @@ class UrbanDictionary(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
         self.client = udpy.UrbanClient()
         self.currentLookup: typing.List[udpy.UrbanDefinition] = []
         self.currentIndex: int = 0
-        self.currentMessage: discord.Message = None
+        self.currentMessage: discord.Message = None # type: ignore[assignment]
 
     def get_embed(self):
         definition = self.currentLookup[self.currentIndex]
@@ -77,7 +79,7 @@ class UrbanDictionary(commands.Cog):
 
         self.currentLookup = definitions
         self.currentIndex = 0
-        self.currentMessage: discord.Message = await ctx.channel.send(embed=self.get_embed())
+        self.currentMessage = await ctx.channel.send(embed=self.get_embed())
         await self.currentMessage.add_reaction(PREV_DEFINITION_EMOJI)
         await self.currentMessage.add_reaction(NEXT_DEFINITION_EMOJI)
         pass

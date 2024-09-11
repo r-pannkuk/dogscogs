@@ -7,6 +7,8 @@ from redbot.core.bot import Red
 from redbot.core.config import Config
 from types import SimpleNamespace
 
+from dogscogs.constants import COG_IDENTIFIER
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -15,7 +17,7 @@ DEFAULT_GUILD = {
 
 DEFAULT_MEMBER = {
     "previous_roles": []
-}
+} # type: ignore[var-annotated]
 
 class StickyRoles(commands.Cog):
     """
@@ -26,7 +28,7 @@ class StickyRoles(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -76,7 +78,7 @@ class StickyRoles(commands.Cog):
         if not (await self.config.guild(guild).is_enabled()):
             return
         
-        bot_top_role = guild.get_member(self.bot.user.id).top_role
+        bot_top_role = guild.get_member(self.bot.user.id).top_role # type: ignore[union-attr]
 
         previous_roles = await self.config.member(member).previous_roles()
         

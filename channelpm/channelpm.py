@@ -6,20 +6,20 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT = 2048
-COG_IDENTIFIER = 260288776360820736
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.constants.discord.embed import MAX_DESCRIPTION_LENGTH as EMBED_MAX_DESCRIPTION_LENGTH
 
 BASECOG = getattr(commands, "Cog", object)
-DEF_GLOBAL = {
+DEFAULT_GLOBAL = {
     "dump_channel": None,
     "reply_target": None
 }
 
-DEF_GUILD = {
+DEFAULT_GUILD = {
     "ignored_users": [],
     "dump_channel": None,
-    "reply_target": None
-}
+    "reply_target": None,
+} # type: ignore
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -36,12 +36,12 @@ class ChannelPM(commands.Cog):
             identifier=COG_IDENTIFIER,
             force_registration=True,
         )
-        self.config.register_global(**DEF_GLOBAL)
-        self.config.register_guild(**DEF_GUILD)
+        self.config.register_global(**DEFAULT_GLOBAL)
+        self.config.register_guild(**DEFAULT_GUILD)
 
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
         # TODO: Replace this with the proper end user data removal handling.
-        super().red_delete_data_for_user(requester=requester, user_id=user_id)
+        await super().red_delete_data_for_user(requester=requester, user_id=user_id)
         return
 
     @commands.group()
@@ -54,26 +54,27 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command(usage="<channel>")
-    async def channel(self, ctx: commands.Context, channel: Optional[discord.TextChannel]):
+    async def channel(self, ctx: commands.GuildContext, channel: Optional[discord.TextChannel]):
         """
         Sets the channel where communications will be sent.
         """
         if channel is None:
-            channel = self.bot.get_channel(await self.config.guild(ctx.guild).dump_channel())
+            channel_id : int = await self.config.guild(ctx.guild).dump_channel()
+            fetched_channel = self.bot.get_channel(channel_id)
 
-            if channel is None:
+            if fetched_channel is None:
                 return await ctx.send("PM channel currently not set.")
+            
+            channel = fetched_channel  # type: ignore[assignment]
 
-            return await ctx.send(f"PM channel currently set to {channel.mention}.")
-
-        await self.config.guild(ctx.guild).dump_channel.set(channel.id)
-        await ctx.send(f"Done. Set {channel.mention} as the channel for communications.")
+        await self.config.guild(ctx.guild).dump_channel.set(channel.id) # type: ignore[union-attr]
+        await ctx.send(f"PM channel set to {channel.mention}.") # type: ignore[union-attr]
         return
 
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command(usage="<member>")
-    async def ignore(self, ctx: commands.Context, member: typing.Union[discord.Member, discord.User]):
+    async def ignore(self, ctx: commands.GuildContext, member: typing.Union[discord.Member, discord.User]):
         """
         Adds a user to an ignore list for PM replies. 
         """
@@ -92,7 +93,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command(usage="<member>")
-    async def unignore(self, ctx: commands.Context, member: typing.Union[discord.Member, discord.User]):
+    async def unignore(self, ctx: commands.GuildContext, member: typing.Union[discord.Member, discord.User]):
         """
         Stops a user from being ignored in channel PM's. 
         """
@@ -111,7 +112,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @channelpm.command()
-    async def ignorelist(self, ctx: commands.Context):
+    async def ignorelist(self, ctx: commands.GuildContext):
         """
         Displays the list of users ignored on this server. 
         """
@@ -141,7 +142,7 @@ class ChannelPM(commands.Cog):
                 else:
                     string = f"{member.mention}\n"
                 
-                if len(description) + len(string) > DISCORD_MAX_EMBED_DESCRIPTION_CHARCTER_LIMIT:
+                if len(description) + len(string) > EMBED_MAX_DESCRIPTION_LENGTH:
                     break
 
                 description += string
@@ -165,11 +166,11 @@ class ChannelPM(commands.Cog):
             await ctx.send(embed=embed)
         return
 
-    async def message(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str = "", anonymous: bool = False):
+    async def message(self, ctx: commands.GuildContext, user: typing.Union[discord.Member, discord.User], *, message: str = "", anonymous: bool = False):
         """Messages a user directly via mod channel.
 
         __Args__:
-            ctx (commands.Context): The command context.
+            ctx (commands.GuildContext): The command context.
             user (typing.Union[discord.Member, discord.User]): The user for messaging.
             message (str): Message to send the user over DM.
             anonymous (bool): Whether or not to send the message anonymously.
@@ -185,7 +186,7 @@ class ChannelPM(commands.Cog):
         if response_channel is None:
             await self.config.guild(ctx.guild).dump_channel.set(ctx.channel.id)
 
-        member : discord.Member = ctx.guild.get_member(user.id)
+        member = ctx.guild.get_member(user.id)
 
         if member is None:
             name = f"{user.name}#{user.discriminator}"
@@ -206,7 +207,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["message", "msg"])
-    async def pm(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
+    async def pm(self, ctx: commands.GuildContext, user: typing.Union[discord.Member, discord.User], *, message: str):
         """
         Mesages a user indirectly via the bot.
         """
@@ -216,7 +217,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<message>", rest_is_raw=True, aliases=["reply"])
-    async def r(self, ctx: commands.Context, *, message: str):
+    async def r(self, ctx: commands.GuildContext, *, message: str):
         """
         Replies to the last person who messaged the bot.
         """
@@ -226,7 +227,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["messageanon", "msganon", "msga"])
-    async def pma(self, ctx: commands.Context, user: typing.Union[discord.Member, discord.User], *, message: str):
+    async def pma(self, ctx: commands.GuildContext, user: typing.Union[discord.Member, discord.User], *, message: str):
         """
         Mesages a user indirectly via the bot, anonymously.
         """
@@ -236,7 +237,7 @@ class ChannelPM(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.command(usage="<user> <message>", rest_is_raw=True, aliases=["replyanon"])
-    async def ra(self, ctx: commands.Context, *, message: str):
+    async def ra(self, ctx: commands.GuildContext, *, message: str):
         """
         Replies to the last person who messaged the bot, anonymously.
         """
@@ -245,7 +246,7 @@ class ChannelPM(commands.Cog):
 
     @commands.dm_only()
     @commands.Cog.listener()
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message):
         """
         Listens for private messages to forward to the dump channel.
         """
@@ -259,8 +260,7 @@ class ChannelPM(commands.Cog):
             return
 
         # Find all guilds the user is part of.
-        guilds_in : typing.List[discord.Guild] = filter(lambda g: g.get_member(
-            message.author.id) != None, self.bot.guilds)
+        guilds_in = filter(lambda g: g.get_member(message.author.id) != None, self.bot.guilds)
 
         for guild in guilds_in:
             channel = self.bot.get_channel(await self.config.guild(guild).dump_channel())
@@ -274,7 +274,7 @@ class ChannelPM(commands.Cog):
 
             await self.config.guild(guild).reply_target.set(message.author.id)
 
-            member : discord.Member = guild.get_member(message.author.id)
+            member : typing.Union[discord.Member, discord.User, None] = guild.get_member(message.author.id)
 
             private_message = ""
 
@@ -286,5 +286,5 @@ class ChannelPM(commands.Cog):
 
             private_message += message.content
 
-            await channel.send(private_message)
+            await channel.send(private_message) # type: ignore[union-attr]
         return

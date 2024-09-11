@@ -6,6 +6,8 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from dogscogs.constants import COG_IDENTIFIER
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -15,7 +17,7 @@ DEFAULT_GUILD = {
 
 DEFAULT_CHANNEL = {
     "roles": [],
-}
+} # type: ignore[var-annotated]
 
 class SeasonalRoles(commands.Cog):
     """
@@ -26,7 +28,7 @@ class SeasonalRoles(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
 
@@ -36,19 +38,19 @@ class SeasonalRoles(commands.Cog):
     @commands.is_owner()
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
         # TODO: Replace this with the proper end user data removal handling.
-        super().red_delete_data_for_user(requester=requester, user_id=user_id)
+        await super().red_delete_data_for_user(requester=requester, user_id=user_id)
 
     
     @commands.group()
     @commands.guild_only()
-    async def seasonalroles(self, ctx: commands.Context) -> None:
+    async def seasonalroles(self, ctx: commands.GuildContext) -> None:
         """Manage seasonal roles."""
         pass
 
     @seasonalroles.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enable(self, ctx: commands.Context) -> None:
+    async def enable(self, ctx: commands.GuildContext) -> None:
         """Enable seasonal roles."""
         await self.config.guild(ctx.guild).enabled.set(True)
         await ctx.send("Seasonal roles enabled.")
@@ -56,7 +58,7 @@ class SeasonalRoles(commands.Cog):
     @seasonalroles.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def disable(self, ctx: commands.Context) -> None:
+    async def disable(self, ctx: commands.GuildContext) -> None:
         """Disable seasonal roles."""
         await self.config.guild(ctx.guild).enabled.set(False)
         await ctx.send("Seasonal roles disabled.")
@@ -64,7 +66,7 @@ class SeasonalRoles(commands.Cog):
     @seasonalroles.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, is_enabled: typing.Optional[bool]) -> None:
+    async def enabled(self, ctx: commands.GuildContext, is_enabled: typing.Optional[bool]) -> None:
         """Check if seasonal roles are enabled."""
         if is_enabled is None:
             is_enabled = await self.config.guild(ctx.guild).enabled()
@@ -76,12 +78,12 @@ class SeasonalRoles(commands.Cog):
     @seasonalroles.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def channel(self, ctx: commands.Context, channel: typing.Union[discord.TextChannel, discord.Thread], roles: commands.Greedy[discord.Role]) -> None:
+    async def channel(self, ctx: commands.GuildContext, channel: typing.Union[discord.TextChannel, discord.Thread], roles: commands.Greedy[discord.Role]) -> None:
         """Set the channel to watch for seasonal roles."""
         if not roles or len(roles) == 0:
             role_ids = await self.config.channel(channel).roles()
-            roles = [channel.guild.get_role(role_id) for role_id in role_ids]
-            roles = [role for role in roles if role]
+            roles = [channel.guild.get_role(role_id) for role_id in role_ids] # type: ignore[assignment]
+            roles = [role for role in roles if role] # type: ignore[assignment]
         else:
             await self.config.channel(channel).roles.set([role.id for role in roles])
 
@@ -94,7 +96,7 @@ class SeasonalRoles(commands.Cog):
     @seasonalroles.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def clear(self, ctx: commands.Context, channel: discord.TextChannel) -> None:
+    async def clear(self, ctx: commands.GuildContext, channel: discord.TextChannel) -> None:
         """Clear the seasonal roles for a channel."""
         await self.config.channel(channel).roles.set([])
         await ctx.send(f"Roles cleared for {channel.mention}.")
@@ -119,10 +121,10 @@ class SeasonalRoles(commands.Cog):
 
             roles = [ctx.guild.get_role(role_id) for role_id in data["roles"]]
             roles = [role for role in roles if role is not None]
-            if not roles:
+            if len(roles) == 0:
                 continue
 
-            text += f"{channel.mention}: {', '.join(role.mention for role in roles)}\n"
+            text += f"{channel.mention}: {', '.join(role.mention for role in roles)}\n" # type: ignore[union-attr]
         embed.add_field(name="Channels", value=text)
 
         await ctx.send(embed=embed)
@@ -130,7 +132,7 @@ class SeasonalRoles(commands.Cog):
     @seasonalroles.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def cleanup(self, ctx: commands.Context, will_delete: typing.Optional[bool]) -> None:
+    async def cleanup(self, ctx: commands.GuildContext, will_delete: typing.Optional[bool]) -> None:
         """Set whether or not the bot will delete messages after applying roles."""
         if will_delete is None:
             will_delete = await self.config.guild(ctx.guild).will_delete()
@@ -153,12 +155,11 @@ class SeasonalRoles(commands.Cog):
 
         channel = message.channel
         data = await self.config.channel(channel).roles()
-        roles = [guild.get_role(role_id) for role_id in data]
-        roles = [role for role in roles if role]
-        if not roles:
+        roles = [r for r in [guild.get_role(role_id) for role_id in data] if r is not None]
+        if len(roles) == 0:
             return
 
-        member = message.author
+        member : discord.Member = message.author # type: ignore[assignment]
         await member.add_roles(*roles, reason="Seasonal roles")
 
         if await self.config.guild(guild).will_delete():

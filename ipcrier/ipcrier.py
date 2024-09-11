@@ -10,6 +10,11 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.constants.regex import IP_ADDRESS as REGEX_IP_ADDRESS, PORT as REGEX_PORT
+
+REGEX_FULL = f"{REGEX_IP_ADDRESS}:{REGEX_PORT}"
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 DEFAULT_GUILD = {
@@ -29,18 +34,6 @@ DEFAULT_MEMBER = {
     "channel_id": None
 }
 
-REGEX_IP_ADDRESS = "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
-REGEX_PORT = """(?:
-      (?![7-9]\\d\\d\\d\\d) #Ignrore anything above 7....
-      (?!6[6-9]\\d\\d\\d)  #Ignore anything abovr 69...
-      (?!65[6-9]\\d\\d)   #etc...
-      (?!655[4-9]\\d)
-      (?!6553[6-9])
-      (?!0+)            #ignore complete 0(s)
-      (?P<Port>\\d{1,5})
-    )"""
-REGEX_FULL = REGEX_IP_ADDRESS + ":" + REGEX_PORT
-
 class ipcrier(commands.Cog):
     """
     Echoes any IP's found into a designated channel.
@@ -50,7 +43,7 @@ class ipcrier(commands.Cog):
         self.bot = bot
         self.config = Config.get_conf(
             self,
-            identifier=260288776360820736,
+            identifier=COG_IDENTIFIER,
             force_registration=True,
         )
         self.config.register_guild(**DEFAULT_GUILD)
@@ -94,7 +87,7 @@ class ipcrier(commands.Cog):
         embed.description = f"**Host**: {player1.mention}"
         content = None
 
-        if player2 != None:
+        if player2 is not None:
             if await self.config.guild(player1.guild).use_pings():
                 content = player2.mention
             embed.description += "\n" + f"Opponent: {player2.mention}"
@@ -103,9 +96,9 @@ class ipcrier(commands.Cog):
 
         embed.description += "\n" + f"```fix\n{ip}:{port}\n```"
 
-        embed.set_footer(text=datetime.now().astimezone(tz=pytz.timezone("US/Eastern")))
+        embed.set_footer(text=datetime.now().astimezone(tz=TIMEZONE))
 
-        await output_channel.send(content=content, embed=embed)
+        await output_channel.send(content=content, embed=embed) # type: ignore[union-attr]
         pass
 
     async def _post_to_output_channel_simple(self, player1: discord.Member, player2: typing.Optional[discord.Member]):
@@ -122,23 +115,23 @@ class ipcrier(commands.Cog):
         ip = await config.ip()
         port = await config.port()
 
-        timestamp = datetime.now().astimezone(tz=pytz.timezone('US/Eastern'))
+        timestamp = datetime.now().astimezone(tz=TIMEZONE)
         message = f"[{timestamp.strftime('%H:%M:%S')}] "
 
         if await self.config.guild(player1.guild).use_pings():
             message += f"**{player1.mention}**"
             
-            if player2 != None:
+            if player2 is not None:
                 message += f" (Host) vs. {player2.mention}"
         else:
             message += f"**{player1.display_name}**"
 
-            if player2 != None:
+            if player2 is not None:
                 message += f" vs. {player2.display_name}"
 
         message += "\n" + f"```fix\n{ip}:{port}\n```"
 
-        await output_channel.send(message)
+        await output_channel.send(message) # type: ignore[union-attr]
         pass
 
     async def _post_to_output_channel(self, player1: discord.Member, player2: typing.Optional[discord.Member]):
@@ -154,7 +147,7 @@ class ipcrier(commands.Cog):
             await self._post_to_output_channel_simple(player1, player2)
         pass
 
-    async def _set(self, member: discord.Member, ip: _to_ip_address, port: _to_port):
+    async def _set(self, member: discord.Member, ip: _to_ip_address, port: _to_port): # type: ignore[valid-type]
         """Sets an IP pairing for the specific user.
 
         __Args__:
@@ -192,21 +185,21 @@ class ipcrier(commands.Cog):
         pass
 
     @commands.group()
-    async def ipcrier(self, ctx: commands.Context):
+    async def ipcrier(self, ctx: commands.GuildContext):
         """Configs any settings used by the cog.
 
         __Args__:
-            ctx (commands.Context): [description]
+            ctx (commands.GuildContext): [description]
         """
         pass
 
     @ipcrier.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def enabled(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def enabled(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """Sets whether or not the cog is currently enabled.
 
         __Args__:
-            ctx (commands.Context): The command context.
+            ctx (commands.GuildContext): The command context.
             bool (typing.Optional[bool]): Whether or not the cog is enabled.
         """
         if bool != None:
@@ -218,7 +211,9 @@ class ipcrier(commands.Cog):
         else:
             bool = await self.config.guild(ctx.guild).enabled()
             output_channel_id = await self.config.guild(ctx.guild).output_channel_id()
+            output_channel = await self.bot.fetch_channel(output_channel_id)
             input_channel_id = await self.config.guild(ctx.guild).input_channel_id()
+            input_channel = await self.bot.fetch_channel(input_channel_id)
             
             
             if bool:
@@ -228,15 +223,13 @@ class ipcrier(commands.Cog):
                 if isinstance(prefix, list):
                     prefix = prefix[0]
 
-                if input_channel_id != None:
-                    input_channel = await self.bot.fetch_channel(input_channel_id)
-                    output_string += f"Currently reading IP's from {input_channel.mention}.\n"
+                if input_channel is not None:
+                    output_string += f"Currently reading IP's from {input_channel.mention}.\n" # type: ignore[union-attr]
                 else:
                     output_string += f"ERROR: No Input Channel has been set; please use `{prefix}ipcrier set-input-channel #channel`.\n"
 
-                if output_channel_id != None:
-                    output_channel = await self.bot.fetch_channel(output_channel_id)
-                    output_string += f"Currently echoing IP's into {output_channel.mention}.\n"
+                if output_channel is not None:
+                    output_string += f"Currently echoing IP's into {output_channel.mention}.\n" # type: ignore[union-attr]
                 else:
                     output_string += f"ERROR: No Output Channel has been set; please use `{prefix}ipcrier set-output-channel #channel`.\n"
             else:
@@ -247,11 +240,11 @@ class ipcrier(commands.Cog):
 
     @ipcrier.command(name="set-output-channel")
     @commands.has_guild_permissions(manage_roles=True)
-    async def set_output_channel(self, ctx: commands.Context, channel: discord.TextChannel):
+    async def set_output_channel(self, ctx: commands.GuildContext, channel: discord.TextChannel):
         """Sets the output channel to echo IP's into.
 
         __Args__:
-            ctx (commands.Context): The command context.
+            ctx (commands.GuildContext): The command context.
             channel (discord.TextChannel): The target channel.
         """
         # if not await self.config.guild(ctx.guild).enabled():
@@ -261,7 +254,7 @@ class ipcrier(commands.Cog):
 
         if input_channel_id == channel.id:
             input_channel = await self.bot.fetch_channel(input_channel_id)
-            await ctx.send(f"ERROR: Cannot set input channel {input_channel.mention} as the output channel.")
+            await ctx.send(f"ERROR: Cannot set input channel {input_channel.mention if input_channel is not None else input_channel_id} as the output channel.") # type: ignore[union-attr]
             return
 
         await self._set_output_channel(channel)
@@ -270,11 +263,11 @@ class ipcrier(commands.Cog):
 
     @ipcrier.command(name="set-input-channel")
     @commands.has_guild_permissions(manage_roles=True)
-    async def set_input_channel(self, ctx: commands.Context, channel: discord.TextChannel):
+    async def set_input_channel(self, ctx: commands.GuildContext, channel: discord.TextChannel):
         """Sets the input channel to read IP's from.
 
         __Args__:
-            ctx (commands.Context): The command context.
+            ctx (commands.GuildContext): The command context.
             channel (discord.TextChannel): The target channel.
         """
         # if not await self.config.guild(ctx.guild).enabled():
@@ -284,7 +277,7 @@ class ipcrier(commands.Cog):
 
         if output_channel_id == channel.id:
             output_channel = await self.bot.fetch_channel(output_channel_id)
-            await ctx.send(f"ERROR: Cannot set output channel {output_channel.mention} as the input channel.")
+            await ctx.send(f"ERROR: Cannot set output channel {output_channel.mention if output_channel is not None else output_channel_id} as the input channel.") # type: ignore[union-attr]
             return
 
         await self._set_input_channel(channel)
@@ -293,11 +286,11 @@ class ipcrier(commands.Cog):
 
     @ipcrier.command(name="use-pings")
     @commands.has_guild_permissions(manage_roles=True)
-    async def use_pings(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def use_pings(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """Sets whether or not to ping users in the echoed channel.
 
         __Args__:
-            ctx (commands.Context): The command context.
+            ctx (commands.GuildContext): The command context.
             bool (typing.Optional[bool]): Whether or not to ping.
         """
         if bool != None:
@@ -316,11 +309,11 @@ class ipcrier(commands.Cog):
 
     @ipcrier.command(name="use-rich-embeds")
     @commands.has_guild_permissions(manage_roles=True)
-    async def use_rich_embeds(self, ctx: commands.Context, bool: typing.Optional[bool]):
+    async def use_rich_embeds(self, ctx: commands.GuildContext, bool: typing.Optional[bool]):
         """Sets whether or not to use rich embed messages for IP crier.
 
         __Args__:
-            ctx (commands.Context): The command context.
+            ctx (commands.GuildContext): The command context.
             bool (typing.Optional[bool]): Whether or not to use rich embeds.
         """
         if bool != None:
@@ -339,7 +332,7 @@ class ipcrier(commands.Cog):
 
     async def red_delete_data_for_user(self, *, requester: RequestType, user_id: int) -> None:
         # TODO: Replace this with the proper end user data removal handling.
-        super().red_delete_data_for_user(requester=requester, user_id=user_id)
+        await super().red_delete_data_for_user(requester=requester, user_id=user_id)
 
 
     @commands.Cog.listener()
@@ -364,14 +357,14 @@ class ipcrier(commands.Cog):
             ip = parts[0]
             port = parts[1]
             
-            await self._set(message.author, ip, port)
+            await self._set(message.author, ip, port) # type: ignore[arg-type]
 
             mentions = list(filter(lambda member: member.id != message.author.id, message.mentions))
 
             if len(mentions) > 0:
-                await self._post_to_output_channel(message.author, mentions[0])
+                await self._post_to_output_channel(message.author, mentions[0]) # type: ignore[arg-type]
             else:
-                await self._post_to_output_channel(message.author, None)
+                await self._post_to_output_channel(message.author, None)        # type: ignore[arg-type]
 
 
         pass

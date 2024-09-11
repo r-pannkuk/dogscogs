@@ -2,9 +2,6 @@
 from enum import IntFlag, auto
 import typing
 
-
-COG_IDENTIFIER = 260288776360820736
-
 class ReactType(IntFlag):
     MESSAGE = auto()
     JOIN = auto()

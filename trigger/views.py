@@ -8,13 +8,13 @@ import d20   # type: ignore[import-untyped]
 from redbot.core.commands.context import Context
 from redbot.core.config import Config
 
-from trigger.config import ReactConfig, ReactType, COG_IDENTIFIER
+from trigger.config import ReactConfig, ReactType
 
 from trigger.embed import ReactConfigurationEmbed
 
-
-async def validate_true(str: str, interaction: discord.Interaction):
-    return True
+from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.predicates import validate_true, validate_number_or_diceroll, validate_percent_or_diceroll, validate_length, validate_image, validate_not_in_list
+from dogscogs.predicates.color import validate_color, convert_to_color
 
 async def validate_not_in_guild(input: str, interaction: discord.Interaction):
     guild_config = Config.get_conf(
@@ -23,64 +23,6 @@ async def validate_not_in_guild(input: str, interaction: discord.Interaction):
     reacts = await guild_config.guild(interaction.guild).reacts()
     return input.lower() not in reacts
 
-async def validate_number_or_diceroll(input: str, interaction: discord.Interaction):
-    try:
-        float(input)
-        return True
-    except ValueError:
-        try:
-            d20.parse(input)
-            return True
-        except d20.RollSyntaxError:
-            return False
-
-async def validate_percent_or_diceroll(input: str, interaction: discord.Interaction):
-    try:
-        if input[-1] == "%":
-            f = float(input[:-1]) / 100
-        else:
-            f = float(input)
-        return True
-    except ValueError:
-        try:
-            d20.parse(input)
-            return True
-        except d20.RollSyntaxError:
-            return False
-
-async def validate_not_in_list(list: typing.List[str], input: str, interaction: discord.Interaction):
-    return input.lower() not in list
-
-async def validate_image(input: str, _interaction: discord.Interaction):
-    return input == "" or re.match("(http)?s?:?(\\/\\/[^\"']*\\.(?:png|jpg|jpeg|gif|png|svg))", input) is not None
-
-async def validate_length(length: int, input: str, interaction: discord.Interaction):
-    return len(input) <= length
-
-def convert_color_name(input: str) -> discord.Color:
-    return discord.Colour.__dict__[input.lower().replace(' ', '_')].__func__(discord.Colour)
-
-def convert_hex_code(input: str) -> discord.Color:
-    return discord.Color.from_str(input)
-
-def convert_color_tuple(input: str) -> discord.Color:
-    return discord.Color.from_rgb(*map(int, re.sub(r"[^0-9,]", "", input).split(',')))
-
-def convert_to_color(input: str):
-    try:
-        return convert_hex_code(input)
-    except:
-        try:
-            return convert_color_tuple(input)
-        except:
-            return convert_color_name(input)
-            
-async def validate_color(input: str, interaction: discord.Interaction):
-    try:
-        convert_to_color(input)
-        return True
-    except: 
-        return False
 
 class _EditReactView(abc.ABC, discord.ui.View):
     # finished: bool = False
@@ -643,7 +585,7 @@ class EditReactTriggerView(_EditReactView):
                 prompt_style=discord.TextStyle.long,
                 placeholder="Enter any phrase that will trigger a response.  Spaces and punctuation included.",
                 converter=lambda s: s.lower(),
-                validation=partial(validate_not_in_list, self.config["trigger"]["list"]),
+                validation=partial(validate_not_in_list, self.config["trigger"]["list"]), # type: ignore[arg-type]
             )
             self.add_item(self.add_trigger)
 
@@ -657,7 +599,7 @@ class EditReactTriggerView(_EditReactView):
                 disabled=self.selection == None,
                 label=f"Edit Trigger",
                 row=3,
-                validation=partial(validate_not_in_list, self.config["trigger"]["list"]),
+                validation=partial(validate_not_in_list, self.config["trigger"]["list"]), # type: ignore[arg-type]
             )
 
             self.remove_trigger: ReactRemoveEntryButton = ReactRemoveEntryButton(
