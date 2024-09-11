@@ -150,20 +150,20 @@ class Bully(commands.Cog):
 
     @bully.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def chance(self, ctx: commands.GuildContext, chance: typing.Optional[Percent]):
+    async def chance(self, ctx: commands.GuildContext, chance: typing.Optional[typing.Annotated[float, Percent]]):
         """Sets the random chance that the greeter will go off.
 
         Args:
             chance (float): A number between 0.00 and 1.00
         """
         if chance is not None:
-            if chance <= 0 or chance > 1.0:           # type: ignore[operator]
+            if chance <= 0 or chance > 1.0:
                 await ctx.send("ERROR: Chance must be between (0, 1]")
                 return
 
             await self.config.guild(ctx.guild).chance.set(chance)
 
-            await ctx.send(f"Set the chance to bully users to {chance * 100}%.")  # type: ignore[operator]
+            await ctx.send(f"Set the chance to bully users to {chance * 100}%.")
         else:
             await ctx.send(f"The chance to bully users is currently {await self.config.guild(ctx.guild).chance() * 100}%.")
         pass
@@ -402,7 +402,7 @@ class Bully(commands.Cog):
 
             removed_phrase = phrase
         
-        await self.config.guild(ctx.guild).triggers.set(responses)
+        await self.config.guild(ctx.guild).responses.set(responses)
         await ctx.send(f"Removed ``{removed_phrase}`` to the list of responses for bullying.")
         pass
 

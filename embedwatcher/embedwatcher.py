@@ -196,7 +196,11 @@ class EmbedWatcher(commands.Cog):
 
     @whitelist.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def remove(self, ctx: commands.GuildContext, target: Mention):
+    async def remove(self, ctx: commands.GuildContext, target: typing.Annotated[typing.Union[
+            discord.TextChannel,
+            discord.Member,
+            discord.Role,
+        ], Mention]):
         """Removes a channel from the white list so it is scanned for attachment changes.
 
         Args:
@@ -206,11 +210,11 @@ class EmbedWatcher(commands.Cog):
 
         BAD_ARGUMENT = "This is not a valid target for the whitelist."
 
-        def remove_from_list(list: typing.List[str]):
-            if target.id not in list: # type: ignore[attr-defined]
+        def remove_from_list(list: typing.List[int]):
+            if target.id not in list:
                 raise commands.BadArgument(f"That isn't in the whitelist, idiot.")
 
-            list.remove(target.id) # type: ignore[attr-defined]
+            list.remove(target.id)
 
             return list
 
@@ -228,7 +232,7 @@ class EmbedWatcher(commands.Cog):
 
         await self.config.guild(ctx.guild).whitelist.set(whitelist)
 
-        await ctx.send(f"Removed {target.mention} from the whitelist.") # type: ignore[attr-defined]
+        await ctx.send(f"Removed {target.mention} from the whitelist.")
         pass
 
     @whitelist.command()

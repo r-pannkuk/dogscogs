@@ -1,13 +1,10 @@
 import asyncio
 import datetime
 import io
-import os
-import tempfile
 from typing import Literal
 import typing
 
 import discord
-import pytz
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -16,7 +13,7 @@ from dogscogs.constants import COG_IDENTIFIER
 from dogscogs.constants.discord.channel import TEXT_TYPES as TEXT_CHANNEL_TYPES
 from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.converters.user import UserList
-from dogscogs.converters.channel import ListChannelsText
+from dogscogs.converters.channel import TextChannelList
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -42,7 +39,7 @@ class Purge(commands.Cog):
     def _file_header(
         self,
         users: typing.List[discord.User],
-        channel: discord.TextChannel,
+        channel: TEXT_CHANNEL_TYPES,
         messages: typing.List[discord.Message],
     ):
         header = ""
@@ -80,7 +77,7 @@ class Purge(commands.Cog):
         self,
         ctx: commands.GuildContext,
         number: int,
-        channel: typing.Optional[discord.TextChannel],
+        channel: typing.Optional[TEXT_CHANNEL_TYPES],
     ):
         """Deletes up to X messages from the supplied channel (or current channel if none exists).
 
@@ -147,9 +144,9 @@ class Purge(commands.Cog):
     async def user(
         self,
         ctx: commands.GuildContext,
-        users: UserList,
-        in_channels: typing.Optional[ListChannelsText],
-        ignore_channels: typing.Optional[ListChannelsText],
+        users: typing.Annotated[typing.List[discord.User], UserList],
+        in_channels: typing.Optional[typing.Annotated[typing.List[TEXT_CHANNEL_TYPES], TextChannelList]],
+        ignore_channels: typing.Optional[typing.Annotated[typing.List[TEXT_CHANNEL_TYPES], TextChannelList]],
         limit: typing.Optional[int],
     ):
         """Purges messages for given users in channels
@@ -161,40 +158,36 @@ class Purge(commands.Cog):
             ignoreChannels (typing.Optional[typing.List[discord.TextChannel]]): (optional) The channels to not include.
             limit (typing.Optional[int]): (optional) A limit on how many messages to purge.
         """
-        channel_list : typing.List[discord.TextChannel]
-
         if in_channels is None:
-            channel_list = [c for c in ctx.guild.channels if isinstance(c, TEXT_CHANNEL_TYPES)]
-        else:
-            channel_list = in_channels # type: ignore[assignment]
+            in_channels = [c for c in ctx.guild.channels if isinstance(c, TEXT_CHANNEL_TYPES)]
 
-        channel_list = [
+        in_channels = [
             channel
-            for channel in channel_list
+            for channel in in_channels
             if channel.permissions_for(ctx.me).read_messages
             and channel.permissions_for(ctx.me).read_message_history
             and channel.permissions_for(ctx.me).manage_messages
         ]
 
         if ignore_channels is not None:
-            channel_list = [
+            in_channels = [
                 channel
-                for channel in channel_list
-                if channel.id not in [channel.id for channel in ignore_channels] # type: ignore[attr-defined]
+                for channel in in_channels
+                if channel.id not in [channel.id for channel in ignore_channels]
             ]
 
-        channel_list.sort(key=lambda c: c.position)
+        in_channels.sort(key=lambda c: c.position if hasattr(c, 'position') else -1)
 
         messages : typing.Dict[int, typing.List[discord.Message]] = {}
         number = 0
 
         deferment = await ctx.send("Starting fetch")
 
-        user_ids : typing.List[int] = [user.id for user in users] # type: ignore[attr-defined]
+        user_ids : typing.List[int] = [user.id for user in users]
 
         response = await ctx.channel.send("Fetching...")
 
-        for channel in channel_list:
+        for channel in in_channels:
             await response.edit(content=f"Fetching...{channel.mention}")
             messages[channel.id] = []
             channel_scan_number = 0
@@ -237,11 +230,11 @@ class Purge(commands.Cog):
             await ctx.send("No messages found.")
             return
 
-        channel_mentions = [f"{channel.mention} ({len(messages[channel.id])})" for channel in channel_list]
+        channel_mentions = [f"{channel.mention} ({len(messages[channel.id])})" for channel in in_channels]
 
         embed = discord.Embed()
         embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
-        embed.description = f"**User**: {', '.join([user.mention for user in users])}" # type: ignore[attr-defined]
+        embed.description = f"**User**: {', '.join([user.mention for user in users])}"
         embed.description += f"\n"
         embed.description += f"**Channels**: {', '.join(channel_mentions)}"
         embed.description += f"\n"
@@ -254,7 +247,7 @@ class Purge(commands.Cog):
         await view.wait()
 
         if view.value:
-            completed_channels: typing.List[discord.TextChannel] = []
+            completed_channels: typing.List[TEXT_CHANNEL_TYPES] = []
             current_total = 0
 
             followup = await ctx.channel.send("Starting...")
@@ -282,7 +275,7 @@ class Purge(commands.Cog):
                 )
 
                 if len(msgs) > 0:
-                    file = self._file_header(users, channel, msgs) # type: ignore[arg-type]
+                    file = self._file_header(users, channel, msgs)
 
                     bulk_messages = [
                         message

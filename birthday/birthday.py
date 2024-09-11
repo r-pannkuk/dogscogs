@@ -16,14 +16,15 @@ from json import JSONEncoder
 
 import random
 
-from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.discord.embed import (
     MAX_DESCRIPTION_LENGTH as EMBED_MAX_DESCRIPTION_LENGTH,
 )
 from dogscogs.constants.discord.channel import TEXT_TYPES as TEXT_CHANNEL_TYPES
-from dogscogs.parsers.date import to_birthdate
+from dogscogs.converters.date import BirthdayConverter
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+
 
 
 class BirthdayRecord:
@@ -428,7 +429,7 @@ class Birthday(commands.Cog):
         pass
 
     @birthday.command(usage="<date>")
-    async def set(self, ctx: commands.GuildContext, *, date: to_birthdate):
+    async def set(self, ctx: commands.GuildContext, *, date: typing.Annotated[datetime.datetime, BirthdayConverter]):
         """Adds a user's birthday under the given date to the list.
 
         __Args__:
@@ -438,7 +439,7 @@ class Birthday(commands.Cog):
         record = await self.set_birthday(ctx.author, date)
 
         await ctx.send(
-            f"**{ctx.author.display_name}** birthday registered to: `{record.month} {record.day}"
+            f"**{ctx.author.display_name}** birthday registered to: `{record.month} {record.day}`"
         )
         pass
 
@@ -676,7 +677,7 @@ class Birthday(commands.Cog):
     @manual.command(aliases=["set"])
     @commands.has_guild_permissions(manage_roles=True)
     async def add(
-        self, ctx: commands.GuildContext, member: discord.Member, date: to_birthdate
+        self, ctx: commands.GuildContext, member: discord.Member, date: typing.Annotated[datetime.datetime, BirthdayConverter]
     ):
         """Sets a user's birthday in the birthday list.
 
