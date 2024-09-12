@@ -261,7 +261,7 @@ def bind_member(group: config.Group):
                 name=name,
                 target_id=self.identifier_data.uuid,  # type: ignore[arg-type]
                 type="Default",
-                created_at=datetime.fromtimestamp(0),
+                created_at=datetime.fromtimestamp(946713600),
             )
 
         nick_queue.append(to_be_replaced)
@@ -313,7 +313,7 @@ class Nickname(commands.Cog):
                     name=member.display_name,
                     target_id=member.id,
                     type="Default",
-                    created_at=datetime.fromtimestamp(0),
+                    created_at=datetime.fromtimestamp(946713600),
                 )
             )
 
@@ -376,6 +376,18 @@ class Nickname(commands.Cog):
     @nickname.command()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
+    async def check_guild(self, ctx: commands.GuildContext):
+        """Forcefully uncurses people who might have been missed in the server.
+        """
+        message = await ctx.reply("Checking guild for afflicted members...")
+        members = await self._check_guild(ctx.guild)
+        await message.edit(content=f"Fixed issues with {len(members)} members.\n\n" + 
+                        ','.join([f"{member.mention} ({member.id})" for member in members]))
+
+
+    @nickname.command()
+    @commands.has_guild_permissions(manage_roles=True)
+    @commands.guild_only()
     async def status(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]):
         """Checks the status of a member's nickname.
         """
@@ -418,6 +430,9 @@ class Nickname(commands.Cog):
         await self.config.member(member).next_curse_available.set(
             datetime.now(tz=TIMEZONE).timestamp()
         )
+        await self.config.member(member).next_nyame_available.set(
+            datetime.now(tz=TIMEZONE).timestamp()
+        )
         if verbose:
             await ctx.send(f"Cooldown reset for {member.mention}.")
 
@@ -437,7 +452,7 @@ class Nickname(commands.Cog):
             ctx.author
         ).next_nyame_available()
 
-        if (
+        if not await self.bot.is_owner(ctx.author) and (
             not ctx.author.guild_permissions.manage_roles
             and next_nyame_available != None
             and next_nyame_available > datetime.now(tz=TIMEZONE).timestamp()
@@ -632,7 +647,7 @@ class Nickname(commands.Cog):
             ctx.author
         ).next_curse_available()
 
-        if (
+        if not await self.bot.is_owner(ctx.author) and (
             not ctx.author.guild_permissions.manage_roles
             and next_curse_available != None
             and next_curse_available > datetime.now(tz=TIMEZONE).timestamp()
@@ -883,7 +898,7 @@ class Nickname(commands.Cog):
             await ctx.send(f"{member.display_name} isn't nyamed.")
             return
 
-        if (
+        if not await self.bot.is_owner(ctx.author) and (
             author.id != await member_config.get_nyaming_instigator_id()
             and not author.guild_permissions.manage_roles
         ):
@@ -923,7 +938,7 @@ class Nickname(commands.Cog):
             await ctx.send(f"{member.display_name} isn't cursed.")
             return
 
-        if (
+        if not await self.bot.is_owner(ctx.author) and (
             author.id != await member_config.get_cursing_instigator_id()
             and not author.guild_permissions.manage_roles
         ):
@@ -1252,17 +1267,19 @@ class Nickname(commands.Cog):
         )
         pass
 
-    async def _check_member(self, member: discord.Member):
+    async def _check_member(self, member: discord.Member) -> bool:
         member_config = bind_member(self.config.member(member))
         guild: discord.Guild = member.guild
 
-        nick_queue = await member_config.nick_queue()
+        nick_queue : typing.List[NickQueueEntry] = await member_config.nick_queue()
         nick_queue = list(
             filter(
-                lambda entry: entry["type"] == "Cursed" or entry["type"] == "Nyamed",
+                lambda entry: entry['expiration'] is not None,
                 nick_queue,
             )
         )
+
+        unset : bool = False
 
         async def undo_curse():
             await self._unset(member, type="Cursed")
@@ -1277,35 +1294,48 @@ class Nickname(commands.Cog):
                 pass
 
         for curse in nick_queue:
-            if curse["expiration"] < datetime.now(tz=TIMEZONE).timestamp():
-                await undo_curse()
-                continue
-            else:
-                scheduler.add_job(
-                    undo_curse,
-                    id=str(curse["id"]),
-                    trigger="date",
-                    next_run_time=datetime.fromtimestamp(
-                        curse["expiration"], tz=TIMEZONE
-                    ),
-                    replace_existing=True,
-                )
-                pass
+            if curse['expiration'] is not None: 
+                if curse["expiration"] < datetime.now(tz=TIMEZONE).timestamp():
+                    await undo_curse()
+                    unset = True
+                    continue
+                else:
+                    scheduler.add_job(
+                        undo_curse,
+                        id=str(curse["id"]),
+                        trigger="date",
+                        next_run_time=datetime.fromtimestamp(
+                            curse["expiration"], tz=TIMEZONE
+                        ),
+                        replace_existing=True,
+                    )
+                    pass
 
-    async def _check_guild(self, guild: discord.Guild):
+        return unset
+
+    async def _check_guild(self, guild: discord.Guild) -> typing.List[discord.Member]:
         member_ids: typing.List[int] = await self._get_member_ids_by_entry(guild)
+        adjusted_members : typing.List[discord.Member] = []
 
         if len(member_ids) == 0:
-            return
+            return []
         else:
             member: discord.Member
             for member in [m for m in [guild.get_member(id) for id in member_ids] if m is not None]:
-                await self._check_member(member)
+                if await self._check_member(member):
+                    adjusted_members.append(member)
+
+        return adjusted_members
 
     @commands.Cog.listener()
     async def on_ready(self):
         for guild in self.bot.guilds:
-            await self._check_guild(guild)
+            members = await self._check_guild(guild)
+            if len(members) > 0:
+                await self.bot.send_to_owners(
+                    f"Nickname Cog: {len(members)} members had their curses removed after restart:" + 
+                    f"{','.join([f'{m.mention} ({m.id})' for m in members])}"
+                )
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
