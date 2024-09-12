@@ -20,6 +20,7 @@ from apscheduler.jobstores.base import JobLookupError # type: ignore[import-unty
 from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.colors import color_diff, hex_to_rgb, get_palette
 from dogscogs.constants.discord.embed import MAX_DESCRIPTION_LENGTH as DISCORD_EMBED_MAX_DESCRIPTION_LENGTH
+from dogscogs.parsers.date import parse_duration_string, duration_string
 
 scheduler = AsyncIOScheduler(timezone="US/Eastern")
 
@@ -255,15 +256,42 @@ class RoleColors(commands.Cog):
 
     @rolecolors.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def duration(self, ctx: commands.GuildContext, seconds: typing.Optional[int]):
+    async def duration(self, ctx: commands.GuildContext, cooldown_sec: typing.Optional[typing.Union[int, str]] = None):
         """
         Sets how long cursing someone's color should last.
         """
-        if seconds is None:
-            seconds = await self.config.guild_from_id(ctx.guild.id).color_change_duration_secs()
-        
-        await self.config.guild_from_id(ctx.guild.id).color_change_duration_secs.set(seconds)
-        await ctx.channel.send(f"Color change curse duration set to {seconds} seconds.")
+        """Sets or displays the current curse attempt cooldown.
+
+        Args:
+            cooldown_sec (typing.Optional[int], optional): The amount (in seconds) that the curse cooldown should be set to.
+        """
+        guild: discord.Guild = ctx.guild
+
+        if cooldown_sec is None:
+            cooldown_sec = int(await self.config.guild(guild).color_change_duration_secs())
+            pass
+        else:
+            if isinstance(cooldown_sec, str):
+                try:
+                    cooldown_sec = parse_duration_string(cooldown_sec)
+                except commands.BadArgument:
+                    await ctx.send(
+                        "Unable to parse duration input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)"
+                    )
+                    return
+
+            await self.config.guild(guild).color_change_duration_secs.set(cooldown_sec)
+
+            pass
+
+        seconds = cooldown_sec % 60
+        minutes = int(cooldown_sec / 60) % 60
+        hours = int(cooldown_sec / 60 / 60)
+
+        await ctx.send(
+            f"Curse duration currently set to {duration_string(hours, minutes, seconds)}."
+        )
+        pass
 
     @rolecolors.command()
     @commands.has_guild_permissions(manage_roles=True)
@@ -376,7 +404,13 @@ class RoleColors(commands.Cog):
             )
             return
         
-        message = await ctx.send(f"Spend {color_change_cost} {await Coins._get_currency_name(ctx.guild)} to curse {member.mention} to use {hex_or_roleid} for {duration} seconds?")
+        hours = int(duration / 60 / 60)
+        minutes = int(duration / 60) % 60
+        seconds = duration % 60
+        
+        x = duration_string(hours, minutes, seconds)
+
+        message = await ctx.send(f"Spend {color_change_cost} {await Coins._get_currency_name(ctx.guild)} to curse {member.mention} to use {hex_or_roleid} for {x}?")
 
         await message.add_reaction("✅")
         await message.add_reaction("❌")
