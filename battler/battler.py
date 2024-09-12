@@ -188,70 +188,53 @@ class Battler(commands.Cog):
             emoji = '🎨'
 
         description = ""
-        description += f"__Type__: {verb.capitalize()}\n"
-        description += ("**" if winner.id == attacker.id else "") + f"__Attacker__: {attacker.mention} ({attacker.display_name})" + ("**\n" if winner.id == attacker.id else "\n")
-        description += ("**" if winner.id == defender.id else "") + f"__Defender__: {defender.mention} ({defender.display_name})" + ("**\n" if winner.id == defender.id else "\n")
+        # description += f"__Type__: {verb.capitalize()}\n"
+        # description += ("**" if winner.id == attacker.id else "") + f"__Attacker__: {attacker.mention} ({attacker.display_name})" + ("**\n" if winner.id == attacker.id else "\n")
+        # description += ("**" if winner.id == defender.id else "") + f"__Defender__: {defender.mention} ({defender.display_name})" + ("**\n" if winner.id == defender.id else "\n")
 
+        # description += "\n"
+
+        description += ("**" if winner.id == attacker.id else "") + f"__Attacker__: {'🏆 ' if attacker.id == winner.id else ''}{attacker.mention}: {attacker_roll.result}" + ("**\n" if winner.id == attacker.id else "\n")
         
+        if attacker_roll.crit == d20.CritType.FAIL:
+            description += f":skull: Oh no, something went wrong... :skull:\n"
+            pass
+        elif attacker_roll.crit == d20.CritType.CRIT:
+            description += f":dart: Your curse feels extra potent! :dart:\n"
+            pass
+
+        description += "\n"
+
+        description += ("**" if winner.id == defender.id else "") + f"__Defender__: {'🏆 ' if defender.id == winner.id else ''}{defender.mention}: {defender_roll.result}" + ("**\n" if winner.id == defender.id else "\n")
+
+        # if defender_roll.crit == d20.CritType.FAIL:
+        #     pass
+        if defender_roll.crit == d20.CritType.CRIT:
+            description += f"\n:shield: {defender.mention} ({defender.display_name}) shielded against the blow"
+            collateral_list = [member for member in victims if member.id != defender.id]
+
+            if len(collateral_list) > 0:
+                description += f"...and it ended up hitting {','.join(f'{victim.mention} ({discord.utils.escape_markdown(victim.display_name)})' for victim in victims)} by mistake" 
+
+            description += "!\n"
+
+        description += "\n"
+
+        if type == "curse":
+            description += f"__Curse Name__: {discord.utils.escape_markdown(outcome)}\n" # type: ignore[arg-type]
+        if type == "nyame":
+            pass
+        if type == "rolecolors":
+            description += f"__Color__: {outcome.mention}\n" # type: ignore[union-attr]
+
+        if winner.id == attacker.id:
+            description += f"__Until__: <t:{int(expiration.timestamp())}:R>"
+            
         embed = discord.Embed(
             title=f"{emoji} {attacker.display_name} vs. {defender.display_name} {emoji}",
             color=color,
             description=description
         )
-
-        attacker_roll_field = attacker_roll.result
-        
-        if attacker_roll.crit == d20.CritType.FAIL:
-            attacker_roll_field = f":skull: Oh no, something went wrong... :skull:\n" + attacker_roll_field
-            pass
-        elif attacker_roll.crit == d20.CritType.CRIT:
-            attacker_roll_field = f":dart: Your curse feels extra potent! :dart:\n" + attacker_roll_field
-            pass
-
-        embed.add_field(
-            name=f"{'🏆 ' if attacker.id == winner.id else ''}{attacker.display_name}: *{attacker_roll.total}*", 
-            value=attacker_roll_field, 
-            inline=False
-        )
-
-        defender_roll_field = defender_roll.result
-
-        # if defender_roll.crit == d20.CritType.FAIL:
-        #     pass
-        if defender_roll.crit == d20.CritType.CRIT:
-            defender_roll_field += f"\n:shield: {defender.mention} ({defender.display_name}) shielded against the blow"
-            collateral_list = [member for member in victims if member.id != defender.id]
-
-            if len(collateral_list) > 0:
-                defender_roll_field += f"...and it ended up hitting another by mistake" 
-
-            defender_roll_field += "!\n"
-
-        embed.add_field(
-            name=f"{'🏆 ' if defender.id == winner.id else ''}{defender.display_name}: *{defender_roll.total}*", 
-            value=defender_roll_field, 
-            inline=False
-        )
-
-        if len(victims) > 1:
-            embed.add_field(
-                name="Victims", 
-                value='\n'.join(f"{victim.mention} ({discord.utils.escape_markdown(victim.display_name)})" for victim in victims), 
-                inline=False
-            )
-
-        result_field = ""
-        if type == "curse":
-            result_field += f"__Curse Name__: {discord.utils.escape_markdown(outcome)}\n" # type: ignore[arg-type]
-        if type == "nyame":
-            pass
-        if type == "rolecolors":
-            result_field += f"__Color__: {outcome.mention}\n" # type: ignore[union-attr]
-
-        if winner.id == attacker.id:
-            result_field += f"__Until__: <t:{int(expiration.timestamp())}:R>"
-
-        embed.add_field(name=" ", value=result_field, inline=False)
 
         if winner.id == attacker.id:
             embed.set_footer(text=f"✅ {attacker.display_name} succesfully {verb} {defender.display_name}!")
