@@ -348,6 +348,33 @@ class Nickname(commands.Cog):
 
     @nickname.command()
     @commands.is_owner()
+    @commands.guild_only()
+    async def replace_dict_values(self, ctx: commands.GuildContext):
+        guild = ctx.guild
+        all_members = await self.config.all_members(guild)
+        count = 0
+        for key, value in all_members.items():
+            change : bool = False
+            nick_queue = value['nick_queue']
+            for entry in nick_queue:
+                if 'author_id' in entry:
+                    entry['instigator_id'] = entry['author_id']
+                    del entry['author_id']
+                    count += 1
+                    change = True
+
+            if change:
+                member = guild.get_member(int(key))
+                if member is not None:
+                    await self.config.member(member).nick_queue.set(nick_queue)
+
+        await ctx.send(f"Replaced {count} `author_id` with `instigator_id`.")
+        
+        pass
+        
+
+    @nickname.command()
+    @commands.is_owner()
     async def clear(
         self,
         ctx: commands.GuildContext,
