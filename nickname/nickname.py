@@ -86,7 +86,6 @@ DEFAULT_MEMBER = {
 }  # type: ignore[var-annotated]
 
 DEFAULT_GUILD = {
-    "nicknamed_member_ids": [],
     "attacker_wins_ties": True,
     "attacker_strength": "1d20",
     "defender_strength": "1d20",
@@ -291,6 +290,16 @@ class Nickname(commands.Cog):
         scheduler.start()
         pass
 
+    async def _get_member_ids_by_entry(
+            self, 
+            guild: discord.Guild, 
+            *, 
+            predicate : typing.Callable[[NickQueueEntry], bool] = lambda e: e['type'] != 'Default'
+        ) -> typing.List[int]:
+        all_members = await self.config.all_members(guild)
+        return [int(key) for key, value in all_members.items() if any(predicate(entry) for entry in value['nick_queue'])]
+
+
     async def _set(self, member: discord.Member, entry: NickQueueEntry):
         guild = member.guild
         member_config = bind_member(self.config.member(member))
@@ -320,11 +329,11 @@ class Nickname(commands.Cog):
             nick=entry['name'],
         )
 
-        member_ids = await self.config.guild(guild).nicknamed_member_ids()
-        member_ids.append(member.id)
-        member_ids = list(set(member_ids))
+        # member_ids = await self.config.guild(guild)._get_nicknamed_member_ids()
+        # member_ids.append(member.id)
+        # member_ids = list(set(member_ids))
 
-        await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
+        # await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
 
         return entry
 
@@ -780,10 +789,10 @@ class Nickname(commands.Cog):
             reason=f"Removing current lock on nickname.", nick=latest["name"]
         )
 
-        if not await member_config.is_cursed() and not await member_config.is_locked():
-            member_ids = await self.config.guild(guild).nicknamed_member_ids()
-            member_ids = list(filter(lambda x: x != member.id, member_ids))
-            await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
+        # if not await member_config.is_cursed() and not await member_config.is_locked():
+        #     member_ids = await self.config.guild(guild).nicknamed_member_ids()
+        #     member_ids = list(filter(lambda x: x != member.id, member_ids))
+        #     await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
 
         return latest
 
@@ -1023,7 +1032,8 @@ class Nickname(commands.Cog):
             ctx (commands.GuildContext): Command Context.
         """
         guild: discord.Guild = ctx.guild
-        member_ids: list = await self.config.guild(guild).nicknamed_member_ids()
+
+        member_ids = await self._get_member_ids_by_entry(guild)
 
         values: typing.List[NickQueueEntry] = []
 
@@ -1036,7 +1046,7 @@ class Nickname(commands.Cog):
                     filter(
                         lambda entry: entry["type"] != "Default"
                         and (
-                            entry["expiration"] == None
+                            entry["expiration"] is None
                             or entry["expiration"]
                             > datetime.now(tz=TIMEZONE).timestamp()
                         ),
@@ -1067,7 +1077,7 @@ class Nickname(commands.Cog):
                 value = values[0]
                 time_field : str
                 member = guild.get_member(value['target_id'])  # type: ignore[assignment]
-                author = guild.get_member(value['instigator_id']) if value['instigator_id'] is not None else None  # type: ignore[assignment]
+                author = guild.get_member(value['instigator_id']) if value['instigator_id'] is not None else None 
 
                 if value['expiration'] is not None:
                     time_field = f"<t:{int(datetime.fromtimestamp(value['expiration'], tz=TIMEZONE).timestamp())}:F>"
@@ -1240,7 +1250,7 @@ class Nickname(commands.Cog):
                 pass
 
     async def _check_guild(self, guild: discord.Guild):
-        member_ids: typing.List[int] = await self.config.guild(guild).nicknamed_member_ids()
+        member_ids: typing.List[int] = await self._get_member_ids_by_entry(guild)
 
         if len(member_ids) == 0:
             return
