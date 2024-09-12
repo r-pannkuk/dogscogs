@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from functools import partial
+import json
 import random
 from types import MethodType
 from typing import Literal
@@ -371,7 +372,20 @@ class Nickname(commands.Cog):
         await ctx.send(f"Replaced {count} `author_id` with `instigator_id`.")
         
         pass
-        
+
+    @nickname.command()
+    @commands.has_guild_permissions(manage_roles=True)
+    @commands.guild_only()
+    async def status(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]):
+        """Checks the status of a member's nickname.
+        """
+        if member is None:
+            member = ctx.author
+
+        member_config = bind_member(self.config.member(member))
+
+        await ctx.reply(content=f"{member.display_name}'s Nickname Status:\n" + json.dumps(await member_config.all(), indent=2))
+    
 
     @nickname.command()
     @commands.is_owner()
@@ -1072,11 +1086,13 @@ class Nickname(commands.Cog):
                 nick_queue = list(
                     filter(
                         lambda entry: entry["type"] != "Default"
-                        and (
-                            entry["expiration"] is None
-                            or entry["expiration"]
-                            > datetime.now(tz=TIMEZONE).timestamp()
-                        ),
+                        # and (
+                        #     entry["expiration"] is None
+                        #     or entry["expiration"]
+                        #     > datetime.now(tz=TIMEZONE).timestamp()
+                        # )
+                        
+                        ,
                         nick_queue,
                     )
                 )
