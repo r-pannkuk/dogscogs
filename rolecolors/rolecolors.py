@@ -64,12 +64,12 @@ class RoleColors(commands.Cog):
         color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
 
         if len(color_roles) == 0:
-            await ctx.channel.send("No color roles found.")
+            await ctx.channel.send("No color roles found.", delete_after=15)
             return None
 
         if isinstance(hex_or_roleid, discord.Role):
             if hex_or_roleid not in color_roles:
-                await ctx.channel.send("Role was not a specified color role.")
+                await ctx.channel.send("Role was not a specified color role.", delete_after=15)
                 return None
             role = hex_or_roleid
         else:
@@ -77,7 +77,8 @@ class RoleColors(commands.Cog):
                 r"(?i)^#([0-9a-f]{6}|[0-9a-f]{3})$", hex_or_roleid
             ):
                 await ctx.channel.send(
-                    "Invalid parameter sent.  Please use `#rrggbb` format."
+                    "Invalid parameter sent.  Please use `#rrggbb` format.",
+                    delete_after=15
                 )
                 return None
 
@@ -90,13 +91,15 @@ class RoleColors(commands.Cog):
 
         if role is None:
             await ctx.channel.send(
-                "No color role found.  Please ask your moderator to add more color roles."
+                "No color role found.  Please ask your moderator to add more color roles.",
+                delete_after=15
             )
             return None
 
         if member.id in [member.id for member in role.members]:
             await ctx.channel.send(
-                f"User {member} already has the closest color role available."
+                f"User {member} already has the closest color role available.",
+                delete_after=15
             )
             return None
 
@@ -273,6 +276,66 @@ class RoleColors(commands.Cog):
         await self.config.guild_from_id(ctx.guild.id).color_change_cost.set(points)
         await ctx.channel.send(f"Color change curse cost set to {points} points.")
 
+    async def _uncurse_member(self, member: discord.Member):
+        color_role_ids : typing.List[int] = await self.config.guild(member.guild).role_ids()
+        color_roles = [role for role in member.guild.roles if role.id in color_role_ids]
+        original_color_role_id = await self.config.member(member).original_color_role_id()
+        
+        try:
+            await member.remove_roles(*[role for role in color_roles if role in member.roles])
+            if original_color_role_id is not None:
+                original_color_role = member.guild.get_role(original_color_role_id)
+                if original_color_role is not None:
+                    await member.add_roles(original_color_role)
+        except PermissionError:
+            pass
+
+        await self.config.member(member).cursed_until.set(None)
+
+    async def _update_member(self, member: discord.Member) -> bool:
+        """Checks to see if a member should be uncursed, and readds the curse to the scheduler if it's still persistant."""
+        cursed_until = await self.config.member(member).cursed_until()
+
+        if cursed_until is not None:
+            if datetime.now(tz=TIMEZONE).timestamp() >= cursed_until:
+                await self._uncurse_member(member)
+                return True
+            else:
+                if not scheduler.running:
+                    scheduler.start()
+
+                scheduler.add_job(
+                    partial(self._update_member, member),
+                    id=f"ColorCurse:{member.id}",
+                    trigger="date",
+                    next_run_time=datetime.fromtimestamp(
+                        cursed_until, tz=TIMEZONE
+                    ),
+                    replace_existing=True,
+                )
+
+        return False
+
+    async def _check_guild(self, guild: discord.Guild) -> typing.List[discord.Member]:
+        fixed_members = []
+
+        for member in guild.members:
+            cursed_until = await self.config.member(member).cursed_until()
+            if cursed_until is not None:
+                if await self._update_member(member):
+                    fixed_members.append(member)
+
+        return fixed_members
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        for guild in self.bot.guilds:
+            members = await self._check_guild(guild)
+            if len(members) > 0:
+                await self.bot.send_to_owners(
+                    f"Rolecolors Cog: {len(members)} members had their curses removed in {guild.name} after restart:\n" +
+                    "\n".join([f"{member.mention} ({member.id})" for member in members])
+                )
 
     @rolecolors.command(usage="<member> <hex_or_roleid>", name="curse")
     async def curse(
@@ -342,18 +405,7 @@ class RoleColors(commands.Cog):
                 original_color_role_id = found_roles[0].id
                 await self.config.member(member).original_color_role_id.set(original_color_role_id)
 
-        async def curse_end(v: discord.Member):
-            try:
-                await v.remove_roles(*[role for role in color_roles if role in v.roles])
-                if original_color_role_id is not None:
-                    original_color_role = ctx.guild.get_role(original_color_role_id)
-                    if original_color_role is not None:
-                        await v.add_roles(original_color_role)
-                await self.config.member(v).cursed_until.set(None)
-                await ctx.channel.send(f"{v.mention} is no longer cursed.")
-            except PermissionError as e:
-                await ctx.channel.send(f"Could not restore color role: {e}")
-
+        
         set_role = await self._set(ctx, member, hex_or_roleid)
 
         if set_role is not None:
@@ -371,7 +423,7 @@ class RoleColors(commands.Cog):
                 scheduler.start()
 
             scheduler.add_job(
-                partial(curse_end, member),
+                partial(self._update_member, member),
                 id=f"ColorCurse:{member.id}",
                 trigger="date",
                 next_run_time=datetime.fromtimestamp(
@@ -383,33 +435,29 @@ class RoleColors(commands.Cog):
             await message.edit(content=
                 f"{ctx.author.mention} cursed {member.mention} to use {set_role.name} (#{set_role.color.value:06x}) until <t:{int(release_timestamp)}:F>."
             )
+        else:
+            await message.edit(content="You won't be charged.", delete_after=15)
 
     @rolecolors.command()
     @commands.has_guild_permissions(manage_roles=True)
     async def uncurse(self, ctx: commands.GuildContext, member: discord.Member):
         """
         Removes a curse from a member.
-        """
-        cursed_until = await self.config.member(member).cursed_until()
-        if cursed_until is None:
-            await ctx.channel.send(f"{member.mention} is not currently cursed.")
+        """ 
+        if await self.config.member(member).cursed_until() is None:
+            await ctx.send(f"{member.display_name} isn't cursed.", delete_after=15)
             return
-        
-        original_color_role_id = await self.config.member(member).original_color_role_id()
-        color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
-        color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
 
-        await member.remove_roles(*[role for role in color_roles if role in member.roles])
-        if original_color_role_id is not None:
-                original_color_role_id = ctx.guild.get_role(original_color_role_id)
-                if original_color_role_id is not None:
-                    await member.add_roles(original_color_role_id)
-        await self.config.member(member).cursed_until.set(None)
+        if not await self.bot.is_owner(ctx.author) and (
+            # ctx.author.id != await member_config.get_cursing_instigator_id() and
+            not ctx.author.guild_permissions.manage_roles
+        ):
+            await ctx.send(
+                f"You do not have permission to remove {member.display_name}'s curse."
+            )
+            return
 
-        try:
-            scheduler.remove_job(f"ColorCurse:{member.id}")
-        except JobLookupError:
-            pass
+        await self._uncurse_member(member)
 
         await ctx.channel.send(f"{member.mention} has been uncursed.")
 
