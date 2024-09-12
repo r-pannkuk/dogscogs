@@ -19,6 +19,7 @@ from apscheduler.jobstores.base import JobLookupError # type: ignore[import-unty
 
 from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.colors import color_diff, hex_to_rgb, get_palette
+from dogscogs.constants.discord.embed import MAX_DESCRIPTION_LENGTH as DISCORD_EMBED_MAX_DESCRIPTION_LENGTH
 
 scheduler = AsyncIOScheduler(timezone="US/Eastern")
 
@@ -422,8 +423,12 @@ class RoleColors(commands.Cog):
             if not scheduler.running:
                 scheduler.start()
 
+            async def curse_end():
+                await self._uncurse_member(member)
+                await ctx.channel.send(f"{member.mention} has been uncursed.")
+
             scheduler.add_job(
-                partial(self._update_member, member),
+                curse_end,
                 id=f"ColorCurse:{member.id}",
                 trigger="date",
                 next_run_time=datetime.fromtimestamp(
@@ -460,6 +465,63 @@ class RoleColors(commands.Cog):
         await self._uncurse_member(member)
 
         await ctx.channel.send(f"{member.mention} has been uncursed.")
+
+    @rolecolors.command()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def list(self, ctx: commands.GuildContext):
+        """Lists all users who are affected by a curse."""
+        member_configs = await self.config.all_members(ctx.guild)
+        afflicted_member_ids = [key for key, value in member_configs.items() if value['cursed_until'] is not None]
+        role_color_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
+        role_colors = [role for role in ctx.guild.roles if role.id in role_color_ids]
+        
+        afflicted_member_ids.sort(key=lambda x: member_configs[x]['cursed_until'])
+        
+        afflicted_members = [x for x in [ctx.guild.get_member(id) for id in afflicted_member_ids] if x is not None]
+
+        if len(afflicted_members) == 0:
+            await ctx.send("No members are currently cursed.")
+            return
+
+        title = f"Cursed Members"
+
+        while len(afflicted_members) > 0:
+            description = ""
+            while len(afflicted_members) > 0:
+                member = afflicted_members[0]
+                found_roles = [role for role in member.roles if role in role_colors]
+
+                if found_roles is None:
+                    continue
+
+                role = found_roles[0]
+
+                time_field = f"<t:{int(datetime.fromtimestamp(member_configs[member.id]['cursed_until'], tz=TIMEZONE).timestamp())}:F>"
+
+                string = f"{member.mention} ({member.name}) was cursed to {role.mention} until: {time_field}\n"
+
+                if (len(description) + len(string) > DISCORD_EMBED_MAX_DESCRIPTION_LENGTH):
+                    break
+
+                description += string
+
+                afflicted_members.pop(0)
+
+            if len(description) == 0:
+                await ctx.send(f"Something went wrong.")
+                await self.bot.send_to_owners(
+                    f"""`rolecolors: Failed to generate rolecolors curse list.
+                    -- guild: {ctx.guild.name} <{ctx.guild.id}>
+                    -- list: {afflicted_members}`"""
+                )
+
+            embed = discord.Embed(title=title, description=description)
+
+            title = ""
+
+            await ctx.send(embed=embed)
+            pass
+
 
     @rolecolors.command(usage="<hex_or_roleid>")
     async def set(
