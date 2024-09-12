@@ -419,7 +419,7 @@ class Logger(commands.Cog):
                     try:
                         await logger_channel.send(after, suppress_embeds=True) # type: ignore[union-attr]
                     except Exception as e:
-                        print(f"Failed to print message. Dumping:\n\n{json.dumps(after)}\n\n")
+                        print(f"Failed to print message. Dumping:\n\n{json.dumps(payload)}\n\n")
                         raise e
         return
 
