@@ -1,18 +1,17 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import partial
 import re
 from typing import Literal
 import typing
 
 # import numpy as np
+import d20 # type: ignore[import-untyped]
 
 import discord
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
-
-from coins import Coins
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler # type: ignore[import-untyped]
 from apscheduler.jobstores.base import JobLookupError # type: ignore[import-untyped]
@@ -21,6 +20,11 @@ from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.colors import color_diff, hex_to_rgb, get_palette
 from dogscogs.constants.discord.embed import MAX_DESCRIPTION_LENGTH as DISCORD_EMBED_MAX_DESCRIPTION_LENGTH
 from dogscogs.parsers.date import parse_duration_string, duration_string
+from dogscogs.views.confirmation import ConfirmationView
+from dogscogs.core.converter import DogCogConverter
+
+from coins import Coins
+from battler import Battler
 
 scheduler = AsyncIOScheduler(timezone="US/Eastern")
 
@@ -37,6 +41,52 @@ DEFAULT_MEMBER = {
     "original_color_role_id": None,
     "cursed_until": None,
 }
+
+class ColorRoleConverter(DogCogConverter):
+    @staticmethod
+    async def parse(ctx: commands.GuildContext, argument: str) -> discord.Role: # type: ignore[override]
+        config = Config.get_conf(
+            cog_instance=None,
+            cog_name="RoleColors",
+            identifier=COG_IDENTIFIER,
+            force_registration=True,
+        )
+        color_role_ids = await config.guild(ctx.guild).role_ids()
+        color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
+
+        if len(color_roles) == 0:
+            raise commands.BadArgument("No color roles found.  Please ask your moderator to add more color roles.")
+
+        try:
+            return await commands.RoleConverter().convert(ctx, argument)
+        except:
+            pass
+
+        if not re.match(
+            r"(?i)^#([0-9a-f]{6}|[0-9a-f]{3})$", argument
+        ):
+            try:
+                color : discord.Color = getattr(discord.Colour, argument.lower())()
+                role = min(
+                    color_roles,
+                    key=lambda r: color_diff(
+                        (color.r, color.g, color.b), hex_to_rgb(f"{r.colour.value:06x}")
+                    )
+                )
+            except:
+                raise commands.BadArgument("Invalid hex color format.  Please use `#rrggbb`.")
+        else:
+            role = min(
+                color_roles,
+                key=lambda r: color_diff(
+                    hex_to_rgb(argument), hex_to_rgb(f"{r.colour.value:06x}")
+                ),
+            )
+
+        if role is None:
+            raise commands.BadArgument("No color role found.  Please ask your moderator to add more color roles.")
+        
+        return role
 
 class RoleColors(commands.Cog):
     """
@@ -60,43 +110,10 @@ class RoleColors(commands.Cog):
         self,
         ctx: commands.GuildContext,
         member: discord.Member,
-        hex_or_roleid: typing.Union[discord.Role, str],
+        role: discord.Role,
     ) -> typing.Union[discord.Role, None]:
         color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
         color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
-
-        if len(color_roles) == 0:
-            await ctx.channel.send("No color roles found.", delete_after=15)
-            return None
-
-        if isinstance(hex_or_roleid, discord.Role):
-            if hex_or_roleid not in color_roles:
-                await ctx.channel.send("Role was not a specified color role.", delete_after=15)
-                return None
-            role = hex_or_roleid
-        else:
-            if not isinstance(hex_or_roleid, str) or not re.match(
-                r"(?i)^#([0-9a-f]{6}|[0-9a-f]{3})$", hex_or_roleid
-            ):
-                await ctx.channel.send(
-                    "Invalid parameter sent.  Please use `#rrggbb` format.",
-                    delete_after=15
-                )
-                return None
-
-            role = min(
-                color_roles,
-                key=lambda r: color_diff(
-                    hex_to_rgb(hex_or_roleid), hex_to_rgb(f"{r.colour.value:06x}")
-                ),
-            )
-
-        if role is None:
-            await ctx.channel.send(
-                "No color role found.  Please ask your moderator to add more color roles.",
-                delete_after=15
-            )
-            return None
 
         if member.id in [member.id for member in role.members]:
             await ctx.channel.send(
@@ -205,7 +222,7 @@ class RoleColors(commands.Cog):
     @rolecolors.command(usage="<hex_or_roleid>", name="add")
     @commands.has_guild_permissions(manage_roles=True)
     async def add_color_role(
-        self, ctx: commands.GuildContext, color: typing.Union[discord.Role, str]
+        self, ctx: commands.GuildContext, role: typing.Union[discord.Role, str]
     ) -> None:
         """
         Adds an already existing color role or creates a new one based on hex value.
@@ -213,80 +230,70 @@ class RoleColors(commands.Cog):
         guild: discord.Guild = ctx.guild
         previous_role_ids = await self.config.guild_from_id(guild.id).role_ids()
 
-        # for color in hex_or_roleid:
-        if isinstance(color, str):
-            if not re.match(r"(?i)^#([0-9a-f]{6}|[0-9a-f]{3})$", color):
-                await ctx.channel.send(
-                    f"Invalid parameter sent: {color}\nPlease use `#rrggbb` format."
-                )
+        if isinstance(role, discord.Role):
+            if role.id in previous_role_ids:
+                await ctx.channel.send("Role already exists.")
                 return
-
-            rgb = hex_to_rgb(color)
-
-            for role in guild.roles:
-                if role.id not in previous_role_ids:
-                    continue
-
-                if rgb == hex_to_rgb(f"{role.color.value:06x}"):
-                    await ctx.channel.send(
-                        f"{color} was already found in role (@{role.name})"
-                    )
+            
+        elif isinstance(role, str):
+            if re.match(
+                r"(?i)^#([0-9a-f]{6}|[0-9a-f]{3})$", role
+            ):
+                color = discord.Colour.from_rgb(*hex_to_rgb(role))
+            else:
+                try:
+                    color = getattr(discord.Colour, role.lower())()
+                except:
+                    await ctx.channel.send("Invalid hex color format.  Please use `#rrggbb`.")
                     return
 
-            role = await guild.create_role(
-                reason="New color role through rolecolors command.",
-                name=f"Color:{color}",
-                mentionable=False,
-                color=discord.Colour.from_rgb(rgb[0], rgb[1], rgb[2]),
-            )
+            name = f"Color:#{color.value:06x}"
 
-        elif isinstance(color, discord.Role):
-            if color.id in previous_role_ids:
-                await ctx.channel.send(
-                    f"{color.name} is already a designated color role."
-                )
+            if any([role.id in previous_role_ids for role in guild.roles if role.name == name]):
+                await ctx.channel.send("Role already exists.")
                 return
-
-            role = color
-            pass
+            
+            role = await guild.create_role(
+                colour=color,
+                name=name,
+                mentionable=False,
+            )
 
         previous_role_ids.append(role.id)
         await self.config.guild_from_id(guild.id).role_ids.set(previous_role_ids)
-        await ctx.channel.send(f"Added color role {role.name}.")
+        await ctx.channel.send(f"Added color role {role.mention}.")
 
     @rolecolors.command()
     @commands.has_guild_permissions(manage_roles=True)
-    async def duration(self, ctx: commands.GuildContext, cooldown_sec: typing.Optional[typing.Union[int, str]] = None):
+    async def duration(self, ctx: commands.GuildContext, duration_sec: typing.Optional[typing.Union[int, str]] = None):
         """
         Sets how long cursing someone's color should last.
-        """
-        """Sets or displays the current curse attempt cooldown.
 
         Args:
-            cooldown_sec (typing.Optional[int], optional): The amount (in seconds) that the curse cooldown should be set to.
+            duration_sec (typing.Optional[int], optional): The amount (in seconds) a user should be cursed for.
         """
         guild: discord.Guild = ctx.guild
 
-        if cooldown_sec is None:
-            cooldown_sec = int(await self.config.guild(guild).color_change_duration_secs())
+        if duration_sec is None:
+            duration_sec = int(await self.config.guild(guild).color_change_duration_secs())
             pass
         else:
-            if isinstance(cooldown_sec, str):
+            if isinstance(duration_sec, str):
                 try:
-                    cooldown_sec = parse_duration_string(cooldown_sec)
+                    duration_sec = parse_duration_string(duration_sec)
                 except commands.BadArgument:
                     await ctx.send(
                         "Unable to parse duration input. Please use a valid format:\n-- HH:MM:SS\n-- MM:SS\n-- integer (seconds)"
                     )
                     return
 
-            await self.config.guild(guild).color_change_duration_secs.set(cooldown_sec)
+            await self.config.guild(guild).color_change_duration_secs.set(duration_sec)
 
             pass
 
-        seconds = cooldown_sec % 60
-        minutes = int(cooldown_sec / 60) % 60
-        hours = int(cooldown_sec / 60 / 60)
+        seconds = duration_sec % 60
+        minutes = int(duration_sec / 60) % 60
+        hours = int(duration_sec / 60 / 60)
 
         await ctx.send(
             f"Curse duration currently set to {duration_string(hours, minutes, seconds)}."
@@ -370,31 +377,40 @@ class RoleColors(commands.Cog):
     async def curse(
         self,
         ctx: commands.GuildContext,
-        member: discord.Member,
-        hex_or_roleid: typing.Union[discord.Role, str],
+        target: discord.Member,
+        role: typing.Annotated[discord.Role, ColorRoleConverter],
     ):
         """Curses a target member to use a specific color role.
 
         Args:
-            member (discord.Member): Who to curse.
-            hex_or_roleid (typing.Union[discord.Role, str]): The color to curse them with.
+            target (discord.Member): Who to curse.
+            role (typing.Union[discord.Role, str]): The color to curse them with. Use #rrggbb or a color role.
         """
         color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
         color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
-        duration = await self.config.guild_from_id(
+
+        curse_duration_secs = await self.config.guild_from_id(
             ctx.guild.id
         ).color_change_duration_secs()
         color_change_cost = await self.config.guild_from_id(
             ctx.guild.id
         ).color_change_cost()
 
-        if member.id == ctx.author.id:
+        if target.id == ctx.author.id:
             await ctx.channel.send("You cannot curse yourself. Try `set` instead.")
             return
 
         if self.bot.get_cog("Coins") is None:
             await ctx.channel.send("Coins cog is not loaded.")
             return
+        
+        if self.bot.get_cog("Battler") is None:
+            await ctx.channel.send("Battler cog is not loaded.")
+            return
+
+        if len(color_roles) == 0:
+            await ctx.channel.send("No color roles found.", delete_after=15)
+            return None
 
         current_balance = await Coins._get_balance(ctx.author)
 
@@ -404,78 +420,98 @@ class RoleColors(commands.Cog):
             )
             return
         
-        hours = int(duration / 60 / 60)
-        minutes = int(duration / 60) % 60
-        seconds = duration % 60
-        
-        x = duration_string(hours, minutes, seconds)
+        confirm = ConfirmationView(author=ctx.author)
 
-        message = await ctx.send(f"Spend {color_change_cost} {await Coins._get_currency_name(ctx.guild)} to curse {member.mention} to use {hex_or_roleid} for {x}?")
+        message = await ctx.send(
+            content=f"Spend {color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to paint {target.mention} {role.mention}? (Balance: `{current_balance}`)",
+            view=confirm
+        )
 
-        await message.add_reaction("✅")
-        await message.add_reaction("❌")
+        await confirm.wait()
 
-        def check(reaction, user):
-            return user == ctx.author and reaction.message.id == message.id and str(reaction.emoji) in ["✅", "❌"]
-        
-        try:
-            reaction, user = await self.bot.wait_for("reaction_add", timeout=30, check=check)
-        except asyncio.TimeoutError:
+        if not confirm.value:
             await message.delete()
             return
+
+        await message.edit(content="🪙 Payment Accepted 🪙\nProcessing...",view=None)
+
+        attacker_roll, defender_roll, winner = await Battler._battle(
+            ctx.author, target, battle_types=['rolecolors']
+        )
+
+        cursed_users: typing.List[discord.Member] = []
+
+        if attacker_roll.crit == d20.CritType.FAIL:
+            cursed_users.append(ctx.author)
+            pass
+        elif attacker_roll.crit == d20.CritType.CRIT:
+            curse_duration_secs *= 2
+            pass
+
+        if defender_roll.crit == d20.CritType.CRIT:
+            collateral_list: typing.List[discord.Member] = await Battler._collateral(
+                ctx, attacker=ctx.author, defender=target, count=1
+            )
+
+            if len(collateral_list) > 0:
+                cursed_users.extend(collateral_list)
+                pass
+
+            if attacker_roll.crit == d20.CritType.CRIT and winner.id == ctx.author.id:
+                cursed_users.append(target)
+        elif winner.id == ctx.author.id:
+            cursed_users.append(target)
+
+        expiration = datetime.now(tz=TIMEZONE) + timedelta(seconds=curse_duration_secs)
+
+        embed = Battler._embed(
+            type="rolecolors",
+            attacker=ctx.author,
+            defender=target,
+            attacker_roll=attacker_roll,
+            defender_roll=defender_roll,
+            winner=winner,
+            outcome=role,
+            victims=cursed_users,
+            expiration=expiration,
+        )
         
-        if str(reaction.emoji) == "❌":
-            await message.delete()
-            await ctx.message.delete()
-            return
-        elif str(reaction.emoji) == "✅":
-            await message.edit(content="🪙 Payment Accepted 🪙\nProcessing...")
+        new_balance = await Coins._remove_balance(ctx.author, color_change_cost)
 
-        await message.clear_reactions()
+        for cursed_user in cursed_users:
+            original_color_role_id = await self.config.member(cursed_user).original_color_role_id()
+            if original_color_role_id is None:
+                found_roles = [role for role in cursed_user.roles if role.id in color_role_ids]
+                if len(found_roles) > 0:
+                    original_color_role_id = found_roles[0].id
+                    await self.config.member(cursed_user).original_color_role_id.set(original_color_role_id)
 
-        original_color_role_id = await self.config.member(member).original_color_role_id()
-        if original_color_role_id is None:
-            found_roles = [role for role in member.roles if role.id in color_role_ids]
-            if len(found_roles) > 0:
-                original_color_role_id = found_roles[0].id
-                await self.config.member(member).original_color_role_id.set(original_color_role_id)
+            
+            set_role = await self._set(ctx, cursed_user, role)
 
-        
-        set_role = await self._set(ctx, member, hex_or_roleid)
+            if set_role is not None:
+                await self.config.member(cursed_user).cursed_until.set(expiration.timestamp())
 
-        if set_role is not None:
+                if not scheduler.running:
+                    scheduler.start()
 
-            # if not ctx.author.guild_permissions.manage_roles:
-            await Coins._remove_balance(ctx.author, color_change_cost)
+                async def curse_end():
+                    await self._uncurse_member(cursed_user)
+                    await ctx.channel.send(f"{cursed_user.mention} has been uncursed.")
 
-            release_timestamp = (
-                datetime.now(tz=TIMEZONE).timestamp() + duration
-            )
+                scheduler.add_job(
+                    curse_end,
+                    id=f"ColorCurse:{cursed_user.id}",
+                    trigger="date",
+                    next_run_time=expiration,
+                    replace_existing=True,
+                )
 
-            await self.config.member(member).cursed_until.set(release_timestamp)
+        await message.edit(
+            content=f"{ctx.author.mention} spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)}`\nNew Balance: `{new_balance}`", 
+            embed=embed
+        )
 
-            if not scheduler.running:
-                scheduler.start()
-
-            async def curse_end():
-                await self._uncurse_member(member)
-                await ctx.channel.send(f"{member.mention} has been uncursed.")
-
-            scheduler.add_job(
-                curse_end,
-                id=f"ColorCurse:{member.id}",
-                trigger="date",
-                next_run_time=datetime.fromtimestamp(
-                    release_timestamp, tz=TIMEZONE
-                ),
-                replace_existing=True,
-            )
-
-            await message.edit(content=
-                f"{ctx.author.mention} cursed {member.mention} to use {set_role.name} (#{set_role.color.value:06x}) until <t:{int(release_timestamp)}:F>."
-            )
-        else:
-            await message.edit(content="You won't be charged.", delete_after=15)
 
     @rolecolors.command()
     @commands.has_guild_permissions(manage_roles=True)
@@ -558,9 +594,7 @@ class RoleColors(commands.Cog):
 
 
     @rolecolors.command(usage="<hex_or_roleid>")
-    async def set(
-        self, ctx: commands.GuildContext, hex_or_roleid: typing.Union[discord.Role, str]
-    ):
+    async def set(self, ctx: commands.GuildContext, role: typing.Annotated[discord.Role, ColorRoleConverter]):
         """
         Sets the color for a user by assigning them to the closest role.
         """
@@ -572,7 +606,7 @@ class RoleColors(commands.Cog):
             )
             return
 
-        set_role = await self._set(ctx, ctx.author, hex_or_roleid)
+        set_role = await self._set(ctx, ctx.author, role)
         if set_role is not None:
             await ctx.channel.send(
                 f"User {ctx.author} assigned {set_role.name} (#{set_role.color.value:06x})."

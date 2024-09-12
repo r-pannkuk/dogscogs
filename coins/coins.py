@@ -324,6 +324,9 @@ class Coins(commands.Cog):
         Args:
             user (discord.Member): The target of withdrawing.
             amount (int): The amount to withdraw.
+
+        Returns:
+            int: The new balance.
         """
         config = Config.get_conf(
             cog_instance=None,

@@ -1,0 +1,22 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "Battler",
+    "short": "A battle system with equipment for completing actions.",
+    "description": "A battle system with equipment for completing actions.",
+    "end_user_data_statement": "This data stores equipment and other variables for members.",
+    "author": [
+        "klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [
+        "git+https://github.com/r-pannkuk/dogscogs-utils.git"
+    ],
+    "tags": [
+        "battle",
+        "equipment"
+    ],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}

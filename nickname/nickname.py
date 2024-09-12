@@ -20,16 +20,22 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[impo
 
 from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.discord.user import MAX_NAME_LENGTH as DISCORD_MAX_NICK_LENGTH
-from dogscogs.constants.discord.embed import MAX_DESCRIPTION_LENGTH as DISCORD_EMBED_MAX_DESCRIPTION_LENGTH
+from dogscogs.constants.discord.embed import (
+    MAX_DESCRIPTION_LENGTH as DISCORD_EMBED_MAX_DESCRIPTION_LENGTH,
+)
 from dogscogs.parsers.date import parse_duration_string, duration_string
+from dogscogs.views.confirmation import ConfirmationView
+
+from battler import Battler
+from battler.config import KeyType as BattlerKeyType
+from coins import Coins
 
 scheduler = AsyncIOScheduler(timezone="US/Eastern")
-
-COLLATERAL_LIST_SIZE = 20
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 CurseType = Literal["Cursed", "Locked", "Nyamed", "Default"]
+
 
 class NickQueueEntry(typing.TypedDict):
     name: str
@@ -40,25 +46,26 @@ class NickQueueEntry(typing.TypedDict):
     expiration: typing.Optional[float]
     id: int
 
+
 def CreateNickQueueEntry(
-        *,
-        name: str,
-        target_id: int,
-        instigator_id: typing.Optional[int] = None,
-        type: CurseType,
-        created_at: datetime = datetime.now(tz=TIMEZONE),
-        expiration: typing.Optional[datetime] = None,
-        id: int = uuid.uuid4().int,
-    ) -> NickQueueEntry:
-        return {
-            'name': name,
-            'target_id': target_id,
-            'instigator_id': instigator_id,
-            'type': type,
-            'created_at': created_at.timestamp(),
-            'expiration': expiration.timestamp() if expiration is not None else None,
-            'id': id,
-        }
+    *,
+    name: str,
+    target_id: int,
+    instigator_id: typing.Optional[int] = None,
+    type: CurseType,
+    created_at: datetime = datetime.now(tz=TIMEZONE),
+    expiration: typing.Optional[datetime] = None,
+    id: int = uuid.uuid4().int,
+) -> NickQueueEntry:
+    return {
+        "name": name,
+        "target_id": target_id,
+        "instigator_id": instigator_id,
+        "type": type,
+        "created_at": created_at.timestamp(),
+        "expiration": expiration.timestamp() if expiration is not None else None,
+        "id": id,
+    }
 
 
 # def NickQueueEntry(
@@ -87,11 +94,9 @@ DEFAULT_MEMBER = {
 }  # type: ignore[var-annotated]
 
 DEFAULT_GUILD = {
-    "attacker_wins_ties": True,
-    "attacker_strength": "1d20",
-    "defender_strength": "1d20",
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
     "curse_duration": 30 * 60,  # 30 minutes
+    "curse_cost": 10,
 }
 
 
@@ -146,11 +151,11 @@ def bind_member(group: config.Group):
         if len(nick_queue) == 0:
             return None
         if type is not None:
-            nick_queue = list(filter(lambda entry: entry['type'] == type, nick_queue))
+            nick_queue = list(filter(lambda entry: entry["type"] == type, nick_queue))
         if len(nick_queue) == 0:
             return None
 
-        return max(nick_queue, key=lambda entry: entry['created_at'])
+        return max(nick_queue, key=lambda entry: entry["created_at"])
 
     async def get_latest_curse(self) -> typing.Union[NickQueueEntry, None]:
         return await self.get_latest("Cursed")
@@ -191,14 +196,14 @@ def bind_member(group: config.Group):
             )
         elif entry is None:
             nick_queue: typing.List[NickQueueEntry] = await self.nick_queue()
-            found = list(filter(lambda entry: (entry['id'] == id), nick_queue))
+            found = list(filter(lambda entry: (entry["id"] == id), nick_queue))
             if len(found) == 0:
                 raise commands.BadArgument("ID was not found.")
             entry = found[0]
 
-        job = scheduler.get_job(str(entry['id']))
+        job = scheduler.get_job(str(entry["id"]))
         if job is not None:
-            scheduler.remove_job(str(entry['id']))
+            scheduler.remove_job(str(entry["id"]))
 
     async def remove(
         self,
@@ -212,7 +217,10 @@ def bind_member(group: config.Group):
             return
 
         found = list(
-            filter(lambda entry: (entry['id'] == id or entry['type'] == type), original_queue)
+            filter(
+                lambda entry: (entry["id"] == id or entry["type"] == type),
+                original_queue,
+            )
         )
         for entry in found:
             await self.remove_job(entry=entry)
@@ -247,14 +255,14 @@ def bind_member(group: config.Group):
 
     async def replace_original(self: config.Group, name: str):
         nick_queue: typing.List[NickQueueEntry] = await self.nick_queue()
-        filtered = list(filter(lambda entry: entry['type'] == "Default", nick_queue))
+        filtered = list(filter(lambda entry: entry["type"] == "Default", nick_queue))
 
         to_be_replaced: typing.Union[NickQueueEntry, None] = None
 
         if len(filtered) > 0:
             to_be_replaced = filtered[0]
 
-        nick_queue = list(filter(lambda entry: entry['type'] != "Default", nick_queue))
+        nick_queue = list(filter(lambda entry: entry["type"] != "Default", nick_queue))
 
         if to_be_replaced is None:
             to_be_replaced = CreateNickQueueEntry(
@@ -269,6 +277,72 @@ def bind_member(group: config.Group):
 
     group.replace_original = MethodType(replace_original, group)
     return group
+
+
+def nyamify(member: discord.Member) -> str:
+    name = ""
+
+    i = 0
+
+    def check_for_vowel(letter: str) -> bool:
+        return letter.lower() in ["a", "e", "i", "o", "u"]
+
+    while i < len(member.display_name) - 1:
+        if member.display_name[i] == "n" or member.display_name[i] == "y":
+            name += "ny"
+            if not check_for_vowel(member.display_name[i + 1]):
+                name += "a"
+        elif member.display_name[i] == "N" or member.display_name[i] == "Y":
+            name += "Ny"
+            if not check_for_vowel(member.display_name[i + 1]):
+                name += "a"
+        elif member.display_name[i] == "a" and member.display_name[i + 1] == "i":
+            name += "any"
+            i += 1
+            if i < len(member.display_name) - 1 and not check_for_vowel(
+                member.display_name[i + 1]
+            ):
+                name += "a"
+        elif member.display_name[i] == "A" and member.display_name[i + 1] == "i":
+            name += "Any"
+            i += 1
+            if i < len(member.display_name) - 1 and not check_for_vowel(
+                member.display_name[i + 1]
+            ):
+                name += "a"
+        else:
+            name += member.display_name[i]
+
+        i += 1
+
+    name += member.display_name[len(member.display_name) - 1]
+
+    if name[-1] == "n":
+        name += "ya"
+
+    if name == member.display_name:
+        name = (
+            member.display_name.replace("pr", "purr")
+            .replace("Pr", "Purr")
+            .replace("me", "meow")
+            .replace("Me", "Meow")
+            .replace("mi", "meow")
+            .replace("Mi", "Miow")
+            .replace("my", "myow")
+            .replace("My", "Myow")
+        )
+
+    if name == member.display_name:
+        name = random.choice(
+            [
+                f"🐱 {member.display_name} 🐱",
+                f"{member.display_name} Nyaa~",
+            ]
+        )
+
+    name = name[:DISCORD_MAX_NICK_LENGTH]
+
+    return name
 
 
 class Nickname(commands.Cog):
@@ -292,14 +366,18 @@ class Nickname(commands.Cog):
         pass
 
     async def _get_member_ids_by_entry(
-            self, 
-            guild: discord.Guild, 
-            *, 
-            predicate : typing.Callable[[NickQueueEntry], bool] = lambda e: e['type'] != 'Default'
-        ) -> typing.List[int]:
+        self,
+        guild: discord.Guild,
+        *,
+        predicate: typing.Callable[[NickQueueEntry], bool] = lambda e: e["type"]
+        != "Default",
+    ) -> typing.List[int]:
         all_members = await self.config.all_members(guild)
-        return [int(key) for key, value in all_members.items() if any(predicate(entry) for entry in value['nick_queue'])]
-
+        return [
+            int(key)
+            for key, value in all_members.items()
+            if any(predicate(entry) for entry in value["nick_queue"])
+        ]
 
     async def _set(self, member: discord.Member, entry: NickQueueEntry):
         guild = member.guild
@@ -317,17 +395,17 @@ class Nickname(commands.Cog):
                 )
             )
 
-        if entry['type'] == "Locked":
+        if entry["type"] == "Locked":
             await member_config.remove_lock()
-        elif entry['type'] == "Cursed":
+        elif entry["type"] == "Cursed":
             await member_config.remove_curse()
-        elif entry['type'] == "Nyamed":
+        elif entry["type"] == "Nyamed":
             await member_config.remove_nyame()
 
         await member_config.add_entry(entry=entry)
         await member.edit(
             reason=f"{member.display_name} locked nickname to {entry['name']}.",
-            nick=entry['name'],
+            nick=entry["name"],
         )
 
         # member_ids = await self.config.guild(guild)._get_nicknamed_member_ids()
@@ -337,6 +415,138 @@ class Nickname(commands.Cog):
         # await self.config.guild(guild).nicknamed_member_ids.set(member_ids)
 
         return entry
+    
+    async def _curse(
+        self,
+        *,
+        ctx: commands.GuildContext,
+        instigator: discord.Member,
+        target: discord.Member,
+        name_func: typing.Callable[[discord.Member], str],
+        type: CurseType,
+    ) -> typing.Tuple[datetime, discord.Embed]:
+        if self.bot.get_cog("Battler") is None:
+            return datetime.now(tz=TIMEZONE), discord.Embed(
+                title="ERROR", description="Battler cog is required to curse."
+            )
+
+        if len(name_func(target)) > DISCORD_MAX_NICK_LENGTH:
+            return datetime.now(tz=TIMEZONE), discord.Embed(
+                title="ERROR",
+                description=f"Attempted to curse with too long a name (must be less than {DISCORD_MAX_NICK_LENGTH} characters).",
+            )
+
+        global_curse_cooldown_secs: int = await self.config.guild(
+            ctx.guild
+        ).curse_cooldown()
+        next_curse_available = datetime.now(tz=TIMEZONE) + timedelta(
+            seconds=global_curse_cooldown_secs
+        )
+        battle_types: typing.List[BattlerKeyType] = []
+
+        if type == "Cursed":
+            battle_types = ["curse"]
+        elif type == "Nyamed":
+            battle_types = ["nyame"]
+
+        curse_duration_seconds: int = await self.config.guild(
+            ctx.guild
+        ).curse_duration()
+
+        attacker_roll, defender_roll, winner = await Battler._battle(
+            instigator, target, battle_types=battle_types
+        )
+
+        cursed_users: typing.List[discord.Member] = []
+
+        if attacker_roll.crit == d20.CritType.FAIL:
+            cursed_users.append(instigator)
+            pass
+        elif attacker_roll.crit == d20.CritType.CRIT:
+            curse_duration_seconds *= 2
+            pass
+
+        if defender_roll.crit == d20.CritType.CRIT:
+            collateral_list: typing.List[discord.Member] = await Battler._collateral(
+                ctx, attacker=instigator, defender=target, count=1
+            )
+
+            if len(collateral_list) > 0:
+                cursed_users.extend(collateral_list)
+                pass
+
+            if attacker_roll.crit == d20.CritType.CRIT and winner.id == instigator.id:
+                cursed_users.append(target)
+        elif winner.id == instigator.id:
+            cursed_users.append(target)
+
+        expiration: datetime = datetime.now(tz=TIMEZONE) + timedelta(
+            seconds=curse_duration_seconds
+        )
+
+        embed = Battler._embed(
+            type=battle_types[0],
+            attacker=instigator,
+            defender=target,
+            attacker_roll=attacker_roll,
+            defender_roll=defender_roll,
+            winner=winner,
+            outcome=name_func(target),
+            victims=cursed_users,
+            expiration=expiration,
+        )
+
+        async def curse_end(v: discord.Member):
+            try:
+                await self._unset(v, type=type)
+                await ctx.send(
+                    f"{instigator.display_name}'s Curse on {v.display_name} has ended."
+                )
+            except (PermissionError, Forbidden) as e:
+                if type == "Cursed":
+                    await self.config.member(instigator).next_curse_available.set(
+                        datetime.now(tz=TIMEZONE).timestamp()
+                    )
+                if type == "Nyamed":
+                    await self.config.member(instigator).next_nyame_available.set(
+                        datetime.now(tz=TIMEZONE).timestamp()
+                    )
+                await ctx.reply(
+                    f"ERROR: Bot does not have permission to edit {v.display_name}'s nickname. Please reach out to a mod uncurse your name."
+                )
+
+        for victim in cursed_users:
+            entry = CreateNickQueueEntry(
+                name=name_func(victim),
+                target_id=victim.id,
+                instigator_id=instigator.id,
+                type=type,
+                expiration=expiration,
+            )
+
+            try:
+                await self._set(victim, entry=entry)
+
+                scheduler.add_job(
+                    # Need to use partial here as it keeps sending the same user
+                    partial(curse_end, victim),
+                    id=str(entry["id"]),
+                    trigger="date",
+                    next_run_time=expiration,
+                    replace_existing=True,
+                )
+
+            except (PermissionError, Forbidden) as e:
+                if target.id == victim.id:
+                    next_curse_available = datetime.now(tz=TIMEZONE)
+                    return datetime.now(tz=TIMEZONE), discord.Embed(
+                        title="ERROR",
+                        description=f"Bot does not have permission to edit {victim.display_name}'s nickname. {instigator.mention}'s curse cooldown was refunded.",
+                    )
+                else:
+                    continue
+
+        return next_curse_available, embed
 
     @commands.group(aliases=["nick", "name"])
     async def nickname(self, ctx: commands.GuildContext):
@@ -355,12 +565,12 @@ class Nickname(commands.Cog):
         all_members = await self.config.all_members(guild)
         count = 0
         for key, value in all_members.items():
-            change : bool = False
-            nick_queue = value['nick_queue']
+            change: bool = False
+            nick_queue = value["nick_queue"]
             for entry in nick_queue:
-                if 'author_id' in entry:
-                    entry['instigator_id'] = entry['author_id']
-                    del entry['author_id']
+                if "author_id" in entry:
+                    entry["instigator_id"] = entry["author_id"]
+                    del entry["author_id"]
                     count += 1
                     change = True
 
@@ -370,34 +580,37 @@ class Nickname(commands.Cog):
                     await self.config.member(member).nick_queue.set(nick_queue)
 
         await ctx.send(f"Replaced {count} `author_id` with `instigator_id`.")
-        
+
         pass
 
     @nickname.command()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
     async def check_guild(self, ctx: commands.GuildContext):
-        """Forcefully uncurses people who might have been missed in the server.
-        """
+        """Forcefully uncurses people who might have been missed in the server."""
         message = await ctx.reply("Checking guild for afflicted members...")
         members = await self._check_guild(ctx.guild)
-        await message.edit(content=f"Fixed issues with {len(members)} members.\n\n" + 
-                        ','.join([f"{member.mention} ({member.id})" for member in members]))
-
+        await message.edit(
+            content=f"Fixed issues with {len(members)} members.\n\n"
+            + ",".join([f"{member.mention} ({member.id})" for member in members])
+        )
 
     @nickname.command()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
-    async def status(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]):
-        """Checks the status of a member's nickname.
-        """
+    async def status(
+        self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]
+    ):
+        """Checks the status of a member's nickname."""
         if member is None:
             member = ctx.author
 
         member_config = bind_member(self.config.member(member))
 
-        await ctx.reply(content=f"{member.display_name}'s Nickname Status:\n" + json.dumps(await member_config.all(), indent=2))
-    
+        await ctx.reply(
+            content=f"{member.display_name}'s Nickname Status:\n"
+            + json.dumps(await member_config.all(), indent=2)
+        )
 
     @nickname.command()
     @commands.is_owner()
@@ -446,7 +659,7 @@ class Nickname(commands.Cog):
 
     @commands.guild_only()
     @nickname.command(usage="<member>", aliases=["catify"])
-    async def nyame(self, ctx: commands.GuildContext, member: discord.Member):
+    async def nyame(self, ctx: commands.GuildContext, target: discord.Member):
         """Forces a nyew nyame on a member."""
         next_nyame_available = await self.config.member(
             ctx.author
@@ -457,148 +670,49 @@ class Nickname(commands.Cog):
             and next_nyame_available != None
             and next_nyame_available > datetime.now(tz=TIMEZONE).timestamp()
         ):
-            await ctx.reply(
-                f"{ctx.author.mention}'s nyaming power is unyavailable.  Nyext available at <t:{int(next_nyame_available)}:F>."
-            )
-            return
+            message_content = f"{ctx.author.mention}'s nyame power is onya cooldownya.  Nyext nyavailyable nyat <t:{int(next_nyame_available)}:F>."
 
-        name = ""
+            balance = await Coins._get_balance(ctx.author)
+            cost  = await self.config.guild(ctx.guild).curse_cost()
 
-        i = 0
+            if balance < cost:
+                await ctx.reply(message_content, delete_after=15)
+                return
+            
+            confirm = ConfirmationView(author=ctx.author)
+            message_content += f"\nSpend {cost} {await Coins._get_currency_name(ctx.guild)} to nyuse it immedinyately? (Balnyance: `{balance}`)."
 
-        def check_for_vowel(letter: str) -> bool:
-            return letter.lower() in ["a", "e", "i", "o", "u"]
+            message = await ctx.reply(message_content, view=confirm)
 
-        while i < len(member.display_name) - 1:
-            if member.display_name[i] == "n" or member.display_name[i] == "y":
-                name += "ny"
-                if not check_for_vowel(member.display_name[i + 1]):
-                    name += "a"
-            elif member.display_name[i] == "N" or member.display_name[i] == "Y":
-                name += "Ny"
-                if not check_for_vowel(member.display_name[i + 1]):
-                    name += "a"
-            elif member.display_name[i] == "a" and member.display_name[i + 1] == "i":
-                name += "any"
-                i += 1
-                if i < len(member.display_name) - 1 and not check_for_vowel(
-                    member.display_name[i + 1]
-                ):
-                    name += "a"
-            elif member.display_name[i] == "A" and member.display_name[i + 1] == "i":
-                name += "Any"
-                i += 1
-                if i < len(member.display_name) - 1 and not check_for_vowel(
-                    member.display_name[i + 1]
-                ):
-                    name += "a"
-            else:
-                name += member.display_name[i]
+            await confirm.wait()
 
-            i += 1
+            if not confirm.value:
+                await message.delete()
+                return
+            
+            await Coins._remove_balance(ctx.author, cost)
 
-        name += member.display_name[len(member.display_name) - 1]
-
-        if name[-1] == "n":
-            name += "ya"
-
-        if name == member.display_name:
-            name = (
-                member.display_name.replace("pr", "purr")
-                .replace("Pr", "Purr")
-                .replace("me", "meow")
-                .replace("Me", "Meow")
-                .replace("mi", "meow")
-                .replace("Mi", "Miow")
-                .replace("my", "myow")
-                .replace("My", "Myow")
-            )
-
-        if name == member.display_name:
-            name = random.choice(
-                [
-                    f"🐱 {member.display_name} 🐱",
-                    f"{member.display_name} Nyaa~",
-                ]
-            )
-
-        name = name[:DISCORD_MAX_NICK_LENGTH]
-
-        bot_role: discord.Role = ctx.guild.me.top_role
-        target_role: discord.Role = member.top_role
-        nyame_duration_secs = await self.config.guild(ctx.guild).curse_duration()
-        global_nyame_cooldown = await self.config.guild(ctx.guild).curse_cooldown()
-        next_available = (
-            datetime.now(tz=TIMEZONE).timestamp()
-            + global_nyame_cooldown
-        )
-        await self.config.member(ctx.author).next_nyame_available.set(next_available)
-
-        if (
-            bot_role.position < target_role.position
-            or member.guild_permissions.administrator
-        ):
-            await self.config.member(ctx.author).next_nyame_available.set(
-                datetime.now(tz=TIMEZONE).timestamp()
-            )
-            await ctx.reply(
-                f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded."
-            )
-            return
-
-        expiration : datetime = datetime.now(tz=TIMEZONE) + timedelta(seconds=nyame_duration_secs)
-
-        async def nyame_end(v: discord.Member):
-            try:
-                await self._unset(v, type="Nyamed")
-                await ctx.send(
-                    f"{ctx.author.display_name}'s Curse on {v.display_name} has ended."
-                )
-            except (PermissionError, Forbidden) as e:
-                await self.config.member(ctx.author).next_nyame_available.set(
-                    datetime.now(tz=TIMEZONE).timestamp()
-                )
-                await ctx.reply(
-                    f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded."
-                )
-
-        original_name: str = member.display_name
-
-        entry = CreateNickQueueEntry(
-            name=name,
-            target_id=member.id,
-            instigator_id=ctx.author.id,
+            await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to nyuse their nyame power.", view=None, delete_after=15)
+            
+        next_nyame_available, embed = await self._curse(
+            ctx=ctx,
+            instigator=ctx.author,
+            target=target,
+            name_func=nyamify,
             type="Nyamed",
-            expiration=expiration,
         )
 
-        try:
-            await self._set(member, entry=entry)
-
-            if not scheduler.running:
-                scheduler.start()
-
-            scheduler.add_job(
-                # Need to use partial here as it keeps sending the same user
-                partial(nyame_end, member),
-                id=str(entry['id']),
-                trigger="date",
-                next_run_time=expiration,
-                replace_existing=True,
-            )
-
-            await ctx.send(
-                f"{ctx.author.mention} nyamed {original_name}'s to {name} until <t:{int(expiration.timestamp())}:F>.\n"
-            )
-
-        except (PermissionError, Forbidden) as e:
-            await self.config.member(ctx.author).next_nyame_available.set(
-                datetime.now(tz=TIMEZONE).timestamp()
-            )
+        if next_nyame_available > datetime.now(tz=TIMEZONE):
             await ctx.reply(
-                f"ERROR: Bot does nyot have permission to edit {member.display_name}'s nyicknyame. Nyour curse cooldown was refunded."
+                f"{ctx.author.mention}'s nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.",
+                embed=embed,
             )
-            return
+        else:
+            await ctx.reply(embed=embed)
+
+        await self.config.member(ctx.author).next_nyame_available.set(
+            next_nyame_available.timestamp()
+        )
 
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
@@ -630,6 +744,7 @@ class Nickname(commands.Cog):
             )
         pass
 
+
     @commands.guild_only()
     @nickname.command(usage="<member> <name>")
     async def curse(
@@ -642,7 +757,6 @@ class Nickname(commands.Cog):
             member (discord.Member): The target member to be afflicted.
             name (str): The name to set for the user.
         """
-        name = name.strip("\"'")
         next_curse_available = await self.config.member(
             ctx.author
         ).next_curse_available()
@@ -652,178 +766,58 @@ class Nickname(commands.Cog):
             and next_curse_available != None
             and next_curse_available > datetime.now(tz=TIMEZONE).timestamp()
         ):
-            await ctx.reply(
-                f"{ctx.author.mention}'s curse power is on cooldown.  Next available at <t:{int(next_curse_available)}:F>."
-            )
-            return
+            message_content = f"{ctx.author.mention}'s curse power is on cooldown.  Next available at <t:{int(next_curse_available)}:F>."
+            
+            balance = await Coins._get_balance(ctx.author)
+            cost  = await self.config.guild(ctx.guild).curse_cost()
 
-        if len(name) > DISCORD_MAX_NICK_LENGTH:
-            await ctx.reply(
-                f"{ctx.author.mention} attempted to curse with too long a name (must be less than {DISCORD_MAX_NICK_LENGTH} characters)."
-            )
-            return
+            if balance < cost:
+                await ctx.reply(message_content, delete_after=15)
+                return
+            
+            confirm = ConfirmationView(author=ctx.author)
+            message_content += f"\nSpend {cost} {await Coins._get_currency_name(ctx.guild)} to use it immediately? (Balance: `{balance}`)."
 
-        global_curse_cooldown_secs = await self.config.guild(ctx.guild).curse_cooldown()
-        next_available = (
-            datetime.now(tz=TIMEZONE).timestamp()
-            + global_curse_cooldown_secs
+            message = await ctx.reply(message_content, view=confirm)
+
+            await confirm.wait()
+
+            if not confirm.value:
+                await message.delete()
+                return
+            
+            await Coins._remove_balance(ctx.author, cost)
+
+            await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to use their curse power.", view=None, delete_after=15)
+
+
+        next_curse_available, embed = await self._curse(
+            ctx=ctx,
+            instigator=ctx.author,
+            target=target,
+            name_func=lambda _: name,
+            type="Cursed",
         )
-        await self.config.member(ctx.author).next_curse_available.set(next_available)
 
-        curse_duration_seconds : int = await self.config.guild(ctx.guild).curse_duration()
+        if next_curse_available > datetime.now(tz=TIMEZONE):
+            await ctx.reply(
+                f"{ctx.author.mention}'s ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.",
+                embed=embed,
+            )
+        else:
+            await ctx.reply(embed=embed)
 
-        cooldown_msg = f"{ctx.author.mention}'s ability to curse is on cooldown for until <t:{int(next_available)}:F>."
-
-        attacker_strength = await self.config.guild(ctx.guild).attacker_strength()
-        defender_strength = await self.config.guild(ctx.guild).defender_strength()
-
-        attacker_roll = d20.roll(attacker_strength)
-        defender_roll = d20.roll(defender_strength)
-
-        result_msg = (
-            f"(Attacker: {attacker_roll.result}) vs. (Defender: {defender_roll.result})"
+        await self.config.member(ctx.author).next_curse_available.set(
+            next_curse_available.timestamp()
         )
 
-        prefix = ""
-
-        bot_role: discord.Role = ctx.guild.me.top_role
-        target_role: discord.Role = target.top_role
-
-        if (
-            bot_role.position < target_role.position
-            or target.guild_permissions.administrator
-        ):
-            await self.config.member(ctx.author).next_curse_available.set(
-                datetime.now(tz=TIMEZONE).timestamp()
-            )
-            await ctx.reply(
-                f"ERROR: Bot does not have permission to edit {target.display_name}'s nickname. Your curse cooldown was refunded."
-            )
-            return
-
-        if await self.config.guild(ctx.guild).attacker_wins_ties():
-
-            def predicate(x, y):
-                return x >= y
-
-        else:
-
-            def predicate(x, y):
-                return x > y
-
-        cursed_users: typing.List[discord.Member] = []
-
-        if attacker_roll.crit == d20.CritType.FAIL:
-            cursed_users.append(ctx.author)
-            prefix += f":skull: Oh no, something went wrong... :skull:\n"
-            pass
-        elif attacker_roll.crit == d20.CritType.CRIT:
-            curse_duration_seconds *= 2
-            prefix += f":dart: Your curse feels extra potent! :dart:\n"
-            pass
-
-        # if defender_roll.crit == d20.CritType.FAIL:
-        #     pass
-        if defender_roll.crit == d20.CritType.CRIT:
-            prefix += f":shield: {target.display_name} shielded against the blow"
-            collateral_list: typing.List[discord.Member] = []
-            fetched: typing.List[discord.Message] = [
-                message async for message in ctx.channel.history(limit=200)
-            ]
-            potentials: typing.List[discord.Member] = list(
-                set([msg.author for msg in fetched])  # type: ignore[misc]
-            )
-            collateral_list.extend(
-                [
-                    t
-                    for t in potentials
-                    if t.id != target.id and t.id != ctx.author.id and not t.bot
-                ]
-            )
-            collateral_list = collateral_list[0:20]
-
-            if len(collateral_list) > 0:
-                new_target = random.choice(collateral_list)
-                cursed_users.append(new_target)
-                prefix += f"...and it ended up hitting {new_target.display_name} ({new_target.mention}) by mistake"
-                pass
-
-            if attacker_roll.crit == d20.CritType.CRIT and predicate(
-                attacker_roll.total, defender_roll.total
-            ):
-                prefix += f"...but {ctx.author.display_name}'s attack was too powerful"
-                cursed_users.append(target)
-
-            prefix += "!\n"
-        elif predicate(attacker_roll.total, defender_roll.total):
-            cursed_users.append(target)
-        else:
-            prefix += f"{ctx.author.mention} failed to curse {target.display_name}.\n"
-
-        expiration : datetime = datetime.now(tz=TIMEZONE) + timedelta(seconds=curse_duration_seconds)
-
-        if predicate(attacker_roll.total, defender_roll.total):
-            prefix += f":white_check_mark: {result_msg}\n"
-        else:
-            prefix += f":x: {result_msg}\n"
-
-        async def curse_end(v: discord.Member):
-            try:
-                await self._unset(v, type="Cursed")
-                await ctx.send(
-                    f"{ctx.author.display_name}'s Curse on {v.display_name} has ended."
-                )
-            except (PermissionError, Forbidden) as e:
-                await self.config.member(ctx.author).next_curse_available.set(
-                    datetime.now(tz=TIMEZONE).timestamp()
-                )
-                await ctx.reply(
-                    f"ERROR: Bot does not have permission to edit {v.display_name}'s nickname. Please reach out to a mod uncurse your name."
-                )
-
-        for victim in cursed_users:
-            original_name: str = victim.display_name
-
-            entry = CreateNickQueueEntry(
-                name=name,
-                target_id=victim.id,
-                instigator_id=ctx.author.id,
-                type="Cursed",
-                expiration=expiration,
-            )
-
-            try:
-                await self._set(victim, entry=entry)
-
-                scheduler.add_job(
-                    # Need to use partial here as it keeps sending the same user
-                    partial(curse_end, victim),
-                    id=str(entry['id']),
-                    trigger="date",
-                    next_run_time=expiration,
-                    replace_existing=True,
-                )
-
-                jobs = scheduler.get_jobs()
-
-                prefix += f"{ctx.author.mention} cursed {original_name}'s nickname to {name} until <t:{int(expiration.timestamp())}:F>.\n"
-
-            except (PermissionError, Forbidden) as e:
-                if target.id == victim.id:
-                    await self.config.member(ctx.author).next_curse_available.set(
-                        datetime.now(tz=TIMEZONE).timestamp()
-                    )
-                    await ctx.reply(
-                        f"ERROR: Bot does not have permission to edit {victim.display_name}'s nickname. {ctx.author.mention}'s curse cooldown was refunded."
-                    )
-                    return
-                else:
-                    continue
-
-        await ctx.send(f"{prefix}{cooldown_msg}")
-        pass
-
-    async def _unset(self, member: discord.Member, *, id: typing.Optional[int] = None, type: typing.Optional[CurseType] = None) -> NickQueueEntry:
+    async def _unset(
+        self,
+        member: discord.Member,
+        *,
+        id: typing.Optional[int] = None,
+        type: typing.Optional[CurseType] = None,
+    ) -> NickQueueEntry:
         """Removes a stuck nickname for a user.
 
         __Args__:
@@ -831,8 +825,10 @@ class Nickname(commands.Cog):
             member (discord.Member): The target member whose nickname is changing.
         """
         if id is None and type is None:
-            raise commands.BadArgument("Need to have a valid type or id to remove a job.")
-        
+            raise commands.BadArgument(
+                "Need to have a valid type or id to remove a job."
+            )
+
         guild = member.guild
 
         member_config = bind_member(self.config.member(member))
@@ -983,23 +979,23 @@ class Nickname(commands.Cog):
         else:
             instigator: typing.Union[discord.Member, discord.User, None]
 
-            instigator = ctx.guild.get_member(ailment['instigator_id'])  # type: ignore[arg-type]
+            instigator = ctx.guild.get_member(ailment["instigator_id"])  # type: ignore[arg-type]
             if instigator is None:
-                instigator = await self.bot.fetch_user(ailment['instigator_id'])  # type: ignore[arg-type]
+                instigator = await self.bot.fetch_user(ailment["instigator_id"])  # type: ignore[arg-type]
 
             return {
                 "target": member.display_name,
-                "type": ailment['type'],
+                "type": ailment["type"],
                 "instigator": instigator.display_name or f"**NOT FOUND**",
                 "participle": f"{'until' if ailment['type'] == 'Cursed' or ailment['type'] == 'Nyamed' else 'since'} ",
                 "time": datetime.fromtimestamp(
-                        (
-                            ailment['expiration']
-                            if ailment['expiration'] is not None
-                            else ailment['created_at']
-                        ),
-                        tz=TIMEZONE,
+                    (
+                        ailment["expiration"]
+                        if ailment["expiration"] is not None
+                        else ailment["created_at"]
                     ),
+                    tz=TIMEZONE,
+                ),
             }
             pass
         pass
@@ -1106,7 +1102,6 @@ class Nickname(commands.Cog):
                         #     or entry["expiration"]
                         #     > datetime.now(tz=TIMEZONE).timestamp()
                         # )
-                        
                         ,
                         nick_queue,
                     )
@@ -1123,7 +1118,9 @@ class Nickname(commands.Cog):
         # Sort by time locked.
         values = sorted(
             values,
-            key=lambda x: x['expiration'] if x['expiration'] is not None else x['created_at'],
+            key=lambda x: (
+                x["expiration"] if x["expiration"] is not None else x["created_at"]
+            ),
             reverse=True,
         )
 
@@ -1133,11 +1130,15 @@ class Nickname(commands.Cog):
             description = ""
             while len(values) > 0:
                 value = values[0]
-                time_field : str
-                member = guild.get_member(value['target_id'])  # type: ignore[assignment]
-                author = guild.get_member(value['instigator_id']) if value['instigator_id'] is not None else None 
+                time_field: str
+                member = guild.get_member(value["target_id"])  # type: ignore[assignment]
+                author = (
+                    guild.get_member(value["instigator_id"])
+                    if value["instigator_id"] is not None
+                    else None
+                )
 
-                if value['expiration'] is not None:
+                if value["expiration"] is not None:
                     time_field = f"<t:{int(datetime.fromtimestamp(value['expiration'], tz=TIMEZONE).timestamp())}:F>"
                 else:
                     time_field = f"<t:{int(datetime.fromtimestamp(value['created_at'], tz=TIMEZONE).timestamp())}:F>"
@@ -1145,16 +1146,19 @@ class Nickname(commands.Cog):
                 string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}`{f' by {author.mention}' if author is not None else ''}: "
                 string += f" {'Releases on' if value['expiration'] is not None else 'Since'} {time_field}"
 
-                if value['type'] == "Cursed":
+                if value["type"] == "Cursed":
                     string = f":skull:{string}"
-                elif value['type'] == "Nyamed":
+                elif value["type"] == "Nyamed":
                     string = f":cat:{string}"
-                elif value['type'] == "Locked":
+                elif value["type"] == "Locked":
                     string = f":lock:{string}"
 
                 string += "\n"
 
-                if (len(description) + len(string) > DISCORD_EMBED_MAX_DESCRIPTION_LENGTH):
+                if (
+                    len(description) + len(string)
+                    > DISCORD_EMBED_MAX_DESCRIPTION_LENGTH
+                ):
                     break
 
                 description += string
@@ -1207,12 +1211,13 @@ class Nickname(commands.Cog):
 
             await self.config.guild(guild).curse_cooldown.set(cooldown_sec)
 
-            upper_bound = (datetime.now(tz=TIMEZONE) + timedelta(seconds=cooldown_sec))
+            upper_bound = datetime.now(tz=TIMEZONE) + timedelta(seconds=cooldown_sec)
 
             for member in guild.members:
                 next_available: datetime = datetime.fromtimestamp(
-                    await self.config.member(member).next_curse_available() or 0
-                , tz=TIMEZONE)
+                    await self.config.member(member).next_curse_available() or 0,
+                    tz=TIMEZONE,
+                )
 
                 if next_available != None and next_available > upper_bound:
                     await self.config.member(member).next_curse_available.set(
@@ -1271,15 +1276,15 @@ class Nickname(commands.Cog):
         member_config = bind_member(self.config.member(member))
         guild: discord.Guild = member.guild
 
-        nick_queue : typing.List[NickQueueEntry] = await member_config.nick_queue()
+        nick_queue: typing.List[NickQueueEntry] = await member_config.nick_queue()
         nick_queue = list(
             filter(
-                lambda entry: entry['expiration'] is not None,
+                lambda entry: entry["expiration"] is not None,
                 nick_queue,
             )
         )
 
-        unset : bool = False
+        unset: bool = False
 
         async def undo_curse():
             await self._unset(member, type="Cursed")
@@ -1294,7 +1299,7 @@ class Nickname(commands.Cog):
                 pass
 
         for curse in nick_queue:
-            if curse['expiration'] is not None: 
+            if curse["expiration"] is not None:
                 if curse["expiration"] < datetime.now(tz=TIMEZONE).timestamp():
                     await undo_curse()
                     unset = True
@@ -1315,13 +1320,15 @@ class Nickname(commands.Cog):
 
     async def _check_guild(self, guild: discord.Guild) -> typing.List[discord.Member]:
         member_ids: typing.List[int] = await self._get_member_ids_by_entry(guild)
-        adjusted_members : typing.List[discord.Member] = []
+        adjusted_members: typing.List[discord.Member] = []
 
         if len(member_ids) == 0:
             return []
         else:
             member: discord.Member
-            for member in [m for m in [guild.get_member(id) for id in member_ids] if m is not None]:
+            for member in [
+                m for m in [guild.get_member(id) for id in member_ids] if m is not None
+            ]:
                 if await self._check_member(member):
                     adjusted_members.append(member)
 
@@ -1333,8 +1340,8 @@ class Nickname(commands.Cog):
             members = await self._check_guild(guild)
             if len(members) > 0:
                 await self.bot.send_to_owners(
-                    f"Nickname Cog: {len(members)} members had their curses removed after restart:" + 
-                    f"{','.join([f'{m.mention} ({m.id})' for m in members])}"
+                    f"Nickname Cog: {len(members)} members had their curses removed after restart:"
+                    + f"{','.join([f'{m.mention} ({m.id})' for m in members])}"
                 )
 
     @commands.Cog.listener()
@@ -1366,7 +1373,7 @@ class Nickname(commands.Cog):
         if latest == None or after.nick == latest["name"]:
             return
 
-        await after.guild.get_member(after.id).edit( # type: ignore[union-attr]
+        await after.guild.get_member(after.id).edit(  # type: ignore[union-attr]
             reason=f"Preventing user from changing nickname.", nick=latest["name"]
         )
 
@@ -1396,7 +1403,7 @@ class Nickname(commands.Cog):
         if latest == None or member.nick == latest["name"]:
             return
 
-        await member.guild.get_member(member.id).edit( # type: ignore[union-attr]
+        await member.guild.get_member(member.id).edit(  # type: ignore[union-attr]
             reason=f"Updating user's nickname to locked nickname.", nick=latest["name"]
         )
         pass
