@@ -17,6 +17,7 @@ from redbot.core.bot import Red
 from redbot.core.config import Config
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
+from apscheduler.job import Job
 
 from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.discord.user import MAX_NAME_LENGTH as DISCORD_MAX_NICK_LENGTH
@@ -584,6 +585,24 @@ class Nickname(commands.Cog):
         pass
 
     @nickname.command()
+    @commands.is_owner()
+    @commands.guild_only()
+    async def get_jobs(self, ctx: commands.GuildContext):
+        jobs : typing.List[Job] = scheduler.get_jobs()
+    
+        if not jobs:
+            await ctx.reply("No jobs are scheduled.")
+        else:
+            for job in jobs:
+                await ctx.reply(
+                f"Job ID: {job.id}\n" +
+                f"\tNext Run Time: {job.next_run_time}\n" +
+                f"\tTrigger: {job.trigger}\n" +
+                f"\tFunction: {job.func_ref}\n" +
+                f"\tArgs: {job.args}\n"
+            )
+
+    @nickname.command()
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
     async def check_guild(self, ctx: commands.GuildContext):
@@ -837,9 +856,12 @@ class Nickname(commands.Cog):
 
         latest = await member_config.get_latest()
 
-        await member.edit(
-            reason=f"Removing current lock on nickname.", nick=latest["name"]
-        )
+        try: 
+            await member.edit(
+                reason=f"Removing current lock on nickname.", nick=latest["name"]
+            )
+        except (PermissionError, Forbidden) as e:
+            await self.bot.send_to_owners(f"Nickname: Failed to edit nickname on {member.mention}:\n{json.dumps(latest, indent=2)}")
 
         # if not await member_config.is_cursed() and not await member_config.is_locked():
         #     member_ids = await self.config.guild(guild).nicknamed_member_ids()
@@ -1334,8 +1356,7 @@ class Nickname(commands.Cog):
 
         return adjusted_members
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         for guild in self.bot.guilds:
             members = await self._check_guild(guild)
             if len(members) > 0:

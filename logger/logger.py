@@ -413,13 +413,14 @@ class Logger(commands.Cog):
                         if payload.data is None
                         or "content" not in payload.data
                         or payload.data["content"] is None
+                        or payload.data["content"] == ""
                         else payload.data["content"]
                     )
                     await logger_channel.send(f"{log}\n{before}", suppress_embeds=True) # type: ignore[union-attr]
                     try:
                         await logger_channel.send(after, suppress_embeds=True) # type: ignore[union-attr]
                     except Exception as e:
-                        print(f"Failed to print message. Dumping:\n\n{json.dumps(payload.__dict__, indent=2)}\n\n")
+                        print(f"Failed to print message. Dumping:\n\n{payload}\n\n")
                         raise e
         return
 

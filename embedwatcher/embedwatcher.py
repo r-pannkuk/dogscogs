@@ -389,8 +389,10 @@ class EmbedWatcher(commands.Cog):
 
         if message.author.bot:
             return
+        
+        member = guild.get_member(message.author.id)
 
-        member_role_ids : typing.List[int] = [role.id for role in message.author.roles] # type: ignore[union-attr]
+        member_role_ids : typing.List[int] = [role.id for role in member.roles] # type: ignore[union-attr]
 
         # Returning if the author's roles match any of the whitelist.
         if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):

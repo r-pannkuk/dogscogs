@@ -363,8 +363,7 @@ class RoleColors(commands.Cog):
 
         return fixed_members
 
-    @commands.Cog.listener()
-    async def on_ready(self):
+    async def cog_load(self):
         for guild in self.bot.guilds:
             members = await self._check_guild(guild)
             if len(members) > 0:
