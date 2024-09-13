@@ -24,8 +24,11 @@ class CoinsPassiveConfigurationEmbed(discord.Embed):
         # self.is_enabled = await self.group.is_enabled()
         # self.daily_award = await self.group.daily_award()
         # self.daily_award_channels = await self.group.daily_award_channels()
+        self.coin_emoji_id = await self.group.coin_emoji_id()
+        self.coin_emoji = self.guild.get_emoji(self.coin_emoji_id)
         self.passive_max = await self.group.passive_max_count_per_day()
         self.passive_chance = await self.group.passive_chance()
+        self.passive_react_interval = await self.group.passive_react_interval()
         self.passive_award_amount = await self.group.passive_award_amount()
         self.passive_channel_ids = await self.group.passive_channels()
         self.passive_channel_silent_ids = await self.group.passive_channels_silent()
@@ -56,7 +59,7 @@ class CoinsPassiveConfigurationEmbed(discord.Embed):
             await self.group.passive_response_jackpot_multiplier()
         )
 
-        self.description = f"The below configuration will be used to passively award {self.currency_name}:\n"
+        self.description = f"The below configuration will be used to passively award {self.currency_name} ({self.coin_emoji}):\n"
 
         channel_string = ", ".join(
             [
@@ -78,7 +81,8 @@ class CoinsPassiveConfigurationEmbed(discord.Embed):
             value=f"__Passive Award Chance__: {self.passive_chance:,.2%}\n"
             + f"__Triggering Channels__: {channel_string}\n"
             + f"__Passive Award Amount__: {self.passive_award_amount}\n"
-            + f"__Max Awards Per Day__: {self.passive_max}\n",
+            + f"__Max Awards Per Day__: {self.passive_max}\n"
+            + f"__Emoji React Interval__: Reacting every " + (f"{self.passive_react_interval} posts" if self.passive_react_interval > 1 else "post") + "\n",
             inline=False,
         )
 
@@ -199,6 +203,32 @@ class CoinsPassiveConfigurationView(_ConfigurationView):
         await self.embed_message.edit(
             embed=await CoinsPassiveConfigurationEmbed(
                 self.client, self.config, self.guild  # type: ignore
+            ).collect()
+        )
+
+    @discord.ui.button(label="Edit Emoji Interval", style=discord.ButtonStyle.secondary, row=0)
+    async def edit_react_interval(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ):
+        if interaction.user != self.author:
+            return
+
+        modal = NumberPromptModal(
+            author=self.author,
+            title="Emoji React Interval",
+            label="React Interval",
+            placeholder=f"{int(await self.config.guild(self.guild).passive_react_interval())}", # type: ignore
+            custom_id="edit_passive_react_interval",
+            min=1,
+            max=1000000,
+        )
+
+        await interaction.response.send_modal(modal)
+        await modal.wait()
+        await self.config.guild(self.guild).passive_react_interval.set(int(modal.item.value)) # type: ignore
+        await self.embed_message.edit(
+            embed=await CoinsPassiveConfigurationEmbed(
+                self.client, self.config, self.guild # type: ignore
             ).collect()
         )
 

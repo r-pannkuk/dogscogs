@@ -9,10 +9,10 @@ from redbot.core import commands, bank
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from .paginated import PaginatedEmbed
-from .embed import CoinsPassiveConfigurationView, CoinsPassiveConfigurationEmbed
-
 from dogscogs.constants import TIMEZONE, COG_IDENTIFIER
+from dogscogs.views.paginated import PaginatedEmbed
+
+from .embed import CoinsPassiveConfigurationView, CoinsPassiveConfigurationEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -25,6 +25,7 @@ DEFAULT_GUILD = {
     "passive_award_amount": 1,
     "passive_max_count_per_day": 20,
     "coin_emoji_id": None,
+    "passive_react_interval": 10,
     "passive_channels": [],
     "passive_channels_silent": [],
     "passive_award_responses": [
@@ -970,7 +971,17 @@ class Coins(commands.Cog):
 
         currency_name = await bank.get_currency_name(message.guild)  # type: ignore[arg-type]
 
-        if not message.channel.id in silent_passive_channel_ids:
+        if roll <= passive_response_chance * passive_chance:
+            if roll <= passive_jackpot_chance * passive_response_chance * passive_chance:
+                passive_amount *= int(await self.config.guild(message.guild).passive_response_jackpot_multiplier())
+            else:
+                passive_amount *= int(await self.config.guild(message.guild).passive_response_multiplier())
+
+        new_balance = await Coins._add_balance(user, passive_amount)  # type: ignore[arg-type]
+
+        passive_react_interval = await self.config.guild(message.guild).passive_react_interval()
+
+        if not message.channel.id in silent_passive_channel_ids and new_balance % passive_react_interval == 0:
             emoji_id = await self.config.guild(message.guild).coin_emoji_id()
 
             if emoji_id is not None:
@@ -980,14 +991,6 @@ class Coins(commands.Cog):
                 emoji = "🪙" #type: ignore[assignment]
 
             await message.add_reaction(emoji)  # type: ignore
-
-        if roll <= passive_response_chance * passive_chance:
-            if roll <= passive_jackpot_chance * passive_response_chance * passive_chance:
-                passive_amount *= int(await self.config.guild(message.guild).passive_response_jackpot_multiplier())
-            else:
-                passive_amount *= int(await self.config.guild(message.guild).passive_response_multiplier())
-
-        new_balance = await Coins._add_balance(user, passive_amount)  # type: ignore[arg-type]
 
         if roll <= passive_response_chance * passive_chance:
             passive_responses = await self.config.guild(
