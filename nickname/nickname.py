@@ -1165,7 +1165,7 @@ class Nickname(commands.Cog):
                 else:
                     time_field = f"<t:{int(datetime.fromtimestamp(value['created_at'], tz=TIMEZONE).timestamp())}:F>"
 
-                string = f"{member.mention} ({member.name}) was {value['type']} to `{value['name']}`{f' by {author.mention}' if author is not None else ''}: "
+                string = f"{member.mention} ({discord.utils.escape_markdown(member.name)}) was {value['type']} to `{discord.utils.escape_markdown(value['name'])}`{f' by {author.mention}' if author is not None else ''}: "
                 string += f" {'Releases on' if value['expiration'] is not None else 'Since'} {time_field}"
 
                 if value["type"] == "Cursed":
