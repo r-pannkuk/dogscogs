@@ -814,7 +814,7 @@ class Nickname(commands.Cog):
             ctx=ctx,
             instigator=ctx.author,
             target=target,
-            name_func=lambda _: name,
+            name_func=lambda _: name.strip().strip("\"'"),
             type="Cursed",
         )
 
