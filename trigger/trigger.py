@@ -458,7 +458,7 @@ class Trigger(commands.Cog):
                     action is None and 
                     message is not None and 
                     config["trigger"]["list"] is not None and
-                    any(x for x in config["trigger"]["list"] if re.match(fr"\b{x}\b", message.content.lower()))
+                    any(x for x in config["trigger"]["list"] if re.match(fr"\\b{x}\\b", message.content.lower()))
                 ) or \
                 config["trigger"]["type"] & ReactType.JOIN and action == "joined" or \
                 config["trigger"]["type"] & ReactType.LEAVE and action == "left" or \
