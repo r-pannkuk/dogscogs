@@ -586,7 +586,7 @@ class Nickname(commands.Cog):
 
         pass
 
-    @nickname.command()
+    @nickname.command(aliases=['job_list', 'jobs_list'])
     @commands.is_owner()
     @commands.guild_only()
     async def get_jobs(self, ctx: commands.GuildContext):
@@ -596,13 +596,12 @@ class Nickname(commands.Cog):
             await ctx.reply("No jobs are scheduled.")
         else:
             for job in jobs:
+                member = ctx.guild.get_member(int(job.id.split(':')[2]))
                 await ctx.reply(
-                f"Job ID: {job.id}\n" +
-                f"\tNext Run Time: {job.next_run_time}\n" +
-                f"\tTrigger: {job.trigger}\n" +
-                f"\tFunction: {job.func_ref}\n" +
-                f"\tArgs: {job.args}\n"
-            )
+                    f"Job ID: {job.id}\n" +
+                    f"\tNext Run Time: <t:{int(job.next_run_time.timestamp())}:R>\n" +
+                    f"\tMember: {f'{member.mention} ({member.name})' if member else job.id.split(':')[2]}"
+                )
 
     @nickname.command()
     @commands.has_guild_permissions(manage_roles=True)
