@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from functools import partial
 import json
 import random
 from types import MethodType
@@ -532,7 +533,7 @@ class Nickname(commands.Cog):
 
                 scheduler.add_job(
                     undo_curse,
-                    id=str(entry["id"]),
+                    id=f"Nickname:{type.capitalize()}:{victim.id}",
                     trigger="date",
                     next_run_time=expiration,
                     replace_existing=True,
@@ -1342,9 +1343,8 @@ class Nickname(commands.Cog):
 
         unset: bool = False
 
-        async def undo_curse():
-            await self._unset(member, type="Cursed")
-            await self._unset(member, type="Nyamed")
+        async def undo_curse(type: CurseType):
+            await self._unset(member, type=type)
             try:
                 # await member.send(f"{guild.get_member(curse['instigator_id']).display_name}'s Curse on you has ended.")
                 pass
@@ -1357,13 +1357,13 @@ class Nickname(commands.Cog):
         for curse in nick_queue:
             if curse["expiration"] is not None:
                 if curse["expiration"] < datetime.now(tz=TIMEZONE).timestamp():
-                    await undo_curse()
+                    await undo_curse(type=curse["type"])
                     unset = True
                     continue
                 else:
                     scheduler.add_job(
-                        undo_curse,
-                        id=str(curse["id"]),
+                        partial(undo_curse, type=curse["type"]),
+                        id=f"Nickname:{curse['type'].capitalize()}:{member.id}",
                         trigger="date",
                         next_run_time=datetime.fromtimestamp(
                             curse["expiration"], tz=TIMEZONE
