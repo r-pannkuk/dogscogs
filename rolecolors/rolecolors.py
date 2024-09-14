@@ -35,11 +35,19 @@ DEFAULT_GUILD = {
     "role_ids": [],
     "color_change_cost": 10,
     "color_change_duration_secs": 60 * 60 * 24,  # 1 day
+    "curse_succesive_increase": 1.0,
+    "curse_succesive_max": 5,
 }
 
 DEFAULT_MEMBER = {
     "original_color_role_id": None,
     "cursed_until": None,
+    "successive": {
+        "Painted": {
+            "count": 0,
+            "last_timestamp": None,
+        },
+    }
 }
 
 class ColorRoleConverter(DogCogConverter):
@@ -372,6 +380,29 @@ class RoleColors(commands.Cog):
                     "\n".join([f"{member.mention} ({member.id})" for member in members])
                 )
 
+    async def _calculate_cost(self, member: discord.Member) -> int:
+        """Calculates the cost of a curse for a member. Resets every end of week (Sunday).
+        """
+        cost  = await self.config.guild(member).curse_cost()
+
+        successive_cost_increase = await self.config.guild(member.guild).curse_succesive_increase()
+        successive_count_max = await self.config.guild(member.guild).curse_succesive_max()
+
+        successive = await self.config.member(member).successive()
+        successive_data = successive['Painted']
+
+        now = datetime.now(tz=TIMEZONE)
+
+        start_of_week = now - timedelta(days=now.weekday())
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if successive_data['last_timestamp'] is not None and successive_data['last_timestamp'] < start_of_week.timestamp():
+            successive_data['count'] = 0
+
+        cost += (min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
+
+        return cost
+
     @rolecolors.command(usage="<member> <hex_or_roleid>", name="curse")
     async def curse(
         self,
@@ -497,6 +528,11 @@ class RoleColors(commands.Cog):
                 async def curse_end():
                     await self._uncurse_member(cursed_user)
                     await ctx.channel.send(f"{cursed_user.mention} has been uncursed.")
+
+                successive = await self.config.member(ctx.author).successive()
+                successive['Painted']["count"] += 1
+                successive['Painted']["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
+                await self.config.member(ctx.author).successive.set(successive)
 
                 scheduler.add_job(
                     curse_end,

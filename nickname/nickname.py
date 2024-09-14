@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from functools import partial
 import json
 import random
 from types import MethodType
@@ -10,14 +9,13 @@ import uuid
 
 import discord
 from discord.errors import Forbidden
-import pytz
 from redbot.core import commands
 from redbot.core import config
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler  # type: ignore[import-untyped]
-from apscheduler.job import Job
+from apscheduler.job import Job # type: ignore[import-untyped]
 
 from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.constants.discord.user import MAX_NAME_LENGTH as DISCORD_MAX_NICK_LENGTH
@@ -92,12 +90,24 @@ DEFAULT_MEMBER = {
     "nick_queue": [],
     "next_curse_available": None,
     "next_nyame_available": None,
+    "successive": {
+        "Cursed": {
+            "count": 0,
+            "last_timestamp": None,
+        },
+        "Nyamed": {
+            "count": 0,
+            "last_timestamp": None,
+        }
+    }
 }  # type: ignore[var-annotated]
 
 DEFAULT_GUILD = {
     "curse_cooldown": 12 * 60 * 60,  # 12 hours
     "curse_duration": 30 * 60,  # 30 minutes
     "curse_cost": 10,
+    "curse_succesive_increase": 1.0,
+    "curse_succesive_max": 5,
 }
 
 
@@ -497,24 +507,16 @@ class Nickname(commands.Cog):
             expiration=expiration,
         )
 
-        async def curse_end(v: discord.Member):
+        async def undo_curse():
+            await self._unset(victim, type=type)
             try:
-                await self._unset(v, type=type)
-                await ctx.send(
-                    f"{instigator.display_name}'s Curse on {v.display_name} has ended."
+                await victim.send(f"{victim.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.")
+                pass
+            except discord.errors.HTTPException as e:
+                print(
+                    f"Attempted to send a message and failed to DM (could be bot?):\n{entry}"
                 )
-            except (PermissionError, Forbidden) as e:
-                if type == "Cursed":
-                    await self.config.member(instigator).next_curse_available.set(
-                        datetime.now(tz=TIMEZONE).timestamp()
-                    )
-                if type == "Nyamed":
-                    await self.config.member(instigator).next_nyame_available.set(
-                        datetime.now(tz=TIMEZONE).timestamp()
-                    )
-                await ctx.reply(
-                    f"ERROR: Bot does not have permission to edit {v.display_name}'s nickname. Please reach out to a mod uncurse your name."
-                )
+                pass
 
         for victim in cursed_users:
             entry = CreateNickQueueEntry(
@@ -529,8 +531,7 @@ class Nickname(commands.Cog):
                 await self._set(victim, entry=entry)
 
                 scheduler.add_job(
-                    # Need to use partial here as it keeps sending the same user
-                    partial(curse_end, victim),
+                    undo_curse,
                     id=str(entry["id"]),
                     trigger="date",
                     next_run_time=expiration,
@@ -692,7 +693,7 @@ class Nickname(commands.Cog):
             message_content = f"{ctx.author.mention}'s nyame power is onya cooldownya.  Nyext nyavailyable nyat <t:{int(next_nyame_available)}:F>."
 
             balance = await Coins._get_balance(ctx.author)
-            cost  = await self.config.guild(ctx.guild).curse_cost()
+            cost = await self._calculate_cost(ctx.author, "Nyamed")
 
             if balance < cost:
                 await ctx.reply(message_content, delete_after=15)
@@ -710,6 +711,11 @@ class Nickname(commands.Cog):
                 return
             
             await Coins._remove_balance(ctx.author, cost)
+
+            successive = await self.config.member(ctx.author).successive()
+            successive[type]["count"] += 1
+            successive[type]["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
+            await self.config.member(ctx.author).successive.set(successive)
 
             await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to nyuse their nyame power.", view=None, delete_after=15)
             
@@ -763,6 +769,29 @@ class Nickname(commands.Cog):
             )
         pass
 
+    async def _calculate_cost(self, member: discord.Member, type: CurseType) -> int:
+        """Calculates the cost of a curse for a member. Resets every end of week (Sunday).
+        """
+        cost  = await self.config.guild(member).curse_cost()
+
+        successive_cost_increase = await self.config.guild(member.guild).curse_succesive_increase()
+        successive_count_max = await self.config.guild(member.guild).curse_succesive_max()
+
+        successive = await self.config.member(member).successive()
+        successive_data = successive[type]
+
+        now = datetime.now(tz=TIMEZONE)
+
+        start_of_week = now - timedelta(days=now.weekday())
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        if successive_data['last_timestamp'] is not None and successive_data['last_timestamp'] < start_of_week.timestamp():
+            successive_data['count'] = 0
+
+        cost += (min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
+
+        return cost
+
 
     @commands.guild_only()
     @nickname.command(usage="<member> <name>")
@@ -788,7 +817,7 @@ class Nickname(commands.Cog):
             message_content = f"{ctx.author.mention}'s curse power is on cooldown.  Next available at <t:{int(next_curse_available)}:F>."
             
             balance = await Coins._get_balance(ctx.author)
-            cost  = await self.config.guild(ctx.guild).curse_cost()
+            cost = await self._calculate_cost(ctx.author, "Cursed")
 
             if balance < cost:
                 await ctx.reply(message_content, delete_after=15)
@@ -806,6 +835,11 @@ class Nickname(commands.Cog):
                 return
             
             await Coins._remove_balance(ctx.author, cost)
+
+            successive = await self.config.member(ctx.author).successive()
+            successive[type]["count"] += 1
+            successive[type]["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
+            await self.config.member(ctx.author).successive.set(successive)
 
             await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to use their curse power.", view=None, delete_after=15)
 
