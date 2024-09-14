@@ -468,12 +468,20 @@ class Trigger(commands.Cog):
                     if chance.find("%") != -1:
                         chance = chance.replace("%", "")
                         chance = chance[:-2] + "." + chance[-2:]
+                    
+                    chance_result : bool = False
+
+                    try:
+                        chance_result = random.random() < float(chance)
+                    except ValueError:
+                        chance_result = d20.roll(str(chance)).total <= 1
+
                     if (
                         (
                             config["always_list"] is not None and
                             member.id in config["always_list"] 
                         ) or
-                        random.random() < d20.roll(str(chance)).total
+                        chance_result
                      ) and datetime.datetime.now(tz=pytz.timezone("UTC")).timestamp() > config["cooldown"]["next"]:
                         message_contents = self._generate(
                             config=config, 
