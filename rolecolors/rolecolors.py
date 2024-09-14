@@ -383,7 +383,7 @@ class RoleColors(commands.Cog):
     async def _calculate_cost(self, member: discord.Member) -> int:
         """Calculates the cost of a curse for a member. Resets every end of week (Sunday).
         """
-        cost  = await self.config.guild(member).curse_cost()
+        cost  = await self.config.guild(member).color_change_cost()
 
         successive_cost_increase = await self.config.guild(member.guild).curse_succesive_increase()
         successive_count_max = await self.config.guild(member.guild).curse_succesive_max()
@@ -399,7 +399,7 @@ class RoleColors(commands.Cog):
         if successive_data['last_timestamp'] is not None and successive_data['last_timestamp'] < start_of_week.timestamp():
             successive_data['count'] = 0
 
-        cost += (min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
+        cost += int(min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
 
         return cost
 
@@ -422,9 +422,6 @@ class RoleColors(commands.Cog):
         curse_duration_secs = await self.config.guild_from_id(
             ctx.guild.id
         ).color_change_duration_secs()
-        color_change_cost = await self.config.guild_from_id(
-            ctx.guild.id
-        ).color_change_cost()
 
         if target.id == ctx.author.id:
             await ctx.channel.send("You cannot curse yourself. Try `set` instead.")
@@ -443,6 +440,7 @@ class RoleColors(commands.Cog):
             return None
 
         current_balance = await Coins._get_balance(ctx.author)
+        color_change_cost = await self._calculate_cost(ctx.author)
 
         if current_balance < color_change_cost:
             await ctx.channel.send(

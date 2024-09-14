@@ -713,8 +713,8 @@ class Nickname(commands.Cog):
             await Coins._remove_balance(ctx.author, cost)
 
             successive = await self.config.member(ctx.author).successive()
-            successive[type]["count"] += 1
-            successive[type]["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
+            successive['Nyamed']["count"] += 1
+            successive['Nyamed']["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
             await self.config.member(ctx.author).successive.set(successive)
 
             await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to nyuse their nyame power.", view=None, delete_after=15)
@@ -788,7 +788,7 @@ class Nickname(commands.Cog):
         if successive_data['last_timestamp'] is not None and successive_data['last_timestamp'] < start_of_week.timestamp():
             successive_data['count'] = 0
 
-        cost += (min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
+        cost += int(min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
 
         return cost
 
@@ -837,8 +837,8 @@ class Nickname(commands.Cog):
             await Coins._remove_balance(ctx.author, cost)
 
             successive = await self.config.member(ctx.author).successive()
-            successive[type]["count"] += 1
-            successive[type]["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
+            successive['Cursed']["count"] += 1
+            successive['Cursed']["last_timestamp"] = datetime.now(tz=TIMEZONE).timestamp()
             await self.config.member(ctx.author).successive.set(successive)
 
             await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to use their curse power.", view=None, delete_after=15)
