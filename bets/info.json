@@ -1,9 +1,9 @@
 {
     "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
-    "name": "Battler",
-    "short": "A battle system with equipment for completing actions.",
-    "description": "A battle system with equipment for completing actions.",
-    "end_user_data_statement": "This data stores equipment and other variables for members.",
+    "name": "Bets",
+    "short": "Set up bets for tournament matchups and others.",
+    "description": "Set up bets for tournament matchups and others.",
+    "end_user_data_statement": "Stores what bets a user made.",
     "author": [
         "klypto"
     ],
@@ -14,8 +14,7 @@
         "git+https://github.com/r-pannkuk/dogscogs-utils.git"
     ],
     "tags": [
-        "battle",
-        "equipment"
+        "bet"
     ],
     "min_bot_version": "3.5.0",
     "hidden": false,

@@ -391,3 +391,13 @@ class CoinsPassiveConfigurationView(_ConfigurationView):
                 self.client, self.config, self.guild  # type: ignore
             ).collect()
         )
+
+    async def interaction_check(self, interaction: discord.Interaction):
+        for item in self.children:
+            if not item.interaction_check(interaction):
+                return False
+            
+        return True
+
+    async def on_error(self, interaction: discord.Interaction, exception: Exception, item: discord.ui.Item):
+        await interaction.response.send_message(f"An error occurred: {exception}", ephemeral=True, delete_after=15)
