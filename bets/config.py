@@ -24,7 +24,7 @@ class BetConfig(typing.TypedDict):
     betters: typing.List[Better]
     base_value: int
     winning_option_id: typing.Union[int, None]
-    created_at : typing.Union[float, None]
+    created_at : float
     last_edited_at : typing.Union[float, None]
     closed_at : typing.Union[float, None]
 
@@ -34,7 +34,7 @@ class BetGuildConfig(typing.TypedDict):
 
 def generate_bet_config(
     *,
-    id: int = uuid.uuid4().int,
+    id: typing.Optional[int] = None,
     state: BetState = 'config',
     author_id: int,
     minimum_bet: int = 1,
@@ -49,7 +49,7 @@ def generate_bet_config(
     closed_at : typing.Optional[datetime] = None,
 ) -> BetConfig:
     return {
-        "id": id,
+        "id": id or uuid.uuid4().int,
         "state": state,
         "author_id": author_id,
         "minimum_bet": minimum_bet,

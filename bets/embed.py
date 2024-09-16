@@ -57,12 +57,16 @@ class BetEmbed(discord.Embed):
 
         bet_total = sum(values[option['id']]['total_value'] for option in bet_config['options'])
         pool_total = bet_total + bet_config['base_value']
+
+        member = self.guild.get_member(bet_config['author_id']) or await self.ctx.bot.fetch_user(bet_config['author_id'])
         parameters_field = ""
+        parameters_field += f"__Started By__: {member.mention}\n"
         parameters_field += f"__State__: `{bet_config['state'].capitalize()}`\n"
         if pool_total > 0:
             parameters_field += f"__Total Pool__: **{pool_total}**"
             if bet_total != pool_total: 
-                parameters_field += f" : [{bet_total}] ( +{bet_config['base_value']} )\n"
+                parameters_field += f" : [{bet_total}] ( +{bet_config['base_value']} )"
+            parameters_field += "\n"
         if bet_config['minimum_bet'] > 1:
             parameters_field += f"__Minimum Bet__: {bet_config['minimum_bet']}\n"
 
@@ -71,7 +75,12 @@ class BetEmbed(discord.Embed):
         options_field = ""
 
         for i, option in enumerate(bet_config['options']):
-            options_field += f"{i+1}. __{option['option_name']}__: {values[option['id']]['total_value']}"
+            options_field += f"{i+1}. "
+            if bet_config['state'] == 'resolved' and bet_config['winning_option_id'] == option['id']:
+                options_field += f"🎉 __{option['option_name']}__ 🎉: "
+            else:
+                options_field += f"__{option['option_name']}__: " 
+            options_field += f"{values[option['id']]['total_value']}"
             if bet_total > 0:
                 count = sum(1 for better in bet_config['betters'] if better['bet_option_id'] == option['id'])
                 if count > 0:
@@ -86,10 +95,6 @@ class BetEmbed(discord.Embed):
             options_field += '\n'
 
         self.add_field(name="Options", value=options_field, inline=False)
-
-        if bet_config['winning_option_id'] is not None:
-            winning_option = next(option for option in bet_config['options'] if option['id'] == bet_config['winning_option_id'])
-            self.add_field(name="Winner", value=winning_option['option_name'], inline=False)
 
         self.set_footer(text=f"Bet ID: {bet_config['id']}")
         return self
