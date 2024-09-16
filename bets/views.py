@@ -23,7 +23,7 @@ from .config import BetConfig, BetOption, BetState, Better
 from .embed import BetEmbed
 
 REFRESH_INTERVAL = 10
-MAX_WINNERS_DISPLAY_LENGTH = 10
+MAX_WINNERS_DISPLAY_LENGTH = 3
 
 class OnCallbackSelect(discord.ui.Select):
     on_callback : typing.Callable[[typing.List[str]], typing.Awaitable[None]]
@@ -646,8 +646,7 @@ class BetAdministrationView(discord.ui.View):
         return True
     
     async def _author_or_mods_check(self, interaction: discord.Interaction):
-        return await self._author_check(interaction) or \
-            isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.manage_roles
+        return (isinstance(interaction.user, discord.Member) and interaction.user.guild_permissions.manage_roles) or await self._author_check(interaction)
     
     async def _regenerate_message(self):
         await self.generate()
@@ -786,8 +785,6 @@ class BetAdministrationView(discord.ui.View):
         config['state'] = 'resolved'
         await self._set_config(state=config['state'])
 
-        await self._regenerate_message()
-
         async with self.config.guild(self.guild).active_bets.get_lock():
             active_bets : typing.Dict[str, BetConfig] = await self.config.guild(self.guild).active_bets()
             config = active_bets[str(self.bet_config_id)]
@@ -828,7 +825,9 @@ class BetAdministrationView(discord.ui.View):
                     pass
 
             active_bets.update({str(self.bet_config_id): config})
-            await self.config.guild(self.guild).active_bets.set(active_bets)        
+            await self.config.guild(self.guild).active_bets.set(active_bets)    
+
+        await self._regenerate_message()    
         pass
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, row=0)
@@ -942,7 +941,7 @@ class BetAdministrationView(discord.ui.View):
                 results_msg += (member.mention if member else f"`{better['member_id']}`") + f" bet `{better['bet_amount']}`"
                 results_msg += f" on `{config['options'][better['bet_option_id']]['option_name']}`"
                 results_msg += f" and won `{total_winnings}` " + \
-                    (f"(+{total_winnings/better['bet_amount'] - 1:.2%}) " if total_winnings > better['bet_amount'] else '')
+                    f"(+{total_winnings/better['bet_amount'] - 1:.2%}) " if total_winnings > better['bet_amount'] else ''
                 
                 results_msg += "\n"
             
