@@ -23,6 +23,7 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 DEFAULT_GUILD : BetGuildConfig = {
     "enabled": True,
     "active_bets": {},
+
 }
 
 class BetConfigFields(BetConfig, total=False):
@@ -70,6 +71,7 @@ class Bets(commands.Cog):
 
     @commands.group()
     @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
     async def bet(self, ctx: commands.GuildContext):
         """
         Set up bets for tournament matchups and others.
@@ -78,6 +80,7 @@ class Bets(commands.Cog):
 
     @bet.command()
     @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
     async def list(self, ctx: commands.GuildContext, *, search: typing.Optional[typing.Annotated[BetConfigFields, SearchCriteria]] = None):
         """
         List all active bets.
