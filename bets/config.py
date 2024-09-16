@@ -31,6 +31,7 @@ class BetConfig(typing.TypedDict):
 class BetGuildConfig(typing.TypedDict):
     enabled: bool
     active_bets: typing.Dict[str, BetConfig]
+    allowed_role_ids: typing.List[int]
 
 def generate_bet_config(
     *,
