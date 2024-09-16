@@ -374,7 +374,8 @@ class BetButton(discord.ui.Button):
 
         better = self._get_better((await self._get_config())['betters'], interaction.user) # type: ignore[arg-type]
 
-        await interaction.followup.send(f"💰 You have placed a bet of `{amount}` on `{config['options'][self.option_id]['option_name']}` (Total: `{better['bet_amount']}`)", ephemeral=True)
+        message = await interaction.followup.send(f"💰 You have placed a bet of `{amount}` on `{config['options'][self.option_id]['option_name']}` (Total: `{better['bet_amount']}`)", ephemeral=True, wait=True)
+        await message.delete(delay=15)
         
         if self.parent_callback is not None:
             await self.parent_callback()
@@ -755,11 +756,12 @@ class BetAdministrationView(discord.ui.View):
         if amount > 0:
             msg = f"💰 `+{amount}` has been added to the pool. New total: `{total}` (Base: `{config['base_value']}`)"
         else:
-            msg = f"💸 `{amount}` has been removed from the pool. New total: `{total}` (Base: `{config['base_value']}`)"
-
-        await interaction.followup.send(msg, ephemeral=True)
+            msg = f"💳 `{amount}` has been removed from the pool. New total: `{total}` (Base: `{config['base_value']}`)"
 
         await self._regenerate_message()
+
+        message = await interaction.followup.send(msg, ephemeral=True, wait=True)
+        await message.delete(delay=15)
 
         pass
 
@@ -797,7 +799,8 @@ class BetAdministrationView(discord.ui.View):
             bet_total = sum(bet_totals.values())
 
             if bet_total == 0:
-                await interaction.followup.send("No bets were placed.", ephemeral=True)
+                message = await interaction.followup.send("No bets were placed.", ephemeral=True, wait=True)
+                await message.delete(delay=10)
                 return
 
             winning_option = next((option for option in config['options'] if option['id'] == config['winning_option_id']), None)
@@ -807,7 +810,8 @@ class BetAdministrationView(discord.ui.View):
             if winning_option is None:
                 raise ValueError(f"Winning option `{config['winning_option_id']}` not found.")
 
-            await interaction.followup.send(f"🎉 The winning option is `{winning_option['option_name']}`. Total pool: `{pool_total}`", ephemeral=True)
+            message = await interaction.followup.send(f"🎉 The winning option is `{winning_option['option_name']}`. Total pool: `{pool_total}`", ephemeral=True, wait=True)
+            await message.delete(delay=15)
 
             results_msg = ""
 
@@ -894,7 +898,7 @@ class BetAdministrationView(discord.ui.View):
             else:
                 results_msg = f"You are currently betting `{better['bet_amount']}` on `{bet_option['option_name']}`"
             
-            await interaction.response.send_message(results_msg, ephemeral=True) 
+            await interaction.response.send_message(results_msg, ephemeral=True, delete_after=15) 
         else:
             await interaction.response.send_message("You have not placed a bet on this pool.", ephemeral=True, delete_after=5)
 
@@ -958,7 +962,9 @@ class BetAdministrationView(discord.ui.View):
         
     async def on_error(self, interaction: discord.Interaction, error: Exception, item: Item) -> None: # type: ignore[override]
         if interaction.response.is_done():
-            await interaction.followup.send(f"❌ ERROR: {error}", ephemeral=True)
+            message = await interaction.followup.send(f"❌ ERROR: {error}", ephemeral=True, wait=True)
+            await message.delete(delay=15)
+            
         else:
             await interaction.response.send_message(f"❌ ERROR: {error}", ephemeral=True, delete_after=15)
 
