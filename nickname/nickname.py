@@ -26,7 +26,7 @@ from dogscogs.constants.discord.embed import (
 from dogscogs.parsers.date import parse_duration_string, duration_string
 from dogscogs.views.confirmation import ConfirmationView
 
-from battler import Battler
+from battler.battler import Battler, BattleMessageComponents
 from battler.config import KeyType as BattlerKeyType
 from coins import Coins
 
@@ -436,17 +436,17 @@ class Nickname(commands.Cog):
         target: discord.Member,
         name_func: typing.Callable[[discord.Member], str],
         type: CurseType,
-    ) -> typing.Tuple[datetime, discord.Embed]:
+    ) -> typing.Tuple[datetime, BattleMessageComponents]:
         if self.bot.get_cog("Battler") is None:
-            return datetime.now(tz=TIMEZONE), discord.Embed(
+            return datetime.now(tz=TIMEZONE), { "embed": discord.Embed(
                 title="ERROR", description="Battler cog is required to curse."
-            )
+            ) }
 
         if len(name_func(target)) > DISCORD_MAX_NICK_LENGTH:
-            return datetime.now(tz=TIMEZONE), discord.Embed(
+            return datetime.now(tz=TIMEZONE), { "embed": discord.Embed(
                 title="ERROR",
                 description=f"Attempted to curse with too long a name (must be less than {DISCORD_MAX_NICK_LENGTH} characters).",
-            )
+            ) }
 
         global_curse_cooldown_secs: int = await self.config.guild(
             ctx.guild
@@ -496,7 +496,7 @@ class Nickname(commands.Cog):
             seconds=curse_duration_seconds
         )
 
-        embed = Battler._embed(
+        message_components = await Battler._battle_response(
             type=battle_types[0],
             attacker=instigator,
             defender=target,
@@ -543,14 +543,16 @@ class Nickname(commands.Cog):
             except (PermissionError, Forbidden) as e:
                 if target.id == victim.id:
                     next_curse_available = datetime.now(tz=TIMEZONE)
-                    return datetime.now(tz=TIMEZONE), discord.Embed(
-                        title="ERROR",
-                        description=f"Bot does not have permission to edit {victim.display_name}'s nickname. {instigator.mention}'s curse cooldown was refunded.",
-                    )
+                    return datetime.now(tz=TIMEZONE), {
+                        "embed": discord.Embed(
+                            title="ERROR",
+                            description=f"Bot does not have permission to edit {victim.display_name}'s nickname. {instigator.mention}'s curse cooldown was refunded.",
+                        )
+                    }
                 else:
                     continue
 
-        return next_curse_available, embed
+        return next_curse_available, message_components
 
     @commands.group(aliases=["nick", "name"])
     async def nickname(self, ctx: commands.GuildContext):
@@ -720,7 +722,7 @@ class Nickname(commands.Cog):
 
             await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to nyuse their nyame power.", view=None, delete_after=15)
             
-        next_nyame_available, embed = await self._curse(
+        next_nyame_available, message_components = await self._curse(
             ctx=ctx,
             instigator=ctx.author,
             target=target,
@@ -729,12 +731,10 @@ class Nickname(commands.Cog):
         )
 
         if next_nyame_available > datetime.now(tz=TIMEZONE):
-            await ctx.reply(
-                f"{ctx.author.mention}'s nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.",
-                embed=embed,
-            )
-        else:
-            await ctx.reply(embed=embed)
+            await ctx.author.send(f"Your nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.")
+
+        await ctx.message.delete()
+        await ctx.channel.send(**message_components) # type: ignore[arg-type]
 
         await self.config.member(ctx.author).next_nyame_available.set(
             next_nyame_available.timestamp()
@@ -845,7 +845,7 @@ class Nickname(commands.Cog):
             await message.edit(content=f"{ctx.author.mention} spent {cost} {await Coins._get_currency_name(ctx.guild)} to use their curse power.", view=None, delete_after=15)
 
 
-        next_curse_available, embed = await self._curse(
+        next_curse_available, message_components = await self._curse(
             ctx=ctx,
             instigator=ctx.author,
             target=target,
@@ -854,12 +854,10 @@ class Nickname(commands.Cog):
         )
 
         if next_curse_available > datetime.now(tz=TIMEZONE):
-            await ctx.reply(
-                f"{ctx.author.mention}'s ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.",
-                embed=embed,
-            )
-        else:
-            await ctx.reply(embed=embed)
+            await ctx.author.send(f"Your ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.")
+            
+        await ctx.message.delete()
+        await ctx.channel.send(**message_components) # type: ignore[arg-type]
 
         await self.config.member(ctx.author).next_curse_available.set(
             next_curse_available.timestamp()

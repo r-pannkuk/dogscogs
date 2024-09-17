@@ -492,7 +492,7 @@ class RoleColors(commands.Cog):
 
         expiration = datetime.now(tz=TIMEZONE) + timedelta(seconds=curse_duration_secs)
 
-        embed = Battler._embed(
+        message_components = await Battler._battle_response(
             type="rolecolors",
             attacker=ctx.author,
             defender=target,
@@ -503,6 +503,9 @@ class RoleColors(commands.Cog):
             victims=cursed_users,
             expiration=expiration,
         )
+
+        if 'content' not in message_components:
+            message_components['content'] = None
         
         new_balance = await Coins._remove_balance(ctx.author, color_change_cost)
 
@@ -540,11 +543,11 @@ class RoleColors(commands.Cog):
                     replace_existing=True,
                 )
 
-        await message.edit(
-            content=f"{ctx.author.mention} spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)}`\nNew Balance: `{new_balance}`", 
-            embed=embed
-        )
+        await ctx.author.send(f"You spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`")
 
+        await ctx.message.delete()
+        await message.edit(**message_components) # type: ignore[arg-type]
+        
 
     @rolecolors.command()
     @commands.has_guild_permissions(manage_roles=True)

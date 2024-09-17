@@ -13,7 +13,7 @@ from redbot.core.config import Config
 from dogscogs.constants import TIMEZONE
 from dogscogs.views.prompts import NumberPromptTextInput, NumberPromptModal
 from dogscogs.views.confirmation import ConfirmationView
-from dogscogs.views.paginated import PaginatedEmbed
+from dogscogs.views.paginated import PaginatedEmbed, OnCallbackSelect
 from dogscogs.constants.discord.views import (
     MAX_SELECT_OPTIONS as DISCORD_MAX_SELECT_OPTIONS,
 )
@@ -26,26 +26,6 @@ from .embed import BetEmbed
 
 REFRESH_INTERVAL = 10
 MAX_WINNERS_DISPLAY_LENGTH = 3
-
-
-class OnCallbackSelect(discord.ui.Select):
-    on_callback: typing.Callable[[typing.List[str]], typing.Awaitable[None]]
-
-    def __init__(
-        self,
-        *args,
-        callback: typing.Callable[[typing.List[str]], typing.Awaitable[None]],
-        **kwargs,
-    ):
-        self.on_callback = callback
-        super().__init__(*args, **kwargs)
-
-    async def callback(
-        self,
-        interaction: discord.Interaction,
-    ) -> None:
-        await self.on_callback(self.values)
-        await interaction.response.defer()
 
 
 class BetListPaginatedEmbed(PaginatedEmbed):
@@ -101,7 +81,7 @@ class BetListPaginatedEmbed(PaginatedEmbed):
             **kwargs,
         )
 
-    async def send(self) -> None:
+    async def send(self) -> "BetListPaginatedEmbed":
         await super().send()
 
         _, size = await self.get_page(0)
@@ -143,6 +123,8 @@ class BetListPaginatedEmbed(PaginatedEmbed):
             self.next.disabled = True
 
         await self.edit_page()
+
+        return self
 
     async def edit_page(self) -> None:
         await super().edit_page()
@@ -492,7 +474,7 @@ class BetAdministrationView(discord.ui.View):
         bet_config_id: int,
         **kwargs,
     ):
-        super().__init__(timeout=60 * 10, *args, **kwargs)
+        super().__init__(*args, timeout=None, **kwargs)
 
         self.ctx = ctx
         self.original_message = original_message
@@ -1128,13 +1110,14 @@ class BetAdministrationView(discord.ui.View):
         for i, better in enumerate(betters_list):
             member = self.guild.get_member(better["member_id"])
             if better["bet_option_id"] == config["winning_option_id"]:
-                results_msg += "💸 "
                 share = better["bet_amount"] / bet_totals[config["winning_option_id"]]  # type: ignore[index]
                 total_winnings = int(pool_total * share)
             else:
                 total_winnings = 0
 
             if i < MAX_WINNERS_DISPLAY_LENGTH:
+                if better["bet_option_id"] == config["winning_option_id"]:
+                    results_msg += "💸 "
                 results_msg += (
                     member.mention if member else f"`{better['member_id']}`"
                 ) + f" bet `{better['bet_amount']}`"
