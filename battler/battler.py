@@ -138,9 +138,9 @@ def generate_battle_message_parts(
     results['title'] = f"{results['emoji']} {attacker.display_name} vs. {defender.display_name} {results['emoji']}"
 
     if winner.id == attacker.id:
-        results['footer'] = f"✅ {attacker.display_name} succesfully {results['verb']} {defender.display_name}!"
+        results['footer'] = f"✅ {attacker.display_name} succesfully {results['verb']} {defender.display_name}"
     else:
-        results['footer'] = f"❌ {attacker.display_name} failed to afflict {defender.display_name}!"
+        results['footer'] = f"❌ {attacker.display_name} failed to afflict {defender.display_name}"
 
     return results
 
@@ -310,7 +310,16 @@ class Battler(commands.Cog):
         message_content += parts['attacker_roll'] + ' vs. ' + parts['defender_roll'] + "\n"
         message_content += f"{parts['attacker_effects']}\n" if parts['attacker_effects'] != '' else ""
         message_content += f"{parts['defender_effects']}\n" if parts['defender_effects'] != '' else ""
-        message_content += f"{parts['footer']}\n"
+        message_content += f"{parts['footer']}"
+
+        if type == "curse":
+            message_content += f" with `{parts['curse_effect']}`\n"
+        if type == "nyame":
+            if winner.id == attacker.id:
+                message_content += f" with a new nyame\n"
+        if type == "rolecolors":
+            message_content += f" with {parts['curse_effect']}\n" 
+
         for victim in victims:
             message_content += f"{attacker.mention} {parts['verb']} {victim.display_name} to {outcome.mention if isinstance(outcome, discord.Role) else outcome} until <t:{int(expiration.timestamp())}:R>!"
 
