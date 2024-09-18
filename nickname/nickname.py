@@ -512,7 +512,8 @@ class Nickname(commands.Cog):
             await self._unset(victim, type=type)
             try:
                 if victim.id != self.bot.user.id:
-                    await victim.send(f"{victim.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.", silent=True)
+                    await ctx.channel.send(f"{instigator.display_name}'s ({instigator.name}) Curse on {victim.display_name} ({victim.name}) has ended.", silent=True)
+                    # await victim.send(f"{victim.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.", silent=True)
                 pass
             except discord.errors.HTTPException as e:
                 print(
