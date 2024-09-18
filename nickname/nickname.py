@@ -512,7 +512,7 @@ class Nickname(commands.Cog):
             await self._unset(victim, type=type)
             try:
                 if victim.id != self.bot.user.id:
-                    await victim.send(f"{victim.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.")
+                    await victim.send(f"{victim.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.", silent=True)
                 pass
             except discord.errors.HTTPException as e:
                 print(
@@ -1344,7 +1344,7 @@ class Nickname(commands.Cog):
         async def undo_curse(type: CurseType):
             await self._unset(member, type=type)
             try:
-                # await member.send(f"{guild.get_member(curse['instigator_id']).display_name}'s Curse on you has ended.")
+                # await member.send(f"{guild.get_member(curse['instigator_id']).display_name}'s Curse on you has ended.", silent=True)
                 pass
             except discord.errors.HTTPException as e:
                 print(

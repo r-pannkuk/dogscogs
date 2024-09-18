@@ -953,7 +953,7 @@ class BetAdministrationView(discord.ui.View):
                     #                   f"(+{total_winnings/better['bet_amount'] - 1:.2%}) " if total_winnings != better['bet_amount'] else '' + \
                     #                   f"from the bet `{config['title']}`. New Balance: `{new_balance}`" # type: ignore[arg-type]
                 else:
-                    # await member.send(f"🧾 `{config['title']}` has resolved. ")
+                    # await member.send(f"🧾 `{config['title']}` has resolved. ", silent=True)
                     pass
 
             active_bets.update({str(self.bet_config_id): config})
@@ -991,7 +991,7 @@ class BetAdministrationView(discord.ui.View):
                     better["member_id"]
                 ) or await self.ctx.bot.fetch_user(better["member_id"])
                 await Coins._add_balance(member, better["bet_amount"])  # type: ignore[arg-type]
-                # await member.send(f"💸 Your bet of `{better['bet_amount']}` has been refunded for the cancelled bet `{config['title']}`") # type: ignore[arg-type]
+                # await member.send(f"💸 Your bet of `{better['bet_amount']}` has been refunded for the cancelled bet `{config['title']}`", silent=True) # type: ignore[arg-type]
         pass
 
     @discord.ui.button(label="Check Bet", style=discord.ButtonStyle.secondary, row=2)
