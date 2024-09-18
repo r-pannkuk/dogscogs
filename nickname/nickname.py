@@ -731,7 +731,7 @@ class Nickname(commands.Cog):
         )
 
         if next_nyame_available > datetime.now(tz=TIMEZONE):
-            await ctx.author.send(f"Your nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.")
+            await ctx.author.send(f"Your nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.", silent=True)
 
         await ctx.message.delete()
         await ctx.channel.send(**message_components) # type: ignore[arg-type]
@@ -854,7 +854,7 @@ class Nickname(commands.Cog):
         )
 
         if next_curse_available > datetime.now(tz=TIMEZONE):
-            await ctx.author.send(f"Your ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.")
+            await ctx.author.send(f"Your ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.", silent=True)
             
         await ctx.message.delete()
         await ctx.channel.send(**message_components) # type: ignore[arg-type]
