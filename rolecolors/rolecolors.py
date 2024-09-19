@@ -543,7 +543,10 @@ class RoleColors(commands.Cog):
                     replace_existing=True,
                 )
 
-        await ctx.author.send(f"You spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`", silent=True)
+        try:
+            await ctx.author.send(f"You spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`", silent=True)
+        except discord.Forbidden as e:
+            await ctx.channel.send(f"{ctx.author.mention} spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`", silent=True)
 
         await ctx.message.delete()
         await message.edit(**message_components) # type: ignore[arg-type]
