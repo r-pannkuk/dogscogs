@@ -16,7 +16,7 @@ from dogscogs.core.converter import DogCogConverter
 from .embed import BattlerRaceEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, ApplyModifiers
-from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
+from .views import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 

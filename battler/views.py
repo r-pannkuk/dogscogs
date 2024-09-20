@@ -8,9 +8,9 @@ from dogscogs.views.prompts import ValidImageURLTextInput, NumberPromptModal
 from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.constants.discord.views import MAX_SELECT_OPTIONS as DISCORD_MAX_SELECT_OPTIONS
 
-from ..embed import BattlerRaceEmbed, get_modifier_strings              # type: ignore[import-untyped]
+from .embed import BattlerRaceEmbed, get_modifier_strings              # type: ignore[import-untyped]
 
-from ..config import BattleUserConfig, BonusType, Modifier, OperatorType, Race, KeyType   # type: ignore[import-untyped]
+from .config import BattleUserConfig, BonusType, Modifier, OperatorType, Race, KeyType   # type: ignore[import-untyped]
 
 DEFAULT_NAME = "<NAME>"
 DEFAULT_DESCRIPTION = "<DESCRIPTION>"
