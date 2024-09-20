@@ -47,16 +47,48 @@ class EditModifierView(discord.ui.View):
     async def send(self) -> "EditModifierView":
         self.clear_items()
 
+        pretty_labels = {
+            'rolecolors': 'Color Curses',
+            'nyame': 'Nyame Curses',
+            'curse': 'Nickname Curses',
+
+            'set': 'Set (Lock to a value)',
+            'add': 'Add',
+            'multiply': 'Multiply (Dice Roll Only)',
+
+            'attack': 'Attack Rolls',
+            'defend': 'Defense Rolls',
+            'both': 'Attack & Defense Rolls',
+        }
+
+        async def set_operator(values): 
+            self.modifier['operator'] = values[0]
+            await self.send()
+
+        self.operator_input = OnCallbackSelect(
+            placeholder="Select a modifier operator.",
+            options=[
+                discord.SelectOption(
+                    label=pretty_labels[operator],
+                    value=operator,
+                    default=True if operator == self.modifier['operator'] else False,
+                )
+                for operator in typing.get_args(OperatorType)
+            ],
+            max_values=1,
+            row=1,
+            callback=set_operator
+        )
+
         async def set_key(values): 
             self.modifier['key'] = values[0]
             await self.send()
-
 
         self.key_input = OnCallbackSelect(
             placeholder="Select a modifier key.",
             options=[
                 discord.SelectOption(
-                    label=key,
+                    label=pretty_labels[key],
                     value=key,
                     default=True if key == self.modifier['key'] else False,
                 )
@@ -68,25 +100,6 @@ class EditModifierView(discord.ui.View):
             callback=set_key
         )
 
-        async def set_operator(values): 
-            self.modifier['operator'] = values[0]
-            await self.send()
-
-        self.operator_input = OnCallbackSelect(
-            placeholder="Select a modifier operator.",
-            options=[
-                discord.SelectOption(
-                    label=operator,
-                    value=operator,
-                    default=True if operator == self.modifier['operator'] else False,
-                )
-                for operator in typing.get_args(OperatorType)
-            ],
-            max_values=1,
-            row=1,
-            callback=set_operator
-        )
-
         async def set_bonus_type(values): 
             self.modifier['type'] = values[0]
             await self.send()
@@ -95,7 +108,7 @@ class EditModifierView(discord.ui.View):
             placeholder="Select a bonus type.",
             options=[
                 discord.SelectOption(
-                    label=bonus_type,
+                    label=pretty_labels[bonus_type],
                     value=bonus_type,
                     default=True if bonus_type == self.modifier['type'] else False,
                 )
@@ -137,10 +150,11 @@ class EditModifierView(discord.ui.View):
             label="Amount",
             author=self.guild.get_member(self.author_id),    # type: ignore[arg-type]
             title="Modifier Value",
-            default=self.modifier['value'], # type: ignore[arg-type]
+            default=self.modifier['value'],
             min=-999999,
             max=999999,
             custom_id="modifier_value",
+            use_float=True,
             row=3,
         )
 
@@ -422,7 +436,7 @@ class AdminRaceConfigure(discord.ui.View):
                 placeholder="Select a modifier to edit or delete.",
                 options=[
                     discord.SelectOption(
-                        label=f"{modifier['key']} ({modifier['operator']} {modifier['value']})",
+                        label=get_modifier_strings([modifier])[0],
                         value=str(i),
                         default=True if i == self.index else False,
                     )
@@ -486,7 +500,8 @@ class AdminRaceConfigure(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author_id:
-            raise Exception("You are not the author of this view.")
+            await interaction.response.send_message("ERROR: You are not the author of this view.", ephemeral=True, delete_after=10)
+            return False
 
         return True
     
@@ -623,7 +638,8 @@ class AdminRacePaginatedEmbed(_RacePaginatedEmbed):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author.id:
-            raise Exception("You are not the author of this view.")
+            await interaction.response.send_message("ERROR: You are not the author of this view.", ephemeral=True, delete_after=10)
+            return False
 
         return await super().interaction_check(interaction)
 
@@ -718,7 +734,6 @@ class AdminRacePaginatedEmbed(_RacePaginatedEmbed):
         async with self.config.get_members_lock(self.guild):
             for id, _ in filtered_members.items():
                 await self.config.member_from_ids(self.guild.id, id).race_id.set(default_member['race_id'])
-                await self.config.member_from_ids(self.guild.id, id).race_chosen.set(default_member['race_chosen'])
 
         await self.config.guild(self.guild).races.set(races)
 
@@ -757,12 +772,17 @@ class SelectRacePaginatedEmbed(_RacePaginatedEmbed):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author.id:
-            raise Exception("You are not the author of this view.")
+            await interaction.response.send_message("ERROR: You are not the author of this view.", ephemeral=True, delete_after=10)
+            return False
+        
+        race_id = await self.config.member(interaction.user).race_id() # type: ignore[arg-type]
 
-        if await self.config.member(interaction.user).race_chosen():                        # type: ignore[arg-type]
+        if race_id is not None:
             races : typing.List[Race] = await self.config.guild(self.guild).races()
-            chosen_race = races[await self.config.member(interaction.user).race_id()]       # type: ignore[arg-type]
-            raise Exception(f"You have already chosen a race: `{chosen_race['name']}`")
+            chosen_race = next((r for r in races if r['id'] == race_id), None)
+            if chosen_race is not None:
+                await interaction.response.send_message(f"You have already chosen a race: `{chosen_race['name']}`", ephemeral=True)
+                return False
 
         return await super().interaction_check(interaction)
 
@@ -780,7 +800,6 @@ class SelectRacePaginatedEmbed(_RacePaginatedEmbed):
             return
         
         await self.config.member(interaction.user).race_id.set(chosen_config['id'])     # type: ignore[arg-type]
-        await self.config.member(interaction.user).race_chosen.set(True)                # type: ignore[arg-type]
 
         await interaction.delete_original_response()
 

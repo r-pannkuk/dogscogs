@@ -7,7 +7,7 @@ from .config import BonusType, Equipment, KeyType, Modifier, Race
 
 class BattleUser():
     equipment: typing.List[Equipment]
-    race: Race
+    race: typing.Union[Race, None] = None
     member: discord.Member
 
     def __init__(
@@ -19,7 +19,7 @@ class BattleUser():
         self.guild_config = config.guild(member.guild)
         self.member_config = config.member(member)
 
-    async def collect(self):
+    async def collect(self) -> 'BattleUser':
         equipment_ids = await self.member_config.equipment_ids()
         race_id = await self.member_config.race_id()
 
@@ -27,7 +27,7 @@ class BattleUser():
         guild_races : typing.List[Race] = await self.guild_config.races()
 
         self.equipment = [e for e in guild_equipment if e["id"] in equipment_ids]
-        self.race = [r for r in guild_races if r['id'] == race_id][0]
+        self.race = next((r for r in guild_races if r['id'] == race_id), None)
 
         return self
 
@@ -49,10 +49,11 @@ def applyModifiers(roll: str, battle_user: BattleUser, curse_types: typing.Optio
         for modifier in equipment['modifiers']:
             if (curse_types is None or modifier['key'] in curse_types) and (attack_type is None or modifier['type'] in attack_type):
                 modifiers.append(modifier)
-                
-    for modifier in battle_user.race['modifiers']:
-        if (curse_types is None or modifier['key'] in curse_types) and (attack_type is None or modifier['type'] in attack_type):
-            modifiers.append(modifier)
+    
+    if battle_user.race is not None:
+        for modifier in battle_user.race['modifiers']:
+            if (curse_types is None or modifier['key'] in curse_types) and (attack_type is None or modifier['type'] in attack_type):
+                modifiers.append(modifier)
 
     modifiers.sort(key=lambda m: (
         0 if m['operator'] == 'set' else 1,     # Put all 'set' operators first

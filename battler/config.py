@@ -36,5 +36,4 @@ class BattlerConfig(typing.TypedDict):
 
 class BattleUserConfig(typing.TypedDict):
     equipment_ids: typing.List[int]
-    race_id: int
-    race_chosen: bool
+    race_id: typing.Union[None, int]

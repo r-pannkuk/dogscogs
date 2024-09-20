@@ -40,8 +40,7 @@ DEFAULT_GUILD: BattlerConfig = {
 
 DEFAULT_MEMBER: BattleUserConfig = {
     "equipment_ids": [],
-    "race_id": 0,
-    "race_chosen": False,
+    "race_id": None,
 }
 
 class _BattleMessageParts(typing.TypedDict):
@@ -553,23 +552,20 @@ class Battler(commands.Cog):
             await ctx.message.delete(delay=5)
             return
 
-        race_chosen = await self.config.member(ctx.message.author).race_chosen()
+        race_id = await self.config.member(ctx.message.author).race_id()
 
-        if race_chosen:
+        if race_id is not None:
             races = await self.config.guild(ctx.guild).races()
-            chosen_race_id = await self.config.member(ctx.message.author).race_id()
-            chosen_race = next((r for r in races if r['id'] == chosen_race_id), None)
+            chosen_race = next((r for r in races if r['id'] == race_id), None)
 
             if chosen_race is not None:
                 await ctx.reply(content=f"{ctx.message.author.mention}'s race is set to: {chosen_race['name']}",
                     embed=await BattlerRaceEmbed(
                     config=self.config,
                     guild=ctx.guild,
-                    race_id=chosen_race_id,
+                    race_id=race_id,
                 ).send())
                 return
-            else:
-                await self.config.member(ctx.message.author).race_chosen.set(False)
         
         await SelectRacePaginatedEmbed(
             config=self.config,
