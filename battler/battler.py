@@ -13,8 +13,7 @@ import d20  # type: ignore[import-untyped]
 from dogscogs.constants import COG_IDENTIFIER
 from dogscogs.core.converter import DogCogConverter
 
-from battler.embed import BattlerRaceEmbed
-
+from .embed import BattlerRaceEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, ApplyModifiers
 from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
