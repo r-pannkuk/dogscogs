@@ -31,6 +31,7 @@ class BattlerConfig(typing.TypedDict):
     defender_roll: str
     use_embed: bool
     equipment: typing.List[Equipment]
+    channel_ids: typing.List[int]
     races: typing.List[Race]
 
 class BattleUserConfig(typing.TypedDict):

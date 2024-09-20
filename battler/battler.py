@@ -35,6 +35,7 @@ DEFAULT_GUILD: BattlerConfig = {
         },
     ],
     "equipment": [],
+    "channel_ids": [],
 }
 
 DEFAULT_MEMBER: BattleUserConfig = {
@@ -160,7 +161,6 @@ class RaceConverter(DogCogConverter):
         except StopIteration:
             raise commands.BadArgument(f"`{argument}` is not a Race found in {ctx.guild.name} Battler configuration.")
         
-
 class EquipmentConverter(DogCogConverter):
     @staticmethod
     async def parse(ctx: commands.GuildContext, argument: str) -> Equipment: #type: ignore[override]
@@ -497,6 +497,20 @@ class Battler(commands.Cog):
         await ctx.reply(f"Using {'`EMBEDS`' if use_embed else '`TEXT`'} for battle messages.")
         pass
 
+    @battler_config.command(aliases=['channel'])
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def channels(self, ctx: commands.GuildContext, channels: commands.Greedy[discord.TextChannel]) -> None:
+        """Set the channels where battle commands can be used."""
+        channel_ids = [channel.id for channel in channels]
+        await self.config.guild(ctx.guild).channel_ids.set(channel_ids)
+
+        if len(channel_ids) == 0:
+            await ctx.reply("Battler commands can now be used anywhere.")
+        else:
+            await ctx.reply(f"Battler commands now only be used in {', '.join([channel.mention for channel in channels])}")
+        pass
+
     @battler_config.command(name='equipment')
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
@@ -520,12 +534,25 @@ class Battler(commands.Cog):
     @commands.guild_only()
     async def info(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]) -> None:
         """Get your battler information."""
+        channel_ids : typing.List[int] = await self.config.guild(ctx.guild).channel_ids()
+        if len(channel_ids) > 0 and ctx.channel.id not in channel_ids:
+            await ctx.reply("You can't use that command here.", delete_after=5)
+            await ctx.message.delete(delay=5)
+            return
+
+        await ctx.reply("Will be implemented later.", delete_after=5)
         pass
 
     @battler.command()
     @commands.guild_only()
     async def race(self, ctx: commands.GuildContext) -> None:
         """See or set your race (if you haven't done so already)."""
+        channel_ids : typing.List[int] = await self.config.guild(ctx.guild).channel_ids()
+        if len(channel_ids) > 0 and ctx.channel.id not in channel_ids:
+            await ctx.reply("You can't use that command here.", delete_after=5)
+            await ctx.message.delete(delay=5)
+            return
+
         race_chosen = await self.config.member(ctx.message.author).race_chosen()
 
         if race_chosen:
@@ -556,10 +583,25 @@ class Battler(commands.Cog):
     @commands.guild_only()
     async def equipment(self, ctx: commands.GuildContext, equipment: typing.Annotated[Equipment, EquipmentConverter]) -> None:
         """See your equipment list."""
+        channel_ids : typing.List[int] = await self.config.guild(ctx.guild).channel_ids()
+        if len(channel_ids) > 0 and ctx.channel.id not in channel_ids:
+            await ctx.reply("You can't use that command here.", delete_after=5)
+            await ctx.message.delete(delay=5)
+            return
+        
+        await ctx.reply("Will be implemented later.", delete_after=5)
+        
         pass
 
     @battler.command(aliases=["shop"])
     @commands.guild_only()
     async def purchase(self, ctx: commands.GuildContext):
         """Purchase equipment."""
+        channel_ids : typing.List[int] = await self.config.guild(ctx.guild).channel_ids()
+        if len(channel_ids) > 0 and ctx.channel.id not in channel_ids:
+            await ctx.reply("You can't use that command here.", delete_after=5)
+            await ctx.message.delete(delay=5)
+            return
+        
+        await ctx.reply("Will be implemented later.", delete_after=5)
         pass
