@@ -150,6 +150,9 @@ class EditModifierView(discord.ui.View):
         
         self.modifier['value'] = float(modal.item.value)
 
+        if int(self.modifier['value']) == self.modifier['value']:
+            self.modifier['value'] = int(self.modifier['value'])
+
         await self.send()
         
         pass
