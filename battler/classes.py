@@ -42,13 +42,13 @@ def ApplyModifier(roll: str, modifier: Modifier):
     
     raise commands.BadArgument('Invalid modifier operator.')
 
-def ApplyModifiers(roll: str, battle_user: BattleUser, battle_types: typing.Optional[typing.List[KeyType]]):
+def ApplyModifiers(roll: str, battle_user: BattleUser, battle_keys: typing.Optional[typing.List[KeyType]]):
     for equipment in battle_user.equipment:
         for modifier in equipment['modifiers']:
-            if battle_types is None or modifier['type'] in battle_types:
+            if battle_keys is None or modifier['key'] in battle_keys:
                 roll = ApplyModifier(roll, modifier)
                 
     for modifier in battle_user.race['modifiers']:
-        if battle_types is None or modifier['type'] in battle_types:
+        if battle_keys is None or modifier['key'] in battle_keys:
             roll = ApplyModifier(roll, modifier)
     return roll

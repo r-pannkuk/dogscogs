@@ -8,7 +8,7 @@ class Modifier(typing.TypedDict):
     key: KeyType
     operator: OperatorType
     type: BonusType
-    value: int
+    value: float
 
 class Equipment(typing.TypedDict):
     id: int
@@ -36,3 +36,4 @@ class BattlerConfig(typing.TypedDict):
 class BattleUserConfig(typing.TypedDict):
     equipment_ids: typing.List[int]
     race_id: int
+    race_chosen: bool

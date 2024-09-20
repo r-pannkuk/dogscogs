@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
 from typing import Literal
 import typing
@@ -10,13 +10,14 @@ from redbot.core.config import Config
 
 import d20  # type: ignore[import-untyped]
 
-from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
+from dogscogs.constants import COG_IDENTIFIER
 from dogscogs.core.converter import DogCogConverter
+
+from battler.embed import BattlerRaceEmbed
 
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, ApplyModifiers
-from .embed import BattlerRaceEmbed
-from .views import AdminRacePaginatedEmbed
+from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -40,6 +41,7 @@ DEFAULT_GUILD: BattlerConfig = {
 DEFAULT_MEMBER: BattleUserConfig = {
     "equipment_ids": [],
     "race_id": 0,
+    "race_chosen": False,
 }
 
 class _BattleMessageParts(typing.TypedDict):
@@ -279,7 +281,6 @@ class Battler(commands.Cog):
 
         return collateral_list
     
-
     @staticmethod
     def _battle_message(
         *,
@@ -443,6 +444,33 @@ class Battler(commands.Cog):
         """
         pass
 
+    @battler.command()
+    @commands.is_owner()
+    @commands.guild_only()
+    async def clear_all(self, ctx: commands.GuildContext) -> None:
+        """Clear all battler data."""
+        await self.config.guild(ctx.guild).clear()
+        await ctx.reply("All battler data has been cleared for this server.")
+        pass
+
+    @battler.command()
+    @commands.is_owner()
+    @commands.guild_only()
+    async def set(self, ctx: commands.GuildContext, member: discord.Member, key: str, value: typing.Any) -> None:
+        """Set a value for a member."""
+        await self.config.member(member).set_raw(key, value)
+        await ctx.reply(f"Set `{key}` to `{value}` for {member.display_name}")
+        pass
+
+    @battler.command()
+    @commands.is_owner()
+    @commands.guild_only()
+    async def clear(self, ctx: commands.GuildContext, member: discord.Member) -> None:
+        """Clear a member's battler data."""
+        await self.config.member(member).clear()
+        await ctx.reply(f"Cleared battler data for {member.display_name}")
+        pass
+
     @battler.group(name="config")
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
@@ -477,7 +505,7 @@ class Battler(commands.Cog):
         """Adjust the existing equipment that users can purchase."""
         pass
 
-    @battler_config.command(name='races')
+    @battler_config.command(name='races', aliases=['race'])
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
     async def config_races(self, ctx: commands.GuildContext) -> None:
@@ -497,8 +525,32 @@ class Battler(commands.Cog):
 
     @battler.command()
     @commands.guild_only()
-    async def race(self, ctx: commands.GuildContext, race: typing.Annotated[Race, RaceConverter]) -> None:
+    async def race(self, ctx: commands.GuildContext) -> None:
         """See or set your race (if you haven't done so already)."""
+        race_chosen = await self.config.member(ctx.message.author).race_chosen()
+
+        if race_chosen:
+            races = await self.config.guild(ctx.guild).races()
+            chosen_race_id = await self.config.member(ctx.message.author).race_id()
+            chosen_race = next((r for r in races if r['id'] == chosen_race_id), None)
+
+            if chosen_race is not None:
+                await ctx.reply(content=f"{ctx.message.author.mention}'s race is set to: {chosen_race['name']}",
+                    embed=await BattlerRaceEmbed(
+                    config=self.config,
+                    guild=ctx.guild,
+                    race_id=chosen_race_id,
+                ).send())
+                return
+            else:
+                await self.config.member(ctx.message.author).race_chosen.set(False)
+        
+        await SelectRacePaginatedEmbed(
+            config=self.config,
+            interaction=ctx.interaction,
+            original_message=ctx.message,
+        ).send()
+
         pass
 
     @battler.command(aliases=["gear"])
