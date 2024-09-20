@@ -345,6 +345,7 @@ class _RacePaginatedEmbed(PaginatedEmbed):
                 discord.SelectOption(
                     label=race['name'],
                     value=str(i),
+                    default=True if i == self.index else False,
                 )
                 for i, race in enumerate(races)
             ]
@@ -381,6 +382,7 @@ class _RacePaginatedEmbed(PaginatedEmbed):
 
 class AdminRaceConfigure(discord.ui.View):
     select_modifier : typing.Union[discord.ui.Select, None] = None
+    index : int = -1
 
     def __init__(
         self, 
@@ -406,33 +408,41 @@ class AdminRaceConfigure(discord.ui.View):
 
         self.add_item(self.add_modifier)
 
-        if len(race['modifiers']) >= 1:
-            self.edit_modifier.disabled = False
-            self.delete_modifier.disabled = False
+        if len(race['modifiers']) == 1:
+            self.index = 0
+        elif len(race['modifiers']) > 1:
+
+            async def return_none(values): 
+                self.index = int(values[0])
+                await self.collect()
+                return None
+
+            self.select_modifier : OnCallbackSelect = OnCallbackSelect(
+                max_values=1,
+                placeholder="Select a modifier to edit or delete.",
+                options=[
+                    discord.SelectOption(
+                        label=f"{modifier['key']} ({modifier['operator']} {modifier['value']})",
+                        value=str(i),
+                        default=True if i == self.index else False,
+                    )
+                    for i, modifier in enumerate(race['modifiers'])
+                ],
+                row=2,
+                callback=return_none
+            )
+
+            self.add_item(self.select_modifier)
+
+            self.edit_modifier.disabled = self.index == -1
+            self.delete_modifier.disabled = self.index == -1
 
             self.add_item(self.edit_modifier)
             self.add_item(self.delete_modifier)
 
-            async def return_none(_): return None
-
-            if len(race['modifiers']) >= 2:
-                self.select_modifier : OnCallbackSelect = OnCallbackSelect(
-                    max_values=1,
-                    placeholder="Select a modifier to edit or delete.",
-                    options=[
-                        discord.SelectOption(
-                            label=f"{modifier['key']} ({modifier['operator']} {modifier['value']})",
-                            value=str(i),
-                        )
-                        for i, modifier in enumerate(race['modifiers'])
-                    ],
-                    row=2,
-                    callback=return_none
-                )
-
-                self.add_item(self.select_modifier)
-
         self.add_item(self.save)
+
+        await self.message.edit(view=self)
 
         return self
 
@@ -532,17 +542,15 @@ class AdminRaceConfigure(discord.ui.View):
 
         pass
 
-    @discord.ui.button(label="Edit Modifier", style=discord.ButtonStyle.secondary, disabled=True, row=1)
+    @discord.ui.button(label="Edit Modifier", style=discord.ButtonStyle.secondary, row=1)
     async def edit_modifier(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.index == -1:
+            raise ValueError("Something went wrong. Index shouldn't be -1")
+
         config : Race = await self._get_config()
 
-        index = 0
-
-        if self.select_modifier is not None:
-            index = int(self.select_modifier.values[0])
-
         modifiers = config['modifiers']
-        modifier = modifiers[index]
+        modifier = modifiers[self.index]
 
         view = await EditModifierView(
             config=self.config,
@@ -553,7 +561,7 @@ class AdminRaceConfigure(discord.ui.View):
         if await view.wait() or not view.is_confirmed:
             return
         
-        modifiers[index] = view.modifier
+        modifiers[self.index] = view.modifier
         
         await self._set_config(modifiers=modifiers)
 
@@ -567,16 +575,14 @@ class AdminRaceConfigure(discord.ui.View):
 
         pass
 
-    @discord.ui.button(label="Delete Modifier", style=discord.ButtonStyle.danger, disabled=True, row=1)
+    @discord.ui.button(label="Delete Modifier", style=discord.ButtonStyle.danger, row=1)
     async def delete_modifier(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.index == -1:
+            raise ValueError("Something went wrong. Index shouldn't be -1")
+        
         race = await self._get_config()
         
-        if self.select_modifier is None:
-            index = 0
-        else:
-            index = int(self.select_modifier.values[0])
-
-        modifier = race['modifiers'].pop(index)
+        modifier = race['modifiers'].pop(self.index)
 
         await self._set_config(modifiers=race['modifiers'])
 
@@ -716,7 +722,7 @@ class AdminRacePaginatedEmbed(_RacePaginatedEmbed):
 
         await self.config.guild(self.guild).races.set(races)
 
-        await interaction.response.edit_message(content=f"Deleted `{race['name']} ({race['id']}).", delete_after=10)
+        await interaction.delete_original_response()
 
         self.index = max(self.index - 1, 0)
 

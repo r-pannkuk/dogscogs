@@ -15,7 +15,7 @@ from dogscogs.core.converter import DogCogConverter
 
 from .embed import BattlerRaceEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
-from .classes import BattleUser, ApplyModifiers
+from .classes import BattleUser, applyModifiers
 from .views import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
@@ -234,8 +234,8 @@ class Battler(commands.Cog):
         attacker_roll = await config.guild(guild).attacker_roll()
         defender_roll = await config.guild(guild).defender_roll()
 
-        attacker_roll = ApplyModifiers(attacker_roll, attacker_battle_user, battle_types)
-        defender_roll = ApplyModifiers(defender_roll, defender_battle_user, battle_types)
+        attacker_roll = applyModifiers(attacker_roll, attacker_battle_user, battle_types, ['attack', 'both'])
+        defender_roll = applyModifiers(defender_roll, defender_battle_user, battle_types, ['defend', 'both'])
 
         attacker_result = d20.roll(attacker_roll)
         defender_result = d20.roll(defender_roll)

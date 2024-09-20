@@ -3,7 +3,7 @@ import discord
 from redbot.core.config import Config
 from redbot.core import commands
 
-from .config import Equipment, KeyType, Modifier, Race
+from .config import BonusType, Equipment, KeyType, Modifier, Race
 
 class BattleUser():
     equipment: typing.List[Equipment]
@@ -32,23 +32,34 @@ class BattleUser():
         return self
 
 
-def ApplyModifier(roll: str, modifier: Modifier):
+def applyModifier(roll: str, modifier: Modifier):
     if modifier['operator'] == 'add':
-        return f"{roll}+{modifier['value']}"
+        return f"{roll}{modifier['value']:+}"
     if modifier['operator'] == 'multiply':
-        return f"{roll}*{modifier['value']}"
+        return f"{roll}*({modifier['value']})"
     if modifier['operator'] == 'set':
         return f"{modifier['value']}"
     
     raise commands.BadArgument('Invalid modifier operator.')
 
-def ApplyModifiers(roll: str, battle_user: BattleUser, battle_keys: typing.Optional[typing.List[KeyType]]):
+def applyModifiers(roll: str, battle_user: BattleUser, curse_types: typing.Optional[typing.List[KeyType]], attack_type: typing.Optional[typing.List[BonusType]]):
+    modifiers : typing.List[Modifier] = []
+
     for equipment in battle_user.equipment:
         for modifier in equipment['modifiers']:
-            if battle_keys is None or modifier['key'] in battle_keys:
-                roll = ApplyModifier(roll, modifier)
+            if (curse_types is None or modifier['key'] in curse_types) and (attack_type is None or modifier['type'] in attack_type):
+                modifiers.append(modifier)
                 
     for modifier in battle_user.race['modifiers']:
-        if battle_keys is None or modifier['key'] in battle_keys:
-            roll = ApplyModifier(roll, modifier)
+        if (curse_types is None or modifier['key'] in curse_types) and (attack_type is None or modifier['type'] in attack_type):
+            modifiers.append(modifier)
+
+    modifiers.sort(key=lambda m: (
+        0 if m['operator'] == 'set' else 1,     # Put all 'set' operators first
+        m['value']                              # Sort by value ascending, so highest set is last.
+    ))
+
+    for modifier in modifiers:
+        roll = applyModifier(roll, modifier)
+
     return roll
