@@ -14,13 +14,16 @@ def get_modifier_strings(modifiers: typing.List[Modifier]):
 
     for modifier in modifiers:
         modifier_string: str
+        if int(modifier['value']) == modifier['value']:
+            modifier['value'] = int(modifier['value'])
+
         if modifier["operator"] == "set":
             modifier_string = (
                 f"Set {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE}) to {modifier['value']}"
             )
         if modifier["operator"] == "add":
             modifier_string = (
-                f"+{modifier['value']} to {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE})"
+                f"{modifier['value']:+} to {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE})"
             )
         if modifier["operator"] == "multiply":
             modifier_string = (
