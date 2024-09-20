@@ -137,7 +137,7 @@ class EditModifierView(discord.ui.View):
             label="Amount",
             author=self.guild.get_member(self.author_id),    # type: ignore[arg-type]
             title="Modifier Value",
-            default=self.modifier['value'],
+            default=self.modifier['value'], # type: ignore[arg-type]
             min=-999999,
             max=999999,
             custom_id="modifier_value",
