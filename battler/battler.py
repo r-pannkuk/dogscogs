@@ -247,6 +247,11 @@ class Battler(commands.Cog):
                 return x > y
             
         winner = attacker if predicate(attacker_result.total, defender_result.total) else defender
+
+        if attacker_result.crit == d20.CritType.CRIT:
+            winner = attacker
+        if attacker_result.crit == d20.CritType.FAIL:
+            winner = defender
         
         return (attacker_result, defender_result, winner)
     
@@ -454,9 +459,28 @@ class Battler(commands.Cog):
     @battler.command()
     @commands.is_owner()
     @commands.guild_only()
-    async def set(self, ctx: commands.GuildContext, member: discord.Member, key: str, value: typing.Any) -> None:
+    async def set(self, ctx: commands.GuildContext, member: discord.Member, key: str, *, value: str) -> None:
         """Set a value for a member."""
-        await self.config.member(member).set_raw(key, value)
+        parsed_value : typing.Union[int, typing.List[int]]
+
+        key = key.lower()
+
+        if key == 'race_id':
+            try:
+                parsed_value = int(value)
+            except ValueError:
+                raise commands.BadArgument("Value must be an integer.")
+            
+        elif key == 'equipment_ids':
+            try:
+                parsed_value = [int(v) for v in value.split(',')]
+            except ValueError:
+                raise commands.BadArgument("Value must be a list of integers.")
+            
+        else:
+            raise commands.BadArgument(f"Key `{key}` not found.")
+
+        await self.config.member(member).set_raw(key, value=parsed_value)
         await ctx.reply(f"Set `{key}` to `{value}` for {member.display_name}")
         pass
 
