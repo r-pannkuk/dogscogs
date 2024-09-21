@@ -2,9 +2,10 @@ import typing
 import uuid
 import discord
 from redbot.core.config import Config
+from discord.ext import commands
 
 from dogscogs.views.paginated import PaginatedEmbed, OnCallbackSelect
-from dogscogs.views.prompts import ValidImageURLTextInput, NumberPromptModal
+from dogscogs.views.prompts import ValidImageURLTextInput, NumberPromptModal, ValidRoleTextInput
 from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.constants.discord.views import MAX_SELECT_OPTIONS as DISCORD_MAX_SELECT_OPTIONS
 
@@ -195,6 +196,7 @@ class EditRaceDetailsModal(discord.ui.Modal):
     name_input : discord.ui.TextInput
     description_input : discord.ui.TextInput
     image_url_input : ValidImageURLTextInput
+    role_input : ValidRoleTextInput
 
     def __init__(
         self,
@@ -243,10 +245,23 @@ class EditRaceDetailsModal(discord.ui.Modal):
             label="Race Image",    
             style=discord.TextStyle.long,
         )
+        
+        found_role : typing.Union[None, discord.Role] = None
+        if race['role_id'] is not None:
+            found_role = self.guild.get_role(race['role_id'])
+
+        self.role_input = ValidRoleTextInput(
+            placeholder="Enter a role (name or ID)",
+            required=False,
+            default=found_role.name if found_role is not None else None,
+            label="Role",
+            style=discord.TextStyle.short,
+        )
 
         self.add_item(self.name_input)
         self.add_item(self.description_input)
         self.add_item(self.image_url_input)
+        self.add_item(self.role_input)
 
         return self
     
@@ -264,6 +279,7 @@ class EditRaceDetailsModal(discord.ui.Modal):
         name: typing.Optional[str] = None,
         description: typing.Optional[str] = None,
         image_url: typing.Optional[str] = None,
+        role: typing.Optional[discord.Role] = None,
     ) -> None:
         async with self.config.guild(self.guild).races.get_lock():
             races : typing.List[Race] = await self.config.guild(self.guild).races()
@@ -278,6 +294,10 @@ class EditRaceDetailsModal(discord.ui.Modal):
                 race['description'] = description
             if image_url is not None:
                 race['image_url'] = image_url
+            if role is not None:
+                race['role_id'] = role.id
+            else:
+                race['role_id'] = None
 
             races = [r for r in races if r['id'] != self.race_id]
             races.append(race)
@@ -290,7 +310,10 @@ class EditRaceDetailsModal(discord.ui.Modal):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.author_id:
             raise Exception("You are not the author of this view.")
-
+        
+        if self.role_input.value is not None and self.role_input.value != "":
+            return await self.role_input.interaction_check(interaction)
+        
         return True
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -298,7 +321,9 @@ class EditRaceDetailsModal(discord.ui.Modal):
         description = self.description_input.value
         image_url = self.image_url_input.value
 
-        await self._set_race_config(name=name, description=description, image_url=image_url)
+        role = self.role_input.role
+
+        await self._set_race_config(name=name, description=description, image_url=image_url, role=role)
 
         await interaction.response.send_message("Saved changes.", ephemeral=True, delete_after=5)
         self.stop()
@@ -650,6 +675,7 @@ class AdminRacePaginatedEmbed(_RacePaginatedEmbed):
         new_race : Race = {
             'id': uuid.uuid4().int,
             'name': DEFAULT_NAME,
+            'role_id': None,
             'description': DEFAULT_DESCRIPTION,
             'image_url': DEFAULT_IMAGE_URL,
             'modifiers': [],

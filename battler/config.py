@@ -4,6 +4,17 @@ OperatorType = typing.Literal["set", "add", "multiply"]
 BonusType = typing.Literal['attack', 'defend', 'both']
 KeyType = typing.Literal['rolecolors', 'nyame', 'curse']
 
+SlotType = typing.Literal[
+    'head', 
+    'body', 
+    'hands', 
+    'legs', 
+    'feet', 
+    'accessory',
+    'weapon', 
+    'shield', 
+]
+
 class Modifier(typing.TypedDict):
     key: KeyType
     operator: OperatorType
@@ -13,6 +24,7 @@ class Modifier(typing.TypedDict):
 class Equipment(typing.TypedDict):
     id: int
     name: str
+    slot: SlotType
     description: str
     cost: int
     image_url: str
@@ -23,6 +35,7 @@ class Race(typing.TypedDict):
     name: str
     description: str
     image_url: str
+    role_id : typing.Union[None, int]
     modifiers: typing.List[Modifier]
 
 class BattlerConfig(typing.TypedDict):

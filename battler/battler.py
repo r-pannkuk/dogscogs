@@ -30,6 +30,7 @@ DEFAULT_GUILD: BattlerConfig = {
             "id": 0,
             "name": "Human",
             "description": "Humans are boring.",
+            "role_id": None,
             "image_url": "https://static.wikia.nocookie.net/touhou/images/c/c8/Th18Reimu.png/revision/latest?cb=20210321123419",
             "modifiers": [],
         },
@@ -583,6 +584,11 @@ class Battler(commands.Cog):
             chosen_race = next((r for r in races if r['id'] == race_id), None)
 
             if chosen_race is not None:
+                role = ctx.guild.get_role(chosen_race['role_id'])
+
+                if role is not None and role not in ctx.message.author.roles: # type: ignore[union-attr]
+                    await ctx.message.author.add_roles(role, reason="Battler Role") # type: ignore[union-attr]
+
                 await ctx.reply(content=f"{ctx.message.author.mention}'s race is set to: {chosen_race['name']}",
                     embed=await BattlerRaceEmbed(
                     config=self.config,
@@ -625,3 +631,13 @@ class Battler(commands.Cog):
         
         await ctx.reply("Will be implemented later.", delete_after=5)
         pass
+
+    async def cog_load(self) -> None:
+        guilds : typing.Dict[int, BattlerConfig] = await self.config.all_guilds()
+
+        for id in guilds.keys():
+            for i in range(len(guilds[id]["races"])):
+                if 'role_id' not in guilds[id]['races'][i]:
+                    guilds[id]['races'][i]['role_id'] = None
+                    
+            await self.config.guild_from_id(id).races.set(guilds[id]['races'])

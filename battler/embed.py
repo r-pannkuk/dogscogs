@@ -110,6 +110,11 @@ class BattlerRaceEmbed(discord.Embed):
 
             self.add_field(name="Stats", value=stats_string, inline=False)
 
+        if race['role_id'] is not None:
+            role = self.guild.get_role(race['role_id'])
+            if role is not None:
+                self.add_field(name=" ", value=f"__Role__: {role.mention}", inline=True)
+
         self.set_thumbnail(url=race["image_url"])
 
         self.set_footer(text=f"ID: {race['id']}")
