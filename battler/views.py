@@ -829,5 +829,12 @@ class SelectRacePaginatedEmbed(_RacePaginatedEmbed):
 
         await interaction.delete_original_response()
 
+        role_id = races[self.index]['role_id']
+
+        if role_id is not None:
+            role = self.guild.get_role(role_id)
+            if role is not None:
+                await interaction.user.add_roles(role, reason="Battler Role") # type: ignore[union-attr]
+
         self.stop()
         await self.message.edit(content=None, view=None)
