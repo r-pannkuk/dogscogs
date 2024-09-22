@@ -544,7 +544,7 @@ class RoleColors(commands.Cog):
                 )
 
         try:
-            await ctx.author.send(f"You spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`", silent=True)
+            await Battler._send_battler_dm(ctx.author, content=f"You spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`", silent=True)
         except discord.Forbidden as e:
             await ctx.channel.send(f"{ctx.author.mention} spent `{color_change_cost} {await Coins._get_currency_name(ctx.guild)} to try to curse {target.display_name}`\nNew Balance: `{new_balance}`", silent=True)
 

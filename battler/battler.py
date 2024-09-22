@@ -16,7 +16,7 @@ from dogscogs.core.converter import DogCogConverter
 from .embed import BattlerRaceEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, applyModifiers
-from .views import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
+from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -42,6 +42,7 @@ DEFAULT_GUILD: BattlerConfig = {
 DEFAULT_MEMBER: BattleUserConfig = {
     "equipment_ids": [],
     "race_id": None,
+    "is_silent": False,
 }
 
 class _BattleMessageParts(typing.TypedDict):
@@ -390,6 +391,19 @@ class Battler(commands.Cog):
         return { "embed": embed }
 
     @staticmethod
+    async def _send_battler_dm(user: discord.Member, *args, **kwargs) -> None:
+        config = Config.get_conf(
+            cog_instance=None,
+            cog_name="Battler",
+            identifier=COG_IDENTIFIER,
+            force_registration=True,
+        )
+        is_silent = await config.member(user).is_silent()
+
+        if not is_silent:
+            await user.send(*args, **kwargs)
+
+    @staticmethod
     async def _battle_response(
         *,
         type: KeyType,
@@ -552,6 +566,17 @@ class Battler(commands.Cog):
             interaction=ctx.interaction,
             original_message=ctx.message,
         ).send()
+        pass
+
+    @battler.command()
+    @commands.guild_only()
+    async def mute(self, ctx: commands.GuildContext, is_muted: typing.Optional[bool] = None):
+        """Mute or unmute your battler messages."""
+        if is_muted is None:
+            is_muted = await self.config.member(ctx.message.author).is_silent()
+
+        await self.config.member(ctx.message.author).is_silent.set(is_muted)
+        await ctx.reply(f"Battler messages sent to you via DM are {'`MUTED`' if is_muted else '`UNMUTED`'}")
         pass
 
     @battler.command(alises=["stats"])

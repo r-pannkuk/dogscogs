@@ -733,7 +733,7 @@ class Nickname(commands.Cog):
 
         if next_nyame_available > datetime.now(tz=TIMEZONE):
             try:
-                await ctx.author.send(f"Your nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.", silent=True)
+                await Battler._send_battler_dm(ctx.author, content=f"Your nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.", silent=True)
             except discord.Forbidden as e:
                 await ctx.send(f"{ctx.author.mention}'s nyability to nyame is onya cooldownya unyatil <t:{int(next_nyame_available.timestamp())}:F>.", delete_after=15)
 
@@ -859,7 +859,7 @@ class Nickname(commands.Cog):
 
         if next_curse_available > datetime.now(tz=TIMEZONE):
             try:
-                await ctx.author.send(f"Your ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.", silent=True)
+                await Battler._send_battler_dm(ctx.author, content=f"Your ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.", silent=True)
             except discord.Forbidden as e:
                 await ctx.send(f"{ctx.author.mention}'s ability to curse is on cooldown until <t:{int(next_curse_available.timestamp())}:F>.", delete_after=15)
             

@@ -50,3 +50,4 @@ class BattlerConfig(typing.TypedDict):
 class BattleUserConfig(typing.TypedDict):
     equipment_ids: typing.List[int]
     race_id: typing.Union[None, int]
+    is_silent: bool
