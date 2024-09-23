@@ -9,8 +9,8 @@ from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.constants.discord.views import MAX_SELECT_OPTIONS as DISCORD_MAX_SELECT_OPTIONS
 
 from .utils import EditModifierView
-from ..embed import BattlerRaceEmbed, get_modifier_strings              # type: ignore[import-untyped]
-from ..config import BattleUserConfig, BonusType, Modifier, OperatorType, Race, KeyType   # type: ignore[import-untyped]
+from ..embed import BattlerRaceEmbed, get_modifier_strings              
+from ..config import BattleUserConfig, BonusType, Modifier, OperatorType, Race, KeyType
 
 DEFAULT_NAME = "<NAME>"
 DEFAULT_DESCRIPTION = "<DESCRIPTION>"
@@ -90,7 +90,7 @@ class EditRaceDetailsModal(discord.ui.Modal):
 
         return self
     
-    async def _get_race_config(self) -> Race:
+    async def _get_config(self) -> Race:
         races : typing.List[Race] = await self.config.guild(self.guild).races()
         found_race = next((r for r in races if r['id'] == self.race_id), None)
 
@@ -99,7 +99,7 @@ class EditRaceDetailsModal(discord.ui.Modal):
         
         return found_race
 
-    async def _set_race_config(
+    async def _set_config(
         self,
         name: typing.Optional[str] = None,
         description: typing.Optional[str] = None,
@@ -148,7 +148,7 @@ class EditRaceDetailsModal(discord.ui.Modal):
 
         role = self.role_input.role
 
-        await self._set_race_config(name=name, description=description, image_url=image_url, role=role)
+        await self._set_config(name=name, description=description, image_url=image_url, role=role)
 
         await interaction.response.send_message("Saved changes.", ephemeral=True, delete_after=5)
         self.stop()
@@ -181,7 +181,7 @@ class _RacePaginatedEmbed(PaginatedEmbed):
                         description=f"There aren't any races found in {self.guild.name}.",
                         color=discord.Color.red()
                     ),
-                    0,
+                    1,
                 )
             
             return await BattlerRaceEmbed(
@@ -190,7 +190,13 @@ class _RacePaginatedEmbed(PaginatedEmbed):
                 race_id=races[self.index]['id']   
             ).send(show_stats=show_stats), len(races)
 
-        super().__init__(*args, interaction=interaction, message=original_message, get_page=get_page, **kwargs)
+        super().__init__(
+            *args, 
+            interaction=interaction, 
+            message=original_message, 
+            get_page=get_page, 
+            **kwargs
+        )
 
         self.config = config
         self.guild = self.interaction.guild if self.interaction else self.original_message.guild # type: ignore[assignment,union-attr]
@@ -220,7 +226,9 @@ class _RacePaginatedEmbed(PaginatedEmbed):
                     placeholder="Select a race to view.",
                     options=options,
                     callback=edit_selected_page,
-                    row=1
+                    row=1,
+                    max_values=1,
+                    min_values=1,
                 )
                 self.add_item(self.select_list)
             else:
@@ -270,8 +278,6 @@ class AdminRaceConfigure(discord.ui.View):
 
         self.add_item(self.edit_details)
 
-        self.add_item(self.add_modifier)
-
         if len(race['modifiers']) == 1:
             self.index = 0
         elif len(race['modifiers']) > 1:
@@ -292,12 +298,14 @@ class AdminRaceConfigure(discord.ui.View):
                     )
                     for i, modifier in enumerate(race['modifiers'])
                 ],
-                row=2,
                 callback=return_none
             )
 
             self.add_item(self.select_modifier)
 
+        self.add_item(self.add_modifier)
+
+        if len(race['modifiers']) >= 1:
             self.edit_modifier.disabled = self.index == -1
             self.delete_modifier.disabled = self.index == -1
 
@@ -374,7 +382,7 @@ class AdminRaceConfigure(discord.ui.View):
             race_id=self.race_id,
         ).send(), view=self)
 
-    @discord.ui.button(label="Add Modifier", style=discord.ButtonStyle.green, row=1)
+    @discord.ui.button(label="Add Modifier", style=discord.ButtonStyle.green, row=3)
     async def add_modifier(self, interaction: discord.Interaction, button: discord.ui.Button):
         view = await EditModifierView(
             config=self.config,
@@ -407,7 +415,7 @@ class AdminRaceConfigure(discord.ui.View):
 
         pass
 
-    @discord.ui.button(label="Edit Modifier", style=discord.ButtonStyle.secondary, row=1)
+    @discord.ui.button(label="Edit Modifier", style=discord.ButtonStyle.secondary, row=3)
     async def edit_modifier(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.index == -1:
             raise ValueError("Something went wrong. Index shouldn't be -1")
@@ -440,7 +448,7 @@ class AdminRaceConfigure(discord.ui.View):
 
         pass
 
-    @discord.ui.button(label="Delete Modifier", style=discord.ButtonStyle.danger, row=1)
+    @discord.ui.button(label="Delete Modifier", style=discord.ButtonStyle.danger, row=3)
     async def delete_modifier(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.index == -1:
             raise ValueError("Something went wrong. Index shouldn't be -1")
@@ -453,7 +461,7 @@ class AdminRaceConfigure(discord.ui.View):
 
         await self.collect()
 
-        await interaction.response.send_message(f"Deleted modifier: {modifier['key']} ({modifier['operator']} {modifier['value']}).", ephemeral=True, delete_after=10)
+        await interaction.response.send_message(f"Deleted modifier: {get_modifier_strings([modifier])[0]}.", ephemeral=True, delete_after=10)
 
         await self.message.edit(embed=await BattlerRaceEmbed(
             config=self.config,
@@ -485,13 +493,6 @@ class AdminRacePaginatedEmbed(_RacePaginatedEmbed):
             show_stats=True,
             **kwargs
         )
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.author.id:
-            await interaction.response.send_message("ERROR: You are not the author of this view.", ephemeral=True, delete_after=10)
-            return False
-
-        return await super().interaction_check(interaction)
 
     @discord.ui.button(label="Add New", style=discord.ButtonStyle.primary, row=2)
     async def add_new(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -576,14 +577,14 @@ class AdminRacePaginatedEmbed(_RacePaginatedEmbed):
             return
 
         member_data : typing.Dict[int, BattleUserConfig] = await self.config.all_members(self.guild)
-        filtered_members = {
-            id: data
+        filtered_member_ids = [
+            id
             for id, data in member_data.items()
             if data['race_id'] == race['id']
-        }
+        ]
 
         async with self.config.get_members_lock(self.guild):
-            for id, _ in filtered_members.items():
+            for id in filtered_member_ids:
                 await self.config.member_from_ids(self.guild.id, id).race_id.set(default_member['race_id'])
 
         await self.config.guild(self.guild).races.set(races)

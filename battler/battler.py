@@ -17,6 +17,7 @@ from .embed import BattlerRaceEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, applyModifiers
 from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
+from .views.equipment import AdminEquipmentPaginatedEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -554,6 +555,11 @@ class Battler(commands.Cog):
     @commands.has_guild_permissions(manage_roles=True)
     async def config_equipment(self, ctx: commands.GuildContext) -> None:
         """Adjust the existing equipment that users can purchase."""
+        await AdminEquipmentPaginatedEmbed(
+            config=self.config,
+            interaction=ctx.interaction,
+            original_message=ctx.message,
+        ).send()
         pass
 
     @battler_config.command(name='races', aliases=['race'])
