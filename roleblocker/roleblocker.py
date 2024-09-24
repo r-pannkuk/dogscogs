@@ -226,10 +226,17 @@ class RoleBlocker(commands.Cog):
         registered_role_ids = await self.config.guild(before.guild).registered_role_ids()
         assigned_role_id = await self.config.guild(before.guild).assigned_role_id()
 
+
+        roles_to_be_removed : typing.List[discord.Role] = []
+
         found_roles = [role for role in after.roles if role.id in registered_role_ids]
-        if len(found_roles) > registered_role_count or (assigned_role_id in [role.id for role in after.roles]):
+        if len(found_roles) > registered_role_count:
             found_roles.sort(key=lambda role: role.created_at)
             roles_to_be_removed = found_roles[registered_role_count:]
+        elif (assigned_role_id in [role.id for role in after.roles]):
+            roles_to_be_removed = [role for role in after.roles if role.id in registered_role_ids and role.id not in [role.id for role in before.roles]]
+        
+        if len(roles_to_be_removed) > 0:
             try:
                 await after.remove_roles(*roles_to_be_removed, reason="Removing extra registered roles.")
             except discord.Forbidden:
