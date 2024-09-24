@@ -1,3 +1,4 @@
+import asyncio
 from typing import Literal
 import typing
 
@@ -85,6 +86,8 @@ class RoleBlocker(commands.Cog):
                     except discord.Forbidden:
                         await self.bot.send_to_owners(f"Roleblocker: I do not have permission to remove roles from {member.mention} in {ctx.guild.name}.")
 
+                await asyncio.sleep(1)
+
         return count
 
     @commands.group()
@@ -92,6 +95,29 @@ class RoleBlocker(commands.Cog):
     @commands.guild_only()
     async def roleblocker(self, ctx: commands.GuildContext):
         """Role blocking commands."""
+        pass
+
+    @roleblocker.command()
+    @commands.is_owner()
+    @commands.guild_only()
+    async def role_convert(self, ctx: commands.GuildContext, from_role: discord.Role, to_role: discord.Role):
+        """Convert all users with a role to another role."""
+        count = 0
+        message = await ctx.send(f"Converting users from {from_role.mention} to {to_role.mention}...")
+
+        for member in ctx.guild.members:
+            if from_role in member.roles:
+                count += 1
+                try:
+                    await member.remove_roles(from_role, reason="Role conversion.")
+                    if to_role not in member.roles:
+                        await member.add_roles(to_role, reason="Role conversion.")
+                except discord.Forbidden:
+                    await self.bot.send_to_owners(f"Roleblocker: I do not have permission to convert roles for {member.mention} in {ctx.guild.name}.")
+
+                await asyncio.sleep(1)
+
+        await message.edit(f"Converted {count} users from {from_role.mention} to {to_role.mention}.")
         pass
 
     @roleblocker.command()
@@ -176,6 +202,7 @@ class RoleBlocker(commands.Cog):
         confirmation_message = await ctx.send(f"Would you like to convert `{len(found_members)}` users who have {registered_role_count} or more registered roles?", view=view)
 
         if not await view.wait() or view.value:
+            await confirmation_message.edit(content="Converting users...", view=None)
             count = await self.__convert(ctx, members=found_members)
             await ctx.send(f"{count} users have been converted.")
 
