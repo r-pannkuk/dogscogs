@@ -117,7 +117,7 @@ class RoleBlocker(commands.Cog):
 
                 await asyncio.sleep(1)
 
-        await message.edit(f"Converted {count} users from {from_role.mention} to {to_role.mention}.")
+        await message.edit(content=f"Converted {count} users from {from_role.mention} to {to_role.mention}.")
         pass
 
     @roleblocker.command()
@@ -201,7 +201,7 @@ class RoleBlocker(commands.Cog):
 
         confirmation_message = await ctx.send(f"Would you like to convert `{len(found_members)}` users who have {registered_role_count} or more registered roles?", view=view)
 
-        if not await view.wait() or view.value:
+        if not await view.wait() and view.value:
             await confirmation_message.edit(content="Converting users...", view=None)
             count = await self.__convert(ctx, members=found_members)
             await ctx.send(f"{count} users have been converted.")
