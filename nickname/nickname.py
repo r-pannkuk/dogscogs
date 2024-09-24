@@ -787,17 +787,17 @@ class Nickname(commands.Cog):
         successive_count_max = await self.config.guild(member.guild).curse_succesive_max()
 
         successive = await self.config.member(member).successive()
-        successive_data = successive[type]
 
         now = datetime.now(tz=TIMEZONE)
 
         start_of_week = now - timedelta(days=now.weekday())
         start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        if successive_data['last_timestamp'] is not None and successive_data['last_timestamp'] < start_of_week.timestamp():
-            successive_data['count'] = 0
+        if successive[type]['last_timestamp'] is not None and successive[type]['last_timestamp'] < start_of_week.timestamp():
+            successive[type]['count'] = 0
+            await self.config.member(member).successive.set(successive)
 
-        cost += int(min(successive_count_max, successive_data['count']) * cost * successive_cost_increase)
+        cost += int(min(successive_count_max, successive[type]['count']) * cost * successive_cost_increase)
 
         return cost
 
