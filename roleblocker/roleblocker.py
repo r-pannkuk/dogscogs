@@ -224,9 +224,10 @@ class RoleBlocker(commands.Cog):
 
         registered_role_count = await self.config.guild(before.guild).registered_role_count()
         registered_role_ids = await self.config.guild(before.guild).registered_role_ids()
+        assigned_role_id = await self.config.guild(before.guild).assigned_role_id()
 
         found_roles = [role for role in after.roles if role.id in registered_role_ids]
-        if len(found_roles) > registered_role_count:
+        if len(found_roles) > registered_role_count or (assigned_role_id in [role.id for role in after.roles]):
             found_roles.sort(key=lambda role: role.created_at)
             roles_to_be_removed = found_roles[registered_role_count:]
             try:
