@@ -392,10 +392,10 @@ class EmbedWatcher(commands.Cog):
         
         member = guild.get_member(message.author.id)
 
-        member_role_ids : typing.List[int] = [role.id for role in member.roles] # type: ignore[union-attr]
+        member_role_ids : typing.List[int] = [role.id for role in member.roles] if member else []
 
         # Returning if the author's roles match any of the whitelist.
-        if True in (role_id in whitelist["role_ids"] for role_id in member_role_ids):
+        if any(role_id in whitelist["role_ids"] for role_id in member_role_ids):
             return
 
         if await self.config.guild_from_id(guild.id).is_enabled():

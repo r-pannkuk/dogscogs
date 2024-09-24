@@ -361,7 +361,7 @@ class Logger(commands.Cog):
         if await self.config.guild_from_id(guild.id).is_enabled():
             payload = LogPayload(event)
 
-            channel: discord.TextChannel = guild.get_channel(payload.channel_id) #type: ignore[assignment]
+            channel: discord.TextChannel = guild.get_channel_or_thread(payload.channel_id) #type: ignore[assignment]
 
             logger_channel_id = await self.config.guild(guild).logger_channel_id()
             logger_channel = guild.get_channel(logger_channel_id)
@@ -376,9 +376,9 @@ class Logger(commands.Cog):
             
             author : typing.Union[discord.Member, discord.User]
 
-            author = await self.bot.get_or_fetch_member(guild, author_id)
-
-            if author is None:
+            try:
+                author = await self.bot.get_or_fetch_member(guild, author_id)
+            except discord.errors.NotFound:
                 author = await self.bot.get_or_fetch_user(author_id)
 
             if author.bot:
@@ -389,7 +389,7 @@ class Logger(commands.Cog):
             if await self.config.guild_from_id(guild.id).is_links_enabled():
                 link_text = payload.jump_url
 
-            log = f"[{channel.mention}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
+            log = f"[{channel.mention if channel is not None else '`UNKNOWN`'}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
 
             if payload.type == "DELETE":
                 await logger_channel.send( # type: ignore[union-attr]

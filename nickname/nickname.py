@@ -53,7 +53,7 @@ def CreateNickQueueEntry(
     target_id: int,
     instigator_id: typing.Optional[int] = None,
     type: CurseType,
-    created_at: datetime = datetime.now(tz=TIMEZONE),
+    created_at: typing.Optional[datetime] = None,
     expiration: typing.Optional[datetime] = None,
     id: int = uuid.uuid4().int,
 ) -> NickQueueEntry:
@@ -62,7 +62,7 @@ def CreateNickQueueEntry(
         "target_id": target_id,
         "instigator_id": instigator_id,
         "type": type,
-        "created_at": created_at.timestamp(),
+        "created_at": created_at.timestamp() if created_at is not None else datetime.now(tz=TIMEZONE).timestamp(),
         "expiration": expiration.timestamp() if expiration is not None else None,
         "id": id,
     }
@@ -414,11 +414,15 @@ class Nickname(commands.Cog):
         elif entry["type"] == "Nyamed":
             await member_config.remove_nyame()
 
-        await member_config.add_entry(entry=entry)
-        await member.edit(
-            reason=f"{member.display_name} locked nickname to {entry['name']}.",
-            nick=entry["name"],
-        )
+        try:
+            await member_config.add_entry(entry=entry)
+            await member.edit(
+                reason=f"{member.display_name} locked nickname to {entry['name']}.",
+                nick=entry["name"],
+            )
+        except (PermissionError, Forbidden) as e:
+            await self.bot.send_to_owners(f"Nickname: Failed to edit nickname on {member.mention}:\n{json.dumps(entry, indent=2)}")
+            await member_config.remove(id=id, type=type)
 
         # member_ids = await self.config.guild(guild)._get_nicknamed_member_ids()
         # member_ids.append(member.id)
@@ -935,7 +939,7 @@ class Nickname(commands.Cog):
             await ctx.send(f"{msg}.")
         except (PermissionError, Forbidden) as e:
             await ctx.reply(
-                f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname. Your curse cooldown was refunded."
+                f"ERROR: Bot does not have permission to edit {member.display_name}'s nickname."
             )
         pass
 
@@ -1196,7 +1200,7 @@ class Nickname(commands.Cog):
                 member = guild.get_member(value["target_id"])  # type: ignore[assignment]
                 author = (
                     guild.get_member(value["instigator_id"])
-                    if value["instigator_id"] is not None
+                    if "instigator_id" in value and value["instigator_id"] is not None
                     else None
                 )
 

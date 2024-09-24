@@ -141,7 +141,9 @@ def generate_battle_message_parts(
 
     results['title'] = f"{results['emoji']} {attacker.display_name} vs. {defender.display_name} {results['emoji']}"
 
-    if winner.id == attacker.id:
+    if attacker.id == defender.id:
+        results['footer'] = f"❓ {attacker.display_name} tried to {results['verb']} themselves"
+    elif winner.id == attacker.id:
         results['footer'] = f"✅ {attacker.display_name} succesfully {results['verb']} {defender.display_name}"
     else:
         results['footer'] = f"❌ {attacker.display_name} failed to afflict {defender.display_name}"
