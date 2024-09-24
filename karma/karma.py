@@ -17,7 +17,7 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 DEFAULT_GUILD = {
     "valid_stickers": {
         1258093939076890726 : 1,
-        1254952247343972393 : 0,
+        1277034875416739943 : 0,
         1258094007460954123 : -1,
     },
     "after_timestamp": 1719990000
@@ -122,6 +122,7 @@ class Karma(commands.Cog):
     @commands.guild_only()
     @commands.is_owner()
     async def reset_karma(self, ctx: commands.GuildContext) -> None:
+        await self.config.guild(ctx.guild).clear()
         await self.config.clear_all_members(ctx.guild)
         await ctx.send("Karma reset.")
             
