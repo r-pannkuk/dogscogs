@@ -98,15 +98,36 @@ class RoleBlocker(commands.Cog):
         pass
 
     @roleblocker.command()
-    @commands.is_owner()
+    @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
-    async def role_convert(self, ctx: commands.GuildContext, from_role: discord.Role, to_role: discord.Role):
+    async def role_convert(self, ctx: commands.GuildContext, from_role: discord.Role, to_role: discord.Role, filter_roles: commands.Greedy[discord.Role]):
         """Convert all users with a role to another role."""
         count = 0
-        message = await ctx.send(f"Converting users from {from_role.mention} to {to_role.mention}...")
+        view = ConfirmationView(
+            author=ctx.author,
+        )
+
+        msg_string = "**__WARNING__: THIS COMMAND IS DANGEROUS**\n"
+        msg_string += f"Remove {from_role.mention} from members and grant them {to_role.mention}?\n"
+
+        filter_roles_string = ', '.join(role.mention for role in filter_roles)
+
+        if len(filter_roles) > 0:
+            msg_string += f"Only users with the following roles will be adjusted: {filter_roles_string}\n"
+
+        confirmation_message = await ctx.send(content=msg_string, view=view)
+
+        if await view.wait() or not view.value:
+            await confirmation_message.delete()
+            return 
+        
+        await confirmation_message.edit(content=f"Converting users from {from_role.mention} to {to_role.mention}...\n{f'(Only users with {filter_roles_string})' if len(filter_roles) > 0 else ''}", view=None)
 
         for member in ctx.guild.members:
             if from_role in member.roles:
+                if len(filter_roles) > 0:
+                    if not any(role in member.roles for role in filter_roles):
+                        continue
                 count += 1
                 try:
                     await member.remove_roles(from_role, reason="Role conversion.")
@@ -117,7 +138,7 @@ class RoleBlocker(commands.Cog):
 
                 await asyncio.sleep(1)
 
-        await message.edit(content=f"Converted {count} users from {from_role.mention} to {to_role.mention}.")
+        await confirmation_message.edit(content=f"Converted {count} users from {from_role.mention} to {to_role.mention}.")
         pass
 
     @roleblocker.command()
