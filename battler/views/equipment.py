@@ -8,6 +8,8 @@ from dogscogs.views.prompts import ValidImageURLTextInput, NumberPromptTextInput
 from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.constants.discord.views import MAX_SELECT_OPTIONS as DISCORD_MAX_SELECT_OPTIONS
 
+from coins import Coins
+
 from .utils import EditModifierView
 from ..embed import BattlerEquipmentEmbed, get_modifier_strings
 from ..config import BattleUserConfig, BonusType, Modifier, OperatorType, Equipment, KeyType, SlotType
@@ -652,5 +654,104 @@ class AdminEquipmentPaginatedEmbed(_EquipmentPaginatedEmbed):
         self.index = max(self.index - 1, 0)
 
         await self.edit_page()
+
+        pass
+
+class PurchaseEquipmentPaginatedEmbed(_EquipmentPaginatedEmbed):
+    def __init__(
+        self,
+        *args,
+        config: Config,
+        interaction: typing.Optional[discord.Interaction] = None,
+        original_message : typing.Optional[discord.Message] = None,
+        **kwargs,
+    ):
+        super().__init__(
+            *args, 
+            config=config, 
+            interaction=interaction, 
+            original_message=original_message, 
+            show_stats=False,
+            **kwargs
+        )
+
+    @discord.ui.button(label="Purchase", style=discord.ButtonStyle.primary, row=4)
+    async def purchase(self, interaction: discord.Interaction, button: discord.ui.Button):
+        guild_equipment : typing.List[Equipment] = await self.config.guild(self.guild).equipment()
+        sell_ratio : float = await self.config.guild(self.guild).sell_ratio()
+        equipment = guild_equipment[self.index]
+
+        member_equipment_ids : typing.List[int] = await self.config.member(interaction.user).equipment_ids() # type: ignore[arg-type]
+        member_equipment = [e for e in guild_equipment if e['id'] in member_equipment_ids]
+        member_slot_piece = next((e for e in member_equipment if e['slot'] == equipment['slot']), None)
+        member_piece_sell_value = int(member_slot_piece['cost'] * sell_ratio if member_slot_piece is not None else 0)
+
+        if equipment['id'] in member_equipment_ids:
+            await interaction.response.send_message(f"You already own `{equipment['name']}`.", ephemeral=True, delete_after=10)
+            return
+        
+        balance = await Coins._get_balance(interaction.user) # type: ignore[arg-type]
+
+        msg_content = f"__Equipment__: {equipment['name']} (`{equipment['slot'].capitalize()}`)\n"
+        msg_content += f"__Cost__: {equipment['cost']}\n"
+        msg_content += f"__Balance__: {balance}\n\n"
+            
+        async def sell_item(i : discord.Interaction):
+            revised_member_equipment = [id for id in member_equipment_ids if id != member_slot_piece['id']] # type: ignore[index]
+            await Coins._add_balance(i.user, member_piece_sell_value) # type: ignore[arg-type]
+
+            await self.config.member(i.user).equipment_ids.set(revised_member_equipment)  # type: ignore[arg-type]
+
+            return True
+
+        view = None
+
+        if balance < equipment['cost']:
+            msg_content += f"You do not have enough currency to purchase `{equipment['name']}`."
+
+            if member_slot_piece is None or balance + member_piece_sell_value < equipment['cost']:
+                await interaction.response.send_message(content=msg_content, ephemeral=True, delete_after=10)
+                return
+            
+            msg_content += f" Sell your {member_slot_piece['name']} ({equipment['slot'].capitalize()}) for {member_piece_sell_value} to make up the difference?"
+            
+        elif member_slot_piece is not None:
+            msg_content += f"You already own a `{equipment['slot'].capitalize()}` piece: **{member_slot_piece['name']}**. Sell it for {member_piece_sell_value} and continue purchasing?"
+        
+        if member_slot_piece is not None:
+            view = ConfirmationView(
+                author=interaction.user,   # type: ignore[arg-type]
+                callback=sell_item,
+            )
+        else:
+            view = ConfirmationView(
+                author=interaction.user,   # type: ignore[arg-type]
+            )
+
+        await interaction.response.send_message(content=msg_content, view=view, ephemeral=True)
+        if await view.wait() or not view.value:
+            await interaction.delete_original_response()
+            return
+
+        await interaction.delete_original_response()
+
+        new_balance = await Coins._remove_balance(interaction.user, equipment['cost']) # type: ignore[arg-type]
+
+        # Re-fetching here to make sure it's updated after any potential selling
+        member_equipment_ids = await self.config.member(interaction.user).equipment_ids() # type: ignore[arg-type]
+
+        member_equipment_ids.append(equipment['id'])
+
+        await self.config.member(interaction.user).equipment_ids.set(member_equipment_ids) # type: ignore[arg-type]
+
+        response_string = ""
+
+        if member_slot_piece is not None:
+            response_string += f"Sold **{member_slot_piece['name']}** (`{member_slot_piece['slot']}`) for {member_piece_sell_value}.\n"  # type: ignore[index]
+
+        response_string += f"Purchased **{equipment['name']}** (`{equipment['slot']}`) for {equipment['cost']}.\n"
+        response_string += f"New Balance: `{new_balance}`"
+
+        await interaction.followup.send(content=response_string, ephemeral=True)
 
         pass

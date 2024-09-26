@@ -12,12 +12,13 @@ import d20  # type: ignore[import-untyped]
 
 from dogscogs.constants import COG_IDENTIFIER
 from dogscogs.core.converter import DogCogConverter
+from dogscogs.converters.percent import Percent
 
 from .embed import BattlerRaceEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, applyModifiers
 from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
-from .views.equipment import AdminEquipmentPaginatedEmbed
+from .views.equipment import AdminEquipmentPaginatedEmbed, PurchaseEquipmentPaginatedEmbed
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
@@ -25,6 +26,7 @@ DEFAULT_GUILD: BattlerConfig = {
     "attacker_wins_ties": True,
     "attacker_roll": "1d20",
     "defender_roll": "1d20",
+    "sell_ratio": 0.5,
     "use_embed": False,
     "races": [
         {
@@ -521,21 +523,26 @@ class Battler(commands.Cog):
     @battler_config.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
-    async def settings(self, ctx: commands.GuildContext) -> None:
-        """Control battle settings and configurations.
-        """
-        await ctx.reply("This doesn't do anything at the moment.")
-        pass
-
-    @battler_config.command()
-    @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
     async def embed(self, ctx: commands.GuildContext, use_embed: typing.Optional[bool] = None) -> None:
         """Toggle whether to use embeds for battle messages."""
         if use_embed is None:
             use_embed = not await self.config.guild(ctx.guild).use_embed()
         await self.config.guild(ctx.guild).use_embed.set(use_embed)
         await ctx.reply(f"Using {'`EMBEDS`' if use_embed else '`TEXT`'} for battle messages.")
+        pass
+
+    @battler_config.command()
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def buyback(self, ctx: commands.GuildContext, sell_ratio: typing.Optional[typing.Annotated[float, Percent]] = None) -> None:
+        """Set the ratio at which equipment can be sold back."""
+        if sell_ratio is None:
+            sell_ratio = await self.config.guild(ctx.guild).sell_ratio()
+        elif sell_ratio < 0 or sell_ratio > 1:
+            raise commands.BadArgument("Sell ratio must be between 0 and 1.")
+
+        await self.config.guild(ctx.guild).sell_ratio.set(sell_ratio)
+        await ctx.reply(f"Equipment be sold back at a ratio of `{sell_ratio:%}`")
         pass
 
     @battler_config.command(aliases=['channel'])
@@ -662,7 +669,11 @@ class Battler(commands.Cog):
             await ctx.message.delete(delay=5)
             return
         
-        await ctx.reply("Will be implemented later.", delete_after=5)
+        await PurchaseEquipmentPaginatedEmbed(
+            config=self.config,
+            interaction=ctx.interaction,
+            original_message=ctx.message,
+        ).send()
         pass
 
     async def cog_load(self) -> None:

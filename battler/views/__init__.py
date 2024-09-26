@@ -1,3 +1,3 @@
-from .equipment import AdminEquipmentPaginatedEmbed
+from .equipment import AdminEquipmentPaginatedEmbed, PurchaseEquipmentPaginatedEmbed
 from .races import SelectRacePaginatedEmbed, AdminRacePaginatedEmbed
 from .utils import EditModifierView

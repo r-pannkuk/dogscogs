@@ -42,6 +42,7 @@ class BattlerConfig(typing.TypedDict):
     attacker_wins_ties: bool
     attacker_roll: str
     defender_roll: str
+    sell_ratio: float
     use_embed: bool
     equipment: typing.List[Equipment]
     channel_ids: typing.List[int]
