@@ -5,14 +5,10 @@ BonusType = typing.Literal['attack', 'defend', 'both']
 KeyType = typing.Literal['rolecolors', 'nyame', 'curse']
 
 SlotType = typing.Literal[
-    'head', 
-    'body', 
-    'hands', 
-    'legs', 
-    'feet', 
-    'accessory',
-    'weapon', 
-    'shield', 
+    'hat',
+    'clothes',
+    'hands',
+    'accessory'
 ]
 
 class Modifier(typing.TypedDict):
