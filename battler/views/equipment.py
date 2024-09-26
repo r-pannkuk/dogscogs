@@ -16,7 +16,6 @@ from ..config import BattleUserConfig, BonusType, Modifier, OperatorType, Equipm
 
 DEFAULT_NAME = "<NAME>"
 DEFAULT_DESCRIPTION = "<DESCRIPTION>"
-DEFAULT_IMAGE_URL = "https://wiki.koumakan.jp/images/hisouten/e/ed/Soku_common_card000.png"
 
 class EditEquipmentDetailsModal(discord.ui.Modal):
     name_input : discord.ui.TextInput
@@ -113,8 +112,8 @@ class EditEquipmentDetailsModal(discord.ui.Modal):
         )
         self.image_url_input = ValidImageURLTextInput(
             placeholder="Provide an image link (.png, .jog, .jpeg, or .gif)",
-            required=True,
-            default=found_equipment['image_url'],
+            required=False,
+            default=found_equipment['image_url'] if found_equipment['image_url'] is not None else None,
             label="Equipment Image",
             style=discord.TextStyle.long,
         )
@@ -568,9 +567,9 @@ class AdminEquipmentPaginatedEmbed(_EquipmentPaginatedEmbed):
             'id': uuid.uuid4().int,
             'name': DEFAULT_NAME,
             'description': DEFAULT_DESCRIPTION,
-            'image_url': DEFAULT_IMAGE_URL,
+            'image_url': None,
             'cost': 0,
-            'slot': 'head',
+            'slot': 'hat',
             'modifiers': [],
         }
 

@@ -14,7 +14,7 @@ from dogscogs.constants import COG_IDENTIFIER
 from dogscogs.core.converter import DogCogConverter
 from dogscogs.converters.percent import Percent
 
-from .embed import BattlerRaceEmbed
+from .embed import BattlerRaceEmbed, BattlerStatusEmbed
 from .config import BattlerConfig, BattleUserConfig, KeyType, Race, Equipment
 from .classes import BattleUser, applyModifiers
 from .views.races import AdminRacePaginatedEmbed, SelectRacePaginatedEmbed
@@ -604,7 +604,13 @@ class Battler(commands.Cog):
             await ctx.message.delete(delay=5)
             return
 
-        await ctx.reply("Will be implemented later.", delete_after=5)
+        embed = BattlerStatusEmbed(
+            config=self.config,
+            guild=ctx.guild,
+            member=member or ctx.message.author,
+        ).send()
+
+        await ctx.reply(embed=await embed)
         pass
 
     @battler.command()

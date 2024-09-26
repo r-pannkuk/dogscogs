@@ -3,7 +3,7 @@ import discord
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from .config import BattleUserConfig, Equipment, Modifier, Race
+from .config import BattleUserConfig, Equipment, Modifier, Race, SlotType, BattlerConfig
 
 TOKEN_BONUS_TYPE = "$BONUS$"
 TOKEN_MODIFIER_KEY = "$KEY$"
@@ -113,7 +113,8 @@ class BattlerRaceEmbed(discord.Embed):
             if role is not None:
                 self.add_field(name=" ", value=f"__Role__: {role.mention}", inline=True)
 
-        self.set_thumbnail(url=race["image_url"])
+        if race['image_url'] is not None:
+            self.set_thumbnail(url=race["image_url"])
 
         self.set_footer(text=f"ID: {race['id']}")
 
@@ -180,27 +181,74 @@ class BattlerEquipmentEmbed(discord.Embed):
 
             self.add_field(name="Stats", value=stats_string, inline=False)
 
-        self.set_thumbnail(url=equipment["image_url"])
+        if equipment["image_url"] is not None:
+            self.set_thumbnail(url=equipment["image_url"])
 
         self.set_footer(text=f"ID: {equipment['id']}")
 
         return self
 
-
 class BattlerStatusEmbed(discord.Embed):
-    def __init__(self, battler: BattleUserConfig):
-        pass
-
-
-class BattlerConfigEmbed(discord.Embed):
-    def __init__(self, client: Red, config: Config, guild: discord.Guild):
-        super().__init__(
-            title=f"{guild.name} Battler Configuration", color=discord.Color.green()
-        )
+    def __init__(self, config: Config, guild: discord.Guild, member: discord.Member):
         self.config = config
-        self.client = client
         self.guild = guild
-        self.group = config.guild(guild)
+        self.member_id = member.id
 
-    async def collect(self):
-        pass
+        super().__init__(title="Generating...", description="...")
+
+    async def send(self) -> "BattlerStatusEmbed":
+        member = self.guild.get_member(self.member_id) or await self.guild.fetch_member(self.member_id)
+        if member is None:
+            raise ValueError(f"No member found for the given id: {self.member_id}")
+
+        member_data : BattleUserConfig = await self.config.member(member).all() # type: ignore[assignment]
+        guild_data : BattlerConfig = await self.config.guild(self.guild).all() # type: ignore[assignment]
+
+        self.title = member.display_name
+
+        self.description = ""
+
+        self.description += f"__Race__: "
+
+        race = next((r for r in guild_data['races'] if r['id'] == member_data['race_id']), None)
+
+        if race is not None:
+            self.description += f"{race['name']}"
+        else:
+            self.description += "`None`"
+
+        self.description += "\n"
+
+        equipment_string = ""
+
+        member_equipment = [e for e in guild_data['equipment'] if e['id'] in member_data['equipment_ids']]
+        modifiers = race['modifiers'] if race is not None else []
+
+        for slot in typing.get_args(SlotType):
+            equipment = next((e for e in member_equipment if e['slot'] == slot), None)
+            equipment_string += f"__{slot.capitalize()}__: "
+            if equipment is not None:
+                equipment_string += f"{equipment['name']}"
+                modifiers.extend(equipment['modifiers'])
+            else:
+                equipment_string += "`None`"
+
+            equipment_string += "\n"
+
+        self.add_field(name="Equipment", value=equipment_string, inline=False)
+
+        modifier_strings = [
+            f"- {string}" for string in get_modifier_strings(modifiers)
+        ]
+
+        if len(modifier_strings) == 0:
+            modifier_strings = ["- None"]
+
+        self.add_field(
+            name="Modifiers", value="\n".join(modifier_strings), inline=False
+        )
+
+        if race is not None and race['image_url'] is not None:
+            self.set_thumbnail(url=race['image_url'])
+
+        return self

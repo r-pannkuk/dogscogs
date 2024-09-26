@@ -23,7 +23,7 @@ class Equipment(typing.TypedDict):
     slot: SlotType
     description: str
     cost: int
-    image_url: str
+    image_url: typing.Union[None, str]
     modifiers: typing.List[Modifier]
 
 class Race(typing.TypedDict):
