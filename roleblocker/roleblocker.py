@@ -126,7 +126,7 @@ class RoleBlocker(commands.Cog):
         for member in ctx.guild.members:
             if from_role in member.roles:
                 if len(filter_roles) > 0:
-                    if not any(role in member.roles for role in filter_roles):
+                    if not all(role in member.roles for role in filter_roles):
                         continue
                 count += 1
                 try:
