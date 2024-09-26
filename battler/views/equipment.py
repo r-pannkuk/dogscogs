@@ -247,8 +247,8 @@ class _EquipmentPaginatedEmbed(PaginatedEmbed):
             if self.select_list is not None:
                 self.remove_item(self.select_list)
                 self.select_list = None
-            self.previous.disabled = True
-            self.next.disabled = True
+            # self.previous.disabled = True
+            # self.next.disabled = True
 
         if any((c.custom_id == "equipment_slot" for c in self.children)) and self.select_slot is not None: # type: ignore[attr-defined]
             self.remove_item(self.select_slot)
@@ -644,7 +644,7 @@ class AdminEquipmentPaginatedEmbed(_EquipmentPaginatedEmbed):
         async with self.config.get_members_lock(self.guild):
             for id in filtered_member_ids:
                 member_equipment = await self.config.member_from_ids(self.guild.id, id).equipment_ids()
-                member_equipment = [e for e in member_equipment if e['id'] != equipment['id']]
+                member_equipment = [id for id in member_equipment if id != equipment['id']]
                 await self.config.member_from_ids(self.guild.id, id).equipment_ids.set(member_equipment)
 
         await self.config.guild(self.guild).equipment.set(guild_equipment)
