@@ -494,6 +494,14 @@ class Trigger(commands.Cog):
                         new_message = None
 
                         if message_contents["content"] is not None or message_contents["embed"] is not None:
+                            # Sending a message to the usre as well.
+                            if config['trigger']['type'] & ReactType.BAN or config['trigger']['type'] & ReactType.KICK:
+                                try:
+                                    new_message = await member.send(content=message_contents["content"], embed=message_contents["embed"]) # type: ignore[arg-type]
+                                except discord.Forbidden:
+                                    new_message = None
+
+
                             if message is not None:
                                 if message.channel is not None and (
                                     config["channel_ids"] is None or
@@ -507,7 +515,10 @@ class Trigger(commands.Cog):
                                 for id in config["channel_ids"]:
                                     channel = member.guild.get_channel(int(id))
                                     if channel is not None and isinstance(channel, discord.TextChannel):
-                                        new_message = await channel.send(content=message_contents["content"], embed=message_contents["embed"]) # type: ignore[arg-type]
+                                        try:
+                                            new_message = await channel.send(content=message_contents["content"], embed=message_contents["embed"]) # type: ignore[arg-type]
+                                        except discord.Forbidden:
+                                            new_message = None
 
                         if message_contents["reactions"] is not None:
                             if message is not None and (
