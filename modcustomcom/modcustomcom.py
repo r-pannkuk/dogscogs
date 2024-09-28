@@ -31,8 +31,8 @@ def cooldown_for_non_permitted_users(ctx: commands.Context):
             return None
     
     return discord.app_commands.Cooldown(
-        1,           # use
-        60 * 60 * 24 # per day
+        1,                # use
+        60 * 60 * 24 * 30 # per 30 days
     )
 
 def shared_dynamic_cooldown(
