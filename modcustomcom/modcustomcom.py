@@ -5,7 +5,11 @@ import re
 import random
 from datetime import datetime, timedelta
 from typing import Iterable, List, Mapping, Tuple, Dict, Set, Literal, Union
+import typing
 from urllib.parse import quote_plus
+
+from discord.ext.commands._types import CoroFunc
+from discord.ext.commands import DynamicCooldownMapping
 
 import discord
 import rapidfuzz
@@ -19,6 +23,40 @@ from redbot.core.utils.predicates import MessagePredicate
 
 _ = Translator("CustomCommands", __file__)
 
+def cooldown_for_non_permitted_users(ctx: commands.Context):
+    guild = ctx.guild
+    if guild is not None:
+        member = guild.get_member(ctx.author.id)
+        if member is not None and member.guild_permissions.manage_roles:
+            return None
+    
+    return discord.app_commands.Cooldown(
+        1,           # use
+        60 * 60 * 24 # per day
+    )
+
+def shared_dynamic_cooldown(
+    cooldown: typing.Callable[[commands.Context], typing.Optional[discord.app_commands.Cooldown]],
+    type: typing.Union[commands.BucketType, typing.Callable[[commands.Context], typing.Any]],
+) -> typing.Callable:
+    if not callable(cooldown):
+        raise TypeError("A callable must be provided")
+    
+    retval = DynamicCooldownMapping(cooldown, type)
+
+    if type is commands.BucketType.default:
+        raise ValueError('BucketType.default cannot be used in dynamic cooldowns')
+
+    def decorator(func: Union[commands.Command, CoroFunc]) -> Union[commands.Command, CoroFunc]:
+        if isinstance(func, commands.Command):
+            func._buckets = retval # type: ignore[assignment]
+        else:
+            func.__commands_cooldown__ = retval # type: ignore[attr-defined]
+        return func
+
+    return decorator  # type: ignore
+
+shared_cooldown = shared_dynamic_cooldown(cooldown_for_non_permitted_users, commands.BucketType.user)
 
 class CCError(Exception):
     pass
@@ -442,6 +480,7 @@ class ModCustomCommands(commands.Cog):
 
     @customcom.group(name="create", aliases=["add"], invoke_without_command=True)
     @commands.mod_or_permissions(administrator=True)
+    @shared_cooldown # type: ignore[arg-type]
     async def cc_create(self, ctx: commands.Context, command: str.lower, *, text: str):
         """Create custom commands.
 
@@ -453,6 +492,7 @@ class ModCustomCommands(commands.Cog):
 
     @cc_create.command(name="random")
     @commands.mod_or_permissions(administrator=True)
+    @shared_cooldown # type: ignore[arg-type]
     async def cc_create_random(self, ctx: commands.Context, command: str.lower):
         """Create a CC where it will randomly choose a response!
 
@@ -492,6 +532,7 @@ class ModCustomCommands(commands.Cog):
 
     @cc_create.command(name="simple")
     @commands.mod_or_permissions(administrator=True)
+    @shared_cooldown # type: ignore[arg-type]
     async def cc_create_simple(self, ctx, command: str.lower, *, text: str):
         """Add a simple custom command.
 
