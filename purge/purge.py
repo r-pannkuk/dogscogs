@@ -281,7 +281,7 @@ class Purge(commands.Cog):
         
         update_message_content += f"Found {sum([len(a) for a in to_be_deleted.values()]):,} messages to delete. Proceed?"
 
-        confirmation = ConfirmationView(author=ctx.author)
+        confirmation = ConfirmationView(author=ctx.author, timeout=None)
         prompt = await ctx.reply(content=update_message_content, view=confirmation)
 
         if await confirmation.wait() or not confirmation.value:
