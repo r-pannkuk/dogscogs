@@ -148,16 +148,17 @@ class Purge(commands.Cog):
     async def phrase(
         self,
         ctx: commands.GuildContext,
-        *,
-        phrase: str
+        *phrases: str
     ):
         """Deletes all messages that contain the specific phrase on the server.
 
         Args:
             phrase (str): The phrase to search for. Case insensitive.
         """
+        parsed_phrases = list(phrases)
+        stringified_phrases = ','.join([f'`{phrase}`' for phrase in parsed_phrases])
         confirmation = ConfirmationView(author=ctx.author)
-        prompt = await ctx.reply(f"Are you sure you want to delete all messages containing the phrase: `{phrase}`?", view=confirmation)
+        prompt = await ctx.reply(f"Are you sure you want to delete all messages containing the phrase(s): {stringified_phrases}?", view=confirmation)
 
         channels = await ctx.guild.fetch_channels()
 
@@ -204,7 +205,7 @@ class Purge(commands.Cog):
             update_message_content = f"Currently scanning {current_message.jump_url}\n"
             update_message_content += f"Scanned channel messages: {channel_message_count:,}\n"
             update_message_content += "\n"
-            update_message_content += f"__Phrase__: `{phrase}`\n"
+            update_message_content += f"__Phrase(s)__: {stringified_phrases}\n"
             update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
             update_message_content += f"__Total Scans__: {total_message_count:,}\n"
             update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
@@ -243,7 +244,7 @@ class Purge(commands.Cog):
                 if cancel_in_progress.canceled:
                     break
 
-                if phrase.lower() in message.content.lower() and message.id != prompt.id:
+                if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
                     to_be_deleted[channel.id].append(message)
 
                 channel_message_count += 1
@@ -258,7 +259,7 @@ class Purge(commands.Cog):
             update_message_content = f"Stopped at: {current_message.jump_url}\n"
             update_message_content += f"Scanned channel messages: {channel_message_count:,}\n"
             update_message_content += "\n"
-            update_message_content += f"__Phrase__: `{phrase}`\n"
+            update_message_content += f"__Phrase(s)__: {stringified_phrases}\n"
             update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
             update_message_content += f"__Total Scans__: {total_message_count:,}\n"
             update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
@@ -296,7 +297,7 @@ class Purge(commands.Cog):
                 await ctx.send(f"ERROR: Channel `{channel_id}` could not be found.")
 
             for i in range(0, len(messages), 100):
-                await channel.delete_messages(messages[i:i+100], reason=f"Purging phrase **{phrase}** -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+                await channel.delete_messages(messages[i:i+100], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
 
         await prompt.edit(content=f"Finished deleting {sum([len(a) for a in to_be_deleted.values()]):,} messages.")
 
