@@ -5,6 +5,7 @@ from typing import Literal
 import typing
 
 import discord
+from discord.ext.tasks import loop
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -15,12 +16,15 @@ from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.converters.user import UserList
 from dogscogs.converters.channel import TextChannelList
 
+from .views import CancelPurgeView
+
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 CHUNK_SIZE = 100
 
 UPDATE_DURATION_SECS = 5
 DELETE_INTERVAL_SECS = 3
+FAIL_THRESHOLD = 20
 
 class Purge(commands.Cog):
     """
@@ -138,6 +142,167 @@ class Purge(commands.Cog):
 
         await ctx.channel.send(f"Deleted {len(deleted_messages)} messages.", delete_after=15)
         pass
+
+    @purge.command()
+    @commands.has_guild_permissions(manage_messages=True)
+    async def phrase(
+        self,
+        ctx: commands.GuildContext,
+        *,
+        phrase: str
+    ):
+        """Deletes all messages that contain the specific phrase on the server.
+
+        Args:
+            phrase (str): The phrase to search for. Case insensitive.
+        """
+        confirmation = ConfirmationView(author=ctx.author)
+        prompt = await ctx.reply(f"Are you sure you want to delete all messages containing the phrase: `{phrase}`?", view=confirmation)
+
+        channels = await ctx.guild.fetch_channels()
+
+        if await confirmation.wait() or not confirmation.value:
+            await prompt.edit(content="Cancelled.",view=None,delete_after=15)
+            return
+        
+        cancel_in_progress = CancelPurgeView(ctx)
+
+        channel_count = 0
+        total_channel_count = len([c for c in channels if isinstance(c, TEXT_CHANNEL_TYPES)])
+        total_message_count = 0
+        channel_message_count = 0
+        last_update_check = datetime.datetime.now()
+        update_message_content : str = "Starting..."
+        current_message : discord.Message = ctx.message
+
+        to_be_deleted : typing.Dict[int, typing.List[discord.Message]] = {}
+
+        await prompt.edit(content=update_message_content, view=cancel_in_progress)
+
+        failed_count = 0
+        last_message_count = 0
+
+        @loop(seconds=DELETE_INTERVAL_SECS)
+        async def update_prompt():
+            nonlocal current_message
+            nonlocal last_update_check
+
+            nonlocal failed_count
+            nonlocal last_message_count
+
+            if last_message_count == total_message_count:
+                failed_count += 1
+
+                if failed_count > FAIL_THRESHOLD:
+                    update_prompt.cancel()
+                    await ctx.send(f"Failed to fetch messages after {FAIL_THRESHOLD} failed attempts. Stopping...")
+                    cancel_in_progress.canceled = True
+                    return
+            else:
+                failed_count = 0
+
+            update_message_content = f"Currently scanning {current_message.jump_url}\n"
+            update_message_content += f"Scanned channel messages: {channel_message_count:,}\n"
+            update_message_content += "\n"
+            update_message_content += f"__Phrase__: `{phrase}`\n"
+            update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
+            update_message_content += f"__Total Scans__: {total_message_count:,}\n"
+            update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
+            update_message_content += f"__Last Update__: <t:{int(last_update_check.timestamp())}:R>"
+
+            if failed_count > 1:
+                update_message_content += f"\n\nFailed attempts: {failed_count} / {FAIL_THRESHOLD}"
+
+            await prompt.edit(content=update_message_content)
+
+            last_message_count = total_message_count
+
+        update_prompt.start()
+
+        for channel in channels:
+            if cancel_in_progress.canceled:
+                break
+
+            if not isinstance(channel, TEXT_CHANNEL_TYPES):
+                continue
+
+            if (
+                not channel.permissions_for(ctx.me).read_messages or 
+                not channel.permissions_for(ctx.me).read_message_history or 
+                not channel.permissions_for(ctx.me).manage_messages
+            ):
+                continue
+
+            to_be_deleted[channel.id] = []
+
+            channel_count += 1
+
+            channel_message_count = 0
+
+            async for message in channel.history(limit=None, oldest_first=False):
+                if cancel_in_progress.canceled:
+                    break
+
+                if phrase.lower() in message.content.lower() and message.id != prompt.id:
+                    to_be_deleted[channel.id].append(message)
+
+                channel_message_count += 1
+                total_message_count += 1
+                current_message = message
+
+                last_update_check = datetime.datetime.now()
+
+        update_prompt.cancel()
+
+        if cancel_in_progress.canceled:
+            update_message_content = f"Stopped at: {current_message.jump_url}\n"
+            update_message_content += f"Scanned channel messages: {channel_message_count:,}\n"
+            update_message_content += "\n"
+            update_message_content += f"__Phrase__: `{phrase}`\n"
+            update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
+            update_message_content += f"__Total Scans__: {total_message_count:,}\n"
+            update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
+
+            await prompt.edit(content=update_message_content, view=None)
+            return
+        
+        await prompt.delete()
+        
+        update_message_content = f"__Channels__: {channel_count}/{total_channel_count}\n"
+        update_message_content += f"__Total Scans__: {total_message_count:,}\n"
+        update_message_content += f"__Total Detected__: `{sum([len(a) for a in to_be_deleted.values()]):,}`\n"
+        update_message_content += "\n"
+
+        if sum([len(a) for a in to_be_deleted.values()]) == 0:
+            update_message_content += "No messages found with search phrase. Exiting."
+            await ctx.send(content=update_message_content)
+            return
+        
+        update_message_content += f"Found {sum([len(a) for a in to_be_deleted.values()]):,} messages to delete. Proceed?"
+
+        confirmation = ConfirmationView(author=ctx.author)
+        prompt = await ctx.reply(content=update_message_content, view=confirmation)
+
+        if await confirmation.wait() or not confirmation.value:
+            await prompt.edit(content="Cancelled.",view=None,delete_after=15)
+            return
+        
+        await prompt.edit(content="Deleting...",view=None)
+
+        for channel_id, messages in to_be_deleted.items():
+            channel = ctx.guild.get_channel(channel_id) # type: ignore[assignment]
+
+            if channel is None:
+                await ctx.send(f"ERROR: Channel `{channel_id}` could not be found.")
+
+            for i in range(0, len(messages), 100):
+                await channel.delete_messages(messages[i:i+100], reason=f"Purging phrase **{phrase}** -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+
+        await prompt.edit(content=f"Finished deleting {sum([len(a) for a in to_be_deleted.values()]):,} messages.")
+
+
+
+
 
     @purge.command()
     @commands.admin_or_can_manage_channel()
