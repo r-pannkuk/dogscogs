@@ -22,7 +22,7 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 CHUNK_SIZE = 100
 
-UPDATE_DURATION_SECS = 5
+UPDATE_DURATION_SECS = 20
 DELETE_INTERVAL_SECS = 3
 FAIL_THRESHOLD = 20
 
@@ -183,7 +183,7 @@ class Purge(commands.Cog):
         failed_count = 0
         last_message_count = 0
 
-        @loop(seconds=DELETE_INTERVAL_SECS)
+        @loop(seconds=UPDATE_DURATION_SECS)
         async def update_prompt():
             nonlocal current_message
             nonlocal last_update_check
