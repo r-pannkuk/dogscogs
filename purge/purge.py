@@ -243,18 +243,29 @@ class Purge(commands.Cog):
 
             current_message = channel.last_message # type: ignore[assignment]
 
-            async for message in channel.history(limit=None, before=current_message, oldest_first=False):
-                if cancel_in_progress.canceled:
+            while failed_count < FAIL_THRESHOLD:
+                try:
+                    async for message in channel.history(limit=None, before=current_message, oldest_first=False):
+                        if cancel_in_progress.canceled:
+                            break
+
+                        if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
+                            to_be_deleted[channel.id].append(message)
+
+                        channel_message_count += 1
+                        total_message_count += 1
+                        current_message = message
+
+                        last_update_check = datetime.datetime.now()
+
                     break
-
-                if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
-                    to_be_deleted[channel.id].append(message)
-
-                channel_message_count += 1
-                total_message_count += 1
-                current_message = message
-
-                last_update_check = datetime.datetime.now()
+                except discord.errors.DiscordServerError as e:
+                    if e.code == 503:
+                        await asyncio.sleep(UPDATE_DURATION_SECS)
+                        await self.bot.send_to_owners(f"503 Error: {e.response}")
+                        continue
+                    else:
+                        raise e
 
         update_prompt.cancel()
 
@@ -314,6 +325,8 @@ class Purge(commands.Cog):
                     update_deletion.cancel()
                     await ctx.send(f"Failed to delete messages after {FAIL_THRESHOLD} failed attempts. Stopping...")
                     return
+            else:
+                failed_count = 0
             
             if failed_count > 1:
                 message_content += f"\n\n__Failed Attempts__: {failed_count} / {FAIL_THRESHOLD}"
@@ -333,16 +346,42 @@ class Purge(commands.Cog):
             if channel is None:
                 await ctx.send(f"ERROR: Channel `{channel_id}` could not be found.")
 
-            for i in range(0, len(bulk_delete), CHUNK_SIZE):
-                await channel.delete_messages(bulk_delete[i:i+CHUNK_SIZE], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+            i = 0
+
+            while i < len(bulk_delete) and failed_count < FAIL_THRESHOLD:
+                try:
+                    await channel.delete_messages(bulk_delete[i:i+CHUNK_SIZE], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+                except discord.errors.DiscordServerError as e:
+                    if e.code == 503:
+                        await asyncio.sleep(UPDATE_DURATION_SECS)
+                        await self.bot.send_to_owners(f"503 Error: {e.response}")
+                        continue
+                    else:
+                        raise e
+                
+                i += CHUNK_SIZE
                 deletion_count += CHUNK_SIZE
                 await asyncio.sleep(DELETE_INTERVAL_SECS)
 
             if len(bulk_delete) % CHUNK_SIZE != 0:
                 deletion_count -= CHUNK_SIZE - (len(bulk_delete) % CHUNK_SIZE)
 
-            for message in remaining:
-                await message.delete()
+            i = 0
+
+            while i < len(remaining) and failed_count < FAIL_THRESHOLD:
+                message = remaining[i]
+
+                try:
+                    await message.delete()
+                except discord.errors.DiscordServerError as e:
+                    if e.code == 503:
+                        await asyncio.sleep(UPDATE_DURATION_SECS)
+                        await self.bot.send_to_owners(f"503 Error: {e.response}")
+                        continue
+                    else:
+                        raise e
+                
+                i += 1
                 deletion_count += 1
                 await asyncio.sleep(DELETE_INTERVAL_SECS)
 
