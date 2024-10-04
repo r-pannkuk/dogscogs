@@ -215,7 +215,11 @@ class Purge(commands.Cog):
             if failed_count > 1:
                 update_message_content += f"\n\nFailed attempts: {failed_count} / {FAIL_THRESHOLD}"
 
-            await prompt.edit(content=update_message_content)
+            try:
+                await prompt.edit(content=update_message_content)
+            except discord.errors.DiscordServerError as e:
+                await asyncio.sleep(UPDATE_DURATION_SECS)
+                await self.bot.send_to_owners(f"503 Error: {e.response}")
 
             last_message_count = total_message_count
 
@@ -260,12 +264,9 @@ class Purge(commands.Cog):
 
                     break
                 except discord.errors.DiscordServerError as e:
-                    if e.code == 503:
-                        await asyncio.sleep(UPDATE_DURATION_SECS)
-                        await self.bot.send_to_owners(f"503 Error: {e.response}")
-                        continue
-                    else:
-                        raise e
+                    await asyncio.sleep(UPDATE_DURATION_SECS)
+                    await self.bot.send_to_owners(f"503 Error: {e.response}")
+                    continue
 
         update_prompt.cancel()
 
@@ -352,12 +353,9 @@ class Purge(commands.Cog):
                 try:
                     await channel.delete_messages(bulk_delete[i:i+CHUNK_SIZE], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
                 except discord.errors.DiscordServerError as e:
-                    if e.code == 503:
-                        await asyncio.sleep(UPDATE_DURATION_SECS)
-                        await self.bot.send_to_owners(f"503 Error: {e.response}")
-                        continue
-                    else:
-                        raise e
+                    await asyncio.sleep(UPDATE_DURATION_SECS)
+                    await self.bot.send_to_owners(f"503 Error: {e.response}")
+                    continue
                 
                 i += CHUNK_SIZE
                 deletion_count += CHUNK_SIZE
@@ -374,12 +372,9 @@ class Purge(commands.Cog):
                 try:
                     await message.delete()
                 except discord.errors.DiscordServerError as e:
-                    if e.code == 503:
-                        await asyncio.sleep(UPDATE_DURATION_SECS)
-                        await self.bot.send_to_owners(f"503 Error: {e.response}")
-                        continue
-                    else:
-                        raise e
+                    await asyncio.sleep(UPDATE_DURATION_SECS)
+                    await self.bot.send_to_owners(f"503 Error: {e.response}")
+                    continue
                 
                 i += 1
                 deletion_count += 1
