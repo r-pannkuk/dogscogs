@@ -6,6 +6,7 @@ import typing
 
 import discord
 from discord.ext.tasks import loop
+import pytz
 from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
@@ -24,7 +25,7 @@ CHUNK_SIZE = 100
 
 UPDATE_DURATION_SECS = 20
 DELETE_INTERVAL_SECS = 3
-FAIL_THRESHOLD = 20
+FAIL_THRESHOLD = 100
 
 class Purge(commands.Cog):
     """
@@ -202,14 +203,14 @@ class Purge(commands.Cog):
             else:
                 failed_count = 0
 
-            update_message_content = f"Currently scanning {current_message.jump_url}\n"
+            update_message_content = f"Currently scanning {current_message.jump_url if current_message else '<TBD>'}\n"
             update_message_content += f"Scanned channel messages: {channel_message_count:,}\n"
             update_message_content += "\n"
             update_message_content += f"__Phrase(s)__: {stringified_phrases}\n"
             update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
             update_message_content += f"__Total Scans__: {total_message_count:,}\n"
             update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
-            update_message_content += f"__Last Update__: <t:{int(last_update_check.timestamp())}:R>"
+            update_message_content += f"__Last Update__: <t:{int(last_update_check.timestamp())}:R> (every {UPDATE_DURATION_SECS} seconds)\n"
 
             if failed_count > 1:
                 update_message_content += f"\n\nFailed attempts: {failed_count} / {FAIL_THRESHOLD}"
@@ -240,7 +241,9 @@ class Purge(commands.Cog):
 
             channel_message_count = 0
 
-            async for message in channel.history(limit=None, oldest_first=False):
+            current_message = channel.last_message # type: ignore[assignment]
+
+            async for message in channel.history(limit=None, before=current_message, oldest_first=False):
                 if cancel_in_progress.canceled:
                     break
 
@@ -290,14 +293,60 @@ class Purge(commands.Cog):
         
         await prompt.edit(content="Deleting...",view=None)
 
+        TWO_WEEKS_AGO = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=14)
+        deletion_count = 0
+        last_deletion_count = 0
+        failed_count = 0
+
+        @loop(seconds=UPDATE_DURATION_SECS)
+        async def update_deletion():
+
+            message_content = f"__Deleted__: {deletion_count:,} / {sum([len(a) for a in to_be_deleted.values()]):,}.\n"
+            message_content += f"__Last Update__: <t:{int(datetime.datetime.now().timestamp())}:R> (every {UPDATE_DURATION_SECS} seconds)"
+
+            nonlocal failed_count 
+            nonlocal last_deletion_count
+
+            if deletion_count == last_deletion_count:
+                failed_count += 1
+
+                if failed_count > FAIL_THRESHOLD:
+                    update_deletion.cancel()
+                    await ctx.send(f"Failed to delete messages after {FAIL_THRESHOLD} failed attempts. Stopping...")
+                    return
+            
+            if failed_count > 1:
+                message_content += f"\n\n__Failed Attempts__: {failed_count} / {FAIL_THRESHOLD}"
+
+            last_deletion_count = deletion_count
+
+            await prompt.edit(content=message_content)
+
+        update_deletion.start()
+
         for channel_id, messages in to_be_deleted.items():
             channel = ctx.guild.get_channel(channel_id) # type: ignore[assignment]
+
+            bulk_delete = [message for message in messages if message.created_at > TWO_WEEKS_AGO]
+            remaining = [message for message in messages if message.created_at <= TWO_WEEKS_AGO]
 
             if channel is None:
                 await ctx.send(f"ERROR: Channel `{channel_id}` could not be found.")
 
-            for i in range(0, len(messages), 100):
-                await channel.delete_messages(messages[i:i+100], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+            for i in range(0, len(bulk_delete), CHUNK_SIZE):
+                await channel.delete_messages(bulk_delete[i:i+CHUNK_SIZE], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+                deletion_count += CHUNK_SIZE
+                await asyncio.sleep(DELETE_INTERVAL_SECS)
+
+            if len(bulk_delete) % CHUNK_SIZE != 0:
+                deletion_count -= CHUNK_SIZE - (len(bulk_delete) % CHUNK_SIZE)
+
+            for message in remaining:
+                await message.delete()
+                deletion_count += 1
+                await asyncio.sleep(DELETE_INTERVAL_SECS)
+
+        update_deletion.cancel()
 
         await prompt.edit(content=f"Finished deleting {sum([len(a) for a in to_be_deleted.values()]):,} messages.")
 
