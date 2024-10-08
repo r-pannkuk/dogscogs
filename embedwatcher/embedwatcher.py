@@ -435,6 +435,14 @@ class EmbedWatcher(commands.Cog):
                 before_files = list(set(before_files))
                 after_files = list(set(after_files))
 
+                before_counter = collections.Counter(before_files)
+                after_counter = collections.Counter(after_files)
+
+                after_counter.subtract(before_counter)
+
+                if after_counter.total() <= 0:
+                    return
+
                 if collections.Counter(before_files) == collections.Counter(
                     after_files
                 ):
