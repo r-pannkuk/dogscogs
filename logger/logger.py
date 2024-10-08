@@ -391,6 +391,8 @@ class Logger(commands.Cog):
 
             log = f"[{channel.mention if channel is not None else '`UNKNOWN`'}] `{payload.type}D` message from **{author.display_name}** {link_text}:"
 
+            no_mentions = discord.AllowedMentions.none()
+
             if payload.type == "DELETE":
                 await logger_channel.send( # type: ignore[union-attr]
                     log + f"\n{payload.before['content']}",
@@ -399,6 +401,7 @@ class Logger(commands.Cog):
                         for attachment in payload.before["attachments"]
                     ],
                     suppress_embeds=True,
+                    allowed_mentions=no_mentions
                 )
                 pass
             elif payload.type == "UPDATE":
@@ -416,9 +419,9 @@ class Logger(commands.Cog):
                         or payload.data["content"] == ""
                         else payload.data["content"]
                     )
-                    await logger_channel.send(f"{log}\n{before}", suppress_embeds=True) # type: ignore[union-attr]
+                    await logger_channel.send(f"{log}\n{before}", suppress_embeds=True, allowed_mentions=no_mentions) # type: ignore[union-attr]
                     try:
-                        await logger_channel.send(after, suppress_embeds=True) # type: ignore[union-attr]
+                        await logger_channel.send(after, suppress_embeds=True, allowed_mentions=no_mentions) # type: ignore[union-attr]
                     except Exception as e:
                         print(f"Failed to print message. Dumping:\n\n{payload}\n\n")
                         raise e
