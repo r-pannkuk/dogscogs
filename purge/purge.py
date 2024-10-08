@@ -177,7 +177,8 @@ class Purge(commands.Cog):
         update_message_content : str = "Starting..."
         current_message : discord.Message = ctx.message
 
-        to_be_deleted : typing.Dict[int, typing.List[discord.Message]] = {}
+        channel_messages_to_be_deleted : typing.Dict[int, typing.List[discord.Message]] = {}
+        thread_messages : typing.List[discord.Message] = []
 
         await prompt.edit(content=update_message_content, view=cancel_in_progress)
 
@@ -191,6 +192,8 @@ class Purge(commands.Cog):
 
             nonlocal failed_count
             nonlocal last_message_count
+
+            current_detected = sum([len(a) for a in channel_messages_to_be_deleted.values()]) + len(thread_messages)
 
             if last_message_count == total_message_count:
                 failed_count += 1
@@ -209,7 +212,7 @@ class Purge(commands.Cog):
             update_message_content += f"__Phrase(s)__: {stringified_phrases}\n"
             update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
             update_message_content += f"__Total Scans__: {total_message_count:,}\n"
-            update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
+            update_message_content += f"__Total Detected__: {current_detected:,}\n"
             update_message_content += f"__Last Update__: <t:{int(last_update_check.timestamp())}:R> (every {UPDATE_DURATION_SECS} seconds)\n"
 
             if failed_count > 1:
@@ -239,13 +242,13 @@ class Purge(commands.Cog):
             ):
                 continue
 
-            to_be_deleted[channel.id] = []
+            channel_messages_to_be_deleted[channel.id] = []
 
             channel_count += 1
 
             channel_message_count = 0
 
-            current_message = channel.last_message # type: ignore[assignment]
+            current_message = None # type: ignore[assignment]
 
             while failed_count < FAIL_THRESHOLD:
                 try:
@@ -254,7 +257,7 @@ class Purge(commands.Cog):
                             break
 
                         if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
-                            to_be_deleted[channel.id].append(message)
+                            channel_messages_to_be_deleted[channel.id].append(message)
 
                         channel_message_count += 1
                         total_message_count += 1
@@ -262,13 +265,31 @@ class Purge(commands.Cog):
 
                         last_update_check = datetime.datetime.now()
 
+
+                    for thread in channel.threads:
+                        current_message = None # type: ignore[assignment]
+                        async for message in thread.history(limit=None, before=current_message, oldest_first=False):
+                            if cancel_in_progress.canceled:
+                                break
+
+                            if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
+                                thread_messages.append(message)
+
+                            channel_message_count += 1
+                            total_message_count += 1
+                            current_message = message
+
+                            last_update_check = datetime.datetime.now()
                     break
                 except discord.errors.DiscordServerError as e:
                     await asyncio.sleep(UPDATE_DURATION_SECS)
                     await self.bot.send_to_owners(f"503 Error: {e.response}")
                     continue
 
+
         update_prompt.cancel()
+
+        total_detections = sum([len(a) for a in channel_messages_to_be_deleted.values()]) + len(thread_messages)
 
         if cancel_in_progress.canceled:
             update_message_content = f"Stopped at: {current_message.jump_url}\n"
@@ -277,7 +298,7 @@ class Purge(commands.Cog):
             update_message_content += f"__Phrase(s)__: {stringified_phrases}\n"
             update_message_content += f"__Channels__: {channel_count}/{total_channel_count}\n"
             update_message_content += f"__Total Scans__: {total_message_count:,}\n"
-            update_message_content += f"__Total Detected__: {sum([len(a) for a in to_be_deleted.values()]):,}\n"
+            update_message_content += f"__Total Detected__: {total_detections:,}\n"
 
             await prompt.edit(content=update_message_content, view=None)
             return
@@ -286,15 +307,15 @@ class Purge(commands.Cog):
         
         update_message_content = f"__Channels__: {channel_count}/{total_channel_count}\n"
         update_message_content += f"__Total Scans__: {total_message_count:,}\n"
-        update_message_content += f"__Total Detected__: `{sum([len(a) for a in to_be_deleted.values()]):,}`\n"
+        update_message_content += f"__Total Detected__: `{total_detections:,}`\n"
         update_message_content += "\n"
 
-        if sum([len(a) for a in to_be_deleted.values()]) == 0:
+        if total_detections == 0:
             update_message_content += "No messages found with search phrase. Exiting."
             await ctx.send(content=update_message_content)
             return
         
-        update_message_content += f"Found {sum([len(a) for a in to_be_deleted.values()]):,} messages to delete. Proceed?"
+        update_message_content += f"Found {total_detections:,} messages to delete. Proceed?"
 
         confirmation = ConfirmationView(author=ctx.author, timeout=None)
         prompt = await ctx.reply(content=update_message_content, view=confirmation)
@@ -313,7 +334,7 @@ class Purge(commands.Cog):
         @loop(seconds=UPDATE_DURATION_SECS)
         async def update_deletion():
 
-            message_content = f"__Deleted__: {deletion_count:,} / {sum([len(a) for a in to_be_deleted.values()]):,}.\n"
+            message_content = f"__Deleted__: {deletion_count:,} / {total_detections:,}.\n"
             message_content += f"__Last Update__: <t:{int(datetime.datetime.now().timestamp())}:R> (every {UPDATE_DURATION_SECS} seconds)"
 
             nonlocal failed_count 
@@ -338,7 +359,8 @@ class Purge(commands.Cog):
 
         update_deletion.start()
 
-        for channel_id, messages in to_be_deleted.items():
+        ## Deleting messages in chunks if possible.
+        for channel_id, messages in channel_messages_to_be_deleted.items():
             channel = ctx.guild.get_channel(channel_id) # type: ignore[assignment]
 
             bulk_delete = [message for message in messages if message.created_at > TWO_WEEKS_AGO]
@@ -380,9 +402,23 @@ class Purge(commands.Cog):
                 deletion_count += 1
                 await asyncio.sleep(DELETE_INTERVAL_SECS)
 
+        ## Finishing up remaining thread messages.
+        while i < len(thread_messages) and failed_count < FAIL_THRESHOLD:
+            message = thread_messages[i]
+            try:
+                await message.delete()
+            except discord.errors.DiscordServerError as e:
+                await asyncio.sleep(UPDATE_DURATION_SECS)
+                await self.bot.send_to_owners(f"503 Error: {e.response}")
+                continue
+
+            i += 1
+            deletion_count += 1
+            await asyncio.sleep(DELETE_INTERVAL_SECS)
+
         update_deletion.cancel()
 
-        await prompt.edit(content=f"Finished deleting {sum([len(a) for a in to_be_deleted.values()]):,} messages.")
+        await prompt.edit(content=f"Finished deleting {deletion_count:,} messages.")
 
 
 
