@@ -27,6 +27,36 @@ UPDATE_DURATION_SECS = 20
 DELETE_INTERVAL_SECS = 3
 FAIL_THRESHOLD = 100
 
+class PhraseFlags(commands.FlagConverter, prefix="--"):
+    channels: typing.Tuple[discord.TextChannel, ...] = commands.flag(name="channels", aliases=["channel"], default=(), description="The channels to search for phrases. Defaults to all.")
+    
+        
+
+async def parse_flags(ctx : commands.GuildContext, args):
+    """
+    Parse flags and remaining arguments manually.
+    Args:
+        ctx: Context object.
+        args: List of arguments passed to the command.
+    Returns:
+        Tuple of flags and remaining phrases.
+    """
+    # Capture flags using FlagConverter, but manually parse out non-flag arguments
+    flags = await PhraseFlags().convert(ctx, " ".join(args))
+
+    # Get the list of remaining phrases after flags
+    phrase_args = []
+    converter = commands.TextChannelConverter()
+    for arg in args:
+        # If it's not a flag (doesn't start with --), consider it a phrase
+        try:
+            await converter.convert(ctx, arg)
+        except commands.BadArgument:
+            if not arg.startswith("--"):
+                phrase_args.append(arg)
+
+    return flags, phrase_args
+
 class Purge(commands.Cog):
     """
     Purges X posts from a selected channel.
@@ -76,92 +106,19 @@ class Purge(commands.Cog):
             ctx (commands.GuildContext): Command context.
         """
 
-    @purge.command()
-    @commands.admin_or_can_manage_channel()
-    async def channel(
-        self,
-        ctx: commands.GuildContext,
-        number: int,
-        channel: typing.Optional[TEXT_CHANNEL_TYPES],
-    ):
-        """Deletes up to X messages from the supplied channel (or current channel if none exists).
+    async def _purge_phrases_from_channels(self, ctx: commands.GuildContext, input_channels: typing.List[discord.TextChannel], phrases: typing.List[str]):
+        stringified_phrases = ','.join([f'`{phrase}`' for phrase in phrases])
 
-        Args:
-            ctx (commands.GuildContext): Command context.
-            number (int): The number of posts to delete.
-            channel (typing.Optional[discord.TextChannel]): The channel to delete from.  Defaults to current channel.
-        """
-        before_message : discord.Message    
-        
-        if channel is None:
-            channel = ctx.channel # type: ignore[assignment]
-            before_message = ctx.message
-        else:
-            before_message = channel.last_message # type: ignore[assignment]
+        channels = input_channels
 
-        await ctx.defer(ephemeral=False)
+        if len(channels) == 0:
+            fetched_channels = await ctx.guild.fetch_channels()
+            channels = [c for c in fetched_channels if isinstance(c, TEXT_CHANNEL_TYPES)]
 
-        messages = channel.history(limit=number, before=before_message, oldest_first=False) # type: ignore[union-attr]
-
-        list = []
-
-        async for message in messages:
-            list.append(message)
-
-        list.reverse()
-
-        first_deleted_message: discord.Message = list[0]
-        last_deleted_message: discord.Message = list[-1]
-
-        number = len(list)
-
-        embed = discord.Embed()
-        embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
-        embed.description = f"Channel: {channel.mention}"  # type: ignore[union-attr]
-        embed.description += "\n"
-        embed.description += f"First Message: {first_deleted_message.jump_url}"
-        embed.description += "\n"
-        embed.description += f"Last Message: {last_deleted_message.jump_url}"
-
-        view = ConfirmationView(author=ctx.author)
-
-        prompt = await ctx.send(embed=embed, view=view)
-
-        await view.wait()
-
-        if not view.value:
-            await prompt.edit(content="Cancelled.",view=None,delete_after=15)
-            return
-
-        # for i in range(0, len(list), CHUNK_SIZE):
-        #     chunk = list[i: i + CHUNK_SIZE]
-        deleted_messages = await channel.purge( # type: ignore[union-attr]
-            limit=number, before=before_message, bulk=True, oldest_first=False
-        )
-        # await view.response.edit(content=f"{i + CHUNK_SIZE if i + CHUNK_SIZE < number else number} out of {number} deleted.")
-        # await asyncio.sleep(3)
-
-        await ctx.channel.send(f"Deleted {len(deleted_messages)} messages.", delete_after=15)
-        pass
-
-    @purge.command()
-    @commands.has_guild_permissions(manage_messages=True)
-    async def phrase(
-        self,
-        ctx: commands.GuildContext,
-        *phrases: str
-    ):
-        """Deletes all messages that contain the specific phrase on the server.
-
-        Args:
-            phrase (str): The phrase to search for. Case insensitive.
-        """
-        parsed_phrases = list(phrases)
-        stringified_phrases = ','.join([f'`{phrase}`' for phrase in parsed_phrases])
         confirmation = ConfirmationView(author=ctx.author)
-        prompt = await ctx.reply(f"Are you sure you want to delete all messages containing the phrase(s): {stringified_phrases}?", view=confirmation)
-
-        channels = await ctx.guild.fetch_channels()
+        prompt = await ctx.reply(f"Are you sure you want to delete all messages in " + 
+                                 f"{'all channels' if len(input_channels) == 0 else ','.join([c.mention for c in input_channels])} " +
+                                 f"containing the phrase(s): {stringified_phrases}?", view=confirmation)
 
         if await confirmation.wait() or not confirmation.value:
             await prompt.edit(content="Cancelled.",view=None,delete_after=15)
@@ -170,7 +127,7 @@ class Purge(commands.Cog):
         cancel_in_progress = CancelPurgeView(ctx)
 
         channel_count = 0
-        total_channel_count = len([c for c in channels if isinstance(c, TEXT_CHANNEL_TYPES)])
+        total_channel_count = len(channels)
         total_message_count = 0
         channel_message_count = 0
         last_update_check = datetime.datetime.now()
@@ -186,20 +143,20 @@ class Purge(commands.Cog):
         last_message_count = 0
 
         def content_check(message: discord.Message):
-            if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()):
+            if any(True for phrase in phrases if phrase.lower() in message.content.lower()):
                 return True
             
             attachment_content : typing.List[str] = [c for c in [a.description for a in message.attachments] if c is not None]
             attachment_content += [a.filename for a in message.attachments]
 
-            if any(True for phrase in parsed_phrases if any(phrase.lower() in c for c in attachment_content)):
+            if any(True for phrase in phrases if any(phrase.lower() in c for c in attachment_content)):
                 return True
             
             embed_content : typing.List[str] = [c for c in [e.description for e in message.embeds] if c is not None]
             embed_content += [c for c in [e.title for e in message.embeds] if c is not None]
             embed_content += [c for c in [e.description for e in message.embeds] if c is not None]
 
-            if any(True for phrase in parsed_phrases if any(phrase.lower() in c for c in embed_content)):
+            if any(True for phrase in phrases if any(phrase.lower() in c for c in embed_content)):
                 return True
             
             return False
@@ -393,7 +350,7 @@ class Purge(commands.Cog):
 
             while i < len(bulk_delete) and failed_count < FAIL_THRESHOLD:
                 try:
-                    await channel.delete_messages(bulk_delete[i:i+CHUNK_SIZE], reason=f"Purging phrases {','.join(parsed_phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
+                    await channel.delete_messages(bulk_delete[i:i+CHUNK_SIZE], reason=f"Purging phrases {','.join(phrases)} -- Instigated by: {ctx.author.name}") # type: ignore[union-attr]
                 except discord.errors.DiscordServerError as e:
                     await asyncio.sleep(UPDATE_DURATION_SECS)
                     await self.bot.send_to_owners(f"503 Error: {e.response}")
@@ -440,8 +397,109 @@ class Purge(commands.Cog):
 
         await prompt.edit(content=f"Finished deleting {deletion_count:,} messages.")
 
+    @purge.command()
+    @commands.admin_or_can_manage_channel()
+    async def channel(
+        self,
+        ctx: commands.GuildContext,
+        number: int,
+        channel: typing.Optional[TEXT_CHANNEL_TYPES],
+    ):
+        """Deletes up to X messages from the supplied channel (or current channel if none exists).
 
+        Args:
+            ctx (commands.GuildContext): Command context.
+            number (int): The number of posts to delete.
+            channel (typing.Optional[discord.TextChannel]): The channel to delete from.  Defaults to current channel.
+        """
+        before_message : discord.Message    
+        
+        if channel is None:
+            channel = ctx.channel # type: ignore[assignment]
+            before_message = ctx.message
+        else:
+            before_message = channel.last_message # type: ignore[assignment]
 
+        await ctx.defer(ephemeral=False)
+
+        messages = channel.history(limit=number, before=before_message, oldest_first=False) # type: ignore[union-attr]
+
+        list = []
+
+        async for message in messages:
+            list.append(message)
+
+        list.reverse()
+
+        first_deleted_message: discord.Message = list[0]
+        last_deleted_message: discord.Message = list[-1]
+
+        number = len(list)
+
+        embed = discord.Embed()
+        embed.title = f"Deleting {number} message{'' if number == 1 else 's'}:"
+        embed.description = f"Channel: {channel.mention}"  # type: ignore[union-attr]
+        embed.description += "\n"
+        embed.description += f"First Message: {first_deleted_message.jump_url}"
+        embed.description += "\n"
+        embed.description += f"Last Message: {last_deleted_message.jump_url}"
+
+        view = ConfirmationView(author=ctx.author)
+
+        prompt = await ctx.send(embed=embed, view=view)
+
+        await view.wait()
+
+        if not view.value:
+            await prompt.edit(content="Cancelled.",view=None,delete_after=15)
+            return
+
+        # for i in range(0, len(list), CHUNK_SIZE):
+        #     chunk = list[i: i + CHUNK_SIZE]
+        deleted_messages = await channel.purge( # type: ignore[union-attr]
+            limit=number, before=before_message, bulk=True, oldest_first=False
+        )
+        # await view.response.edit(content=f"{i + CHUNK_SIZE if i + CHUNK_SIZE < number else number} out of {number} deleted.")
+        # await asyncio.sleep(3)
+
+        await ctx.channel.send(f"Deleted {len(deleted_messages)} messages.", delete_after=15)
+        pass
+
+    @purge.command(usage="phrase <phrase1> <phrase2> ... [--channels <channel1> <channel2> ...]")
+    @commands.has_guild_permissions(manage_messages=True)
+    async def phrase(
+        self,
+        ctx: commands.GuildContext,
+        *args: str,  # Capture both flags and phrases in `args`
+    ):
+        """Deletes all messages that contain the specific phrase on the server.
+
+        Args:
+            phrase(s) (str): The phrases to search for. Case insensitive.
+            --channels (typing.List[discord.TextChannel]): (Optional) The channels to search for phrases. Defaults to all.
+        """
+
+        # Check if no arguments were passed
+        if not args:
+            await ctx.send_help()
+            return
+
+        # Try to parse flags from args
+        try:
+            flags, phrases = await parse_flags(ctx, args)
+        except commands.BadFlagArgument as e:
+            await ctx.send(f"Error parsing flags: {e}")
+            return
+
+        # If no phrases were passed after flags, send help
+        if not phrases:
+            await ctx.send_help()
+            return
+        
+
+        parsed_phrases = list(phrases)
+
+        await self._purge_phrases_from_channels(ctx, flags.channels, parsed_phrases)
 
 
     @purge.command()
