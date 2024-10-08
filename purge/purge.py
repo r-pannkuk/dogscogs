@@ -185,6 +185,26 @@ class Purge(commands.Cog):
         failed_count = 0
         last_message_count = 0
 
+        def content_check(message: discord.Message):
+            if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()):
+                return True
+            
+            attachment_content : typing.List[str] = [c for c in [a.description for a in message.attachments] if c is not None]
+            attachment_content += [a.filename for a in message.attachments]
+
+            if any(True for phrase in parsed_phrases if any(phrase.lower() in c for c in attachment_content)):
+                return True
+            
+            embed_content : typing.List[str] = [c for c in [e.description for e in message.embeds] if c is not None]
+            embed_content += [c for c in [e.title for e in message.embeds] if c is not None]
+            embed_content += [c for c in [e.description for e in message.embeds] if c is not None]
+
+            if any(True for phrase in parsed_phrases if any(phrase.lower() in c for c in embed_content)):
+                return True
+            
+            return False
+        
+
         @loop(seconds=UPDATE_DURATION_SECS)
         async def update_prompt():
             nonlocal current_message
@@ -256,7 +276,7 @@ class Purge(commands.Cog):
                         if cancel_in_progress.canceled:
                             break
 
-                        if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
+                        if content_check(message) and message.id != prompt.id:
                             channel_messages_to_be_deleted[channel.id].append(message)
 
                         channel_message_count += 1
@@ -272,7 +292,7 @@ class Purge(commands.Cog):
                             if cancel_in_progress.canceled:
                                 break
 
-                            if any(True for phrase in parsed_phrases if phrase.lower() in message.content.lower()) and message.id != prompt.id:
+                            if content_check(message) and message.id != prompt.id:
                                 thread_messages.append(message)
 
                             channel_message_count += 1
