@@ -603,11 +603,14 @@ class Battler(commands.Cog):
             await ctx.reply("You can't use that command here.", delete_after=5)
             await ctx.message.delete(delay=5)
             return
+        
+        if member is None:
+            member = ctx.guild.get_member(ctx.message.author.id) or await ctx.guild.fetch_member(ctx.message.author.id)
 
         embed = BattlerStatusEmbed(
             config=self.config,
             guild=ctx.guild,
-            member=member or ctx.message.author,
+            member=member,
         ).send()
 
         await ctx.reply(embed=await embed)
