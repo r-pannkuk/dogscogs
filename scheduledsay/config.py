@@ -9,7 +9,7 @@ ScheduleType = typing.Literal["at", "every", "cron"]
 
 def create_schedule(
     *,
-    id: str = str(uuid.uuid4().int),
+    id: typing.Optional[str] = None,
     is_active: bool = True,
     channel_ids: typing.List[typing.Union[int, discord.TextChannel]],
     author_id: typing.Union[int, discord.User, discord.Member],
@@ -21,7 +21,7 @@ def create_schedule(
     last_run_at: typing.Union[None, float] = None,
 ) -> "Schedule":
     return {
-        "id": id,
+        "id": id or str(uuid.uuid4().int),
         "is_active": is_active,
         "channel_ids": [c if isinstance(c, int) else c.id for c in channel_ids],
         "author_id": author_id if isinstance(author_id, int) else author_id.id,
