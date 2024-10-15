@@ -1,8 +1,11 @@
+from datetime import datetime
 import typing
 import discord
 from discord.utils import escape_markdown, escape_mentions
 from croniter import croniter # type: ignore[import-untyped]
 from redbot.core.config import Config
+
+from dogscogs.constants import TIMEZONE
 
 from .config import Schedule
 
@@ -48,7 +51,7 @@ class ScheduledSayEmbed(discord.Embed):
             scheduling_field += f"__Interval__: Every {schedule['schedule']['interval_secs']} seconds\n"
 
         elif schedule['type'] == "cron":
-            cron = croniter(schedule['schedule']['cron'])
+            cron = croniter(schedule['schedule']['cron'], start_time=datetime.now(tz=TIMEZONE))
             scheduling_field += f"__Cron__: {schedule['schedule']['cron']}\n"
             scheduling_field += f"__Next__: <t:{int(cron.get_next())}:F>\n" # type: ignore[arg-type]
 

@@ -8,7 +8,7 @@ from croniter import croniter  # type: ignore[import-untyped]
 from redbot.core.config import Config
 from redbot.core.bot import Red
 
-from dogscogs.constants import TIMEZONE
+from dogscogs.constants import TIMEZONE, TIMEZONE_ID
 from dogscogs.constants.discord.views import (
     MAX_SELECT_OPTIONS as DISCORD_MAX_SELECT_OPTIONS,
 )
@@ -83,7 +83,7 @@ class ScheduleCronTypeModal(_ScheduleTypeModal):
 
     async def interaction_check(self, interaction):
         try:
-            cron = croniter(self.cron_input.value)
+            cron = croniter(self.cron_input.value, start_time=datetime.datetime.now(tz=TIMEZONE))
 
             if cron.get_next(datetime.datetime) is None:
                 raise ValueError("Invalid cron expression.")
@@ -152,7 +152,7 @@ class ScheduleAtTypeModal(_ScheduleTypeModal):
 
     async def interaction_check(self, interaction):
         try:
-            dateparser.parse(self.at_input.value, settings={"TIMEZONE": str(TIMEZONE)})
+            dateparser.parse(self.at_input.value, settings={"TIMEZONE": TIMEZONE_ID})
         except:
             await interaction.response.send_message(
                 content="Invalid datestring provided.",
@@ -166,7 +166,7 @@ class ScheduleAtTypeModal(_ScheduleTypeModal):
     async def on_submit(self, interaction: discord.Interaction):
         if await self.interaction_check(interaction):
             self.at = dateparser.parse(
-                self.at_input.value, settings={"TIMEZONE": str(TIMEZONE)}
+                self.at_input.value, settings={"TIMEZONE": TIMEZONE_ID}
             )
             self.is_successful = True
 
@@ -222,7 +222,7 @@ class ScheduleIntervalTypeModal(_ScheduleTypeModal):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         try:
-            dateparser.parse(self.at_input.value, settings={"TIMEZONE": str(TIMEZONE)})
+            dateparser.parse(self.at_input.value, settings={"TIMEZONE": TIMEZONE_ID})
         except:
             await interaction.response.send_message(
                 content="Invalid datestring provided for `Next Occurrence`.",
@@ -244,7 +244,7 @@ class ScheduleIntervalTypeModal(_ScheduleTypeModal):
                 self.interval_secs = int(self.interval_input.value)
             except:
                 try:
-                    cron = croniter(self.interval_input.value)
+                    cron = croniter(self.interval_input.value, start_time=datetime.datetime.now(tz=TIMEZONE))
 
                     if cron.is_valid() is False:
                         raise ValueError("Invalid cron expression.")
@@ -262,7 +262,7 @@ class ScheduleIntervalTypeModal(_ScheduleTypeModal):
 
                 except:
                     date = dateparser.parse(
-                        self.interval_input.value, settings={"TIMEZONE": str(TIMEZONE)}
+                        self.interval_input.value, settings={"TIMEZONE": TIMEZONE_ID}
                     )
 
                     if date - datetime.datetime.now() < datetime.timedelta(
@@ -286,7 +286,7 @@ class ScheduleIntervalTypeModal(_ScheduleTypeModal):
     async def on_submit(self, interaction: discord.Interaction):
         if await self.interaction_check(interaction):
             self.at = dateparser.parse(
-                self.at_input.value, settings={"TIMEZONE": str(TIMEZONE)}
+                self.at_input.value, settings={"TIMEZONE": TIMEZONE_ID}
             )
             self.is_successful = True
 
