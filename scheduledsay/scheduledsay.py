@@ -125,13 +125,18 @@ class ScheduledSay(commands.Cog):
     @ssay.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_messages=True)
-    async def list(self, ctx: commands.Context):
+    async def list(self, ctx: commands.Context, *, query: typing.Optional[str] = None):
         """List scheduled messages."""
+        if query is not None and query.lower() == 'all':
+            filter = lambda m: True
+        else:
+            filter = lambda m: m['author_id'] == ctx.author.id
+
         await ScheduledSayListPaginatedEmbed(
             bot=self.bot,
             config=self.config,
             interaction=ctx.interaction,
             original_message=ctx.message,
-            filter=lambda m: m['author_id'] == ctx.author.id
+            filter=filter
         ).send()
         pass

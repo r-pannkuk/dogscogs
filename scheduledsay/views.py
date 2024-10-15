@@ -348,6 +348,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
         self.bot = bot
         self.config = config
         self.guild = self.interaction.guild if self.interaction else self.original_message.guild  # type: ignore[assignment,union-attr]
+        self.filter = filter
 
     async def edit_page(self) -> None:
         _, size = await self.get_page(0)
@@ -360,6 +361,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
         schedules: typing.List[Schedule] = await self.config.guild(
             self.guild
         ).schedules()
+        filtered_schedules = [s for s in schedules if self.filter(s)]
 
         if size > 1 and size < DISCORD_MAX_SELECT_OPTIONS:
 
@@ -373,7 +375,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
                     value=str(i),
                     default=True if i == self.index else False,
                 )
-                for i, schedule in enumerate(schedules)
+                for i, schedule in enumerate(filtered_schedules)
             ]
 
             if self.select_list is None:
@@ -397,7 +399,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
             self.previous.disabled = True
             self.next.disabled = True
 
-            if len(schedules) == 0:
+            if len(filtered_schedules) == 0:
                 self.edit.disabled = True
                 self.delete.disabled = True
 
@@ -433,7 +435,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
 
         await self.config.guild(self.guild).schedules.set(schedules)
 
-        self.index = len(schedules) - 1
+        self.index = len([s for s in schedules if self.filter(s)]) - 1
 
         await self.edit_page()
 
