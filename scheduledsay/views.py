@@ -21,7 +21,7 @@ DEFAULT_TYPE : ScheduleType = "at"
 DEFAULT_SCHEDULE : ScheduleDefinition = {
     "at": datetime.datetime.now(tz=TIMEZONE).timestamp(),
     "interval_secs": -1,
-    "cron": "* * * * * *",
+    "cron": "* * * * *",
 }
 
 class _ScheduleTypeModal(discord.ui.Modal):
@@ -334,7 +334,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
 
             options = [
                 discord.SelectOption(
-                    label=f"{schedule['id']}",
+                    label=f"{schedule['content'][:20]}{'...' if len(schedule['content']) > 20 else ''}",
                     value=str(i),
                     default=True if i == self.index else False,
                 )

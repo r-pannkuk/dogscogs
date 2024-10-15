@@ -1,5 +1,6 @@
 import typing
 import discord
+from croniter import croniter # type: ignore[import-untyped]
 from redbot.core.config import Config
 
 from .config import Schedule
@@ -29,7 +30,7 @@ class ScheduledSayEmbed(discord.Embed):
         self.description += f"__Active__: {'Yes' if schedule['is_active'] else 'No'}\n"
         self.description += f"__Author__: {author.mention}\n"
         self.description += f"__Channels__: {', '.join([c.mention for c in channels])}\n"
-        self.description += f"__Type__: {schedule['type']}\n"
+        self.description += f"__Type__: `{schedule['type'].capitalize()}`\n"
 
         if schedule['type'] == "at":
             self.description += f"__At__: <t:{int(schedule['schedule']['at'])}:F>\n" # type: ignore[arg-type]
@@ -39,10 +40,15 @@ class ScheduledSayEmbed(discord.Embed):
             self.description += f"__Interval__: Every {schedule['schedule']['interval_secs']} seconds\n"
 
         elif schedule['type'] == "cron":
+            cron = croniter(schedule['schedule']['cron'])
             self.description += f"__Cron__: {schedule['schedule']['cron']}\n"
+            self.description += f"__Next__: <t:{int(cron.get_next())}:F>\n" # type: ignore[arg-type]
             
-        self.description += f"__Created At__: {schedule['created_at']}\n"
-        self.description += f"__Last Run At__: {schedule['last_run_at']}\n"
+        self.description += f"__Created At__: <t:{int(schedule['created_at'])}>\n"
+        
+        last_run_at = f"<t:{int(schedule['last_run_at'])}>" if schedule['last_run_at'] is not None else ''
+        
+        self.description += f"__Last Run At__: {last_run_at}\n"
         self.description += f"__Number of Runs__: {schedule['no_runs']}\n\n"
         
         self.add_field(name="", value=schedule['content'])
