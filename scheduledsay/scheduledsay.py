@@ -116,11 +116,15 @@ class ScheduledSay(commands.Cog):
         pass
 
     @commands.group()
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_messages=True)
     async def ssay(self, ctx: commands.Context):
         """Manage scheduled messages."""
         pass
 
     @ssay.command()
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_messages=True)
     async def list(self, ctx: commands.Context):
         """List scheduled messages."""
         await ScheduledSayListPaginatedEmbed(
