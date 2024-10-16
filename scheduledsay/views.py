@@ -752,7 +752,7 @@ class ScheduledSayConfigure(discord.ui.View):
 
     @discord.ui.select(
         cls=discord.ui.ChannelSelect,
-        channel_types=[discord.ChannelType.text],
+        channel_types=[discord.ChannelType.text, discord.ChannelType.public_thread],
         custom_id="schedule_channel",
         placeholder="Select a Channel",
         row=3,
