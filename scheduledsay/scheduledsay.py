@@ -123,6 +123,14 @@ class ScheduledSay(commands.Cog):
         pass
 
     @ssay.command()
+    @commands.is_owner()
+    async def jobs(self, ctx: commands.Context):
+        """List scheduled jobs."""
+        jobs = scheduler.get_jobs()
+        await ctx.send(f"Jobs: {jobs}")
+        pass
+
+    @ssay.command()
     @commands.guild_only()
     @commands.has_guild_permissions(manage_messages=True)
     async def list(self, ctx: commands.Context, *, query: typing.Optional[str] = None):

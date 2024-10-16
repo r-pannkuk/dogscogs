@@ -639,6 +639,8 @@ class ScheduledSayConfigure(discord.ui.View):
         schedules[i] = schedule  # type: ignore[index]
         await self.config.guild(self.guild).schedules.set(schedules)
 
+        await scheduledsay.schedule_message(self.config, self.guild, self.schedule_id)
+
         await interaction.response.defer()
 
         await self.collect()
