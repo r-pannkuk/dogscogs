@@ -40,11 +40,11 @@ class ScheduledSay(commands.Cog):
 
         self.config.register_guild(**DEFAULT_GUILD)
 
-        if not hasattr(self.bot, 'scheduler'):
-            setattr(self.bot, 'scheduler', AsyncIOScheduler(timezone="US/Eastern"))
-            getattr(self.bot, 'scheduler').start()
+        if not hasattr(self.bot, 'ssay_scheduler'):
+            setattr(self.bot, 'ssay_scheduler', AsyncIOScheduler(timezone="US/Eastern"))
+            getattr(self.bot, 'ssay_scheduler').start()
 
-        ScheduledSay.SCHEDULER = getattr(self.bot, 'scheduler')
+        ScheduledSay.SCHEDULER = getattr(self.bot, 'ssay_scheduler')
 
     @staticmethod
     async def schedule_message(config: Config, guild: discord.Guild, schedule_id: str) -> None:
