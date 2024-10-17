@@ -24,87 +24,11 @@ DEFAULT_GUILD : GuildConfig = {
     "schedules": [],
 }
 
-scheduler = AsyncIOScheduler(timezone="US/Eastern")
-
-async def schedule_message(config: Config, guild: discord.Guild, schedule_id: str) -> None:
-    schedules : typing.List[Schedule] = await config.guild(guild).schedules()
-    schedule = next((s for s in schedules if s['id'] == schedule_id), None)
-
-    if schedule is None:
-        raise ValueError("No schedule found for the given id.")
-
-    if scheduler.get_job(schedule['id']) is not None:
-        scheduler.remove_job(schedule['id'])
-
-    if schedule['is_active']:        
-        if schedule['type'] == "at":
-            trigger = DateTrigger(run_date=datetime.datetime.fromtimestamp(float(schedule['schedule']['at']))) # type: ignore[arg-type]
-        elif schedule['type'] == "every":
-            trigger = IntervalTrigger(
-                start_date=datetime.datetime.fromtimestamp(float(schedule['schedule']['at'])), # type: ignore[arg-type]
-                seconds=schedule['schedule']['interval_secs'], timezone=TIMEZONE # type: ignore[arg-type]
-            )
-        elif schedule['type'] == "cron":
-            day_index_map = {
-                "0": "Sun",
-                "1": "Mon",
-                "2": "Tue",
-                "3": "Wed",
-                "4": "Thu",
-                "5": "Fri",
-                "6": "Sat",
-            }
-
-            split = schedule['schedule']['cron'].split(' ') # type: ignore[union-attr]
-            
-            if len(split) == 5 and split[4] in day_index_map.keys():
-                split[4] = day_index_map[split[4]]
-
-            trigger = CronTrigger.from_crontab(' '.join(split), timezone=TIMEZONE)
-
-        scheduler.add_job(
-            run_scheduled_message, 
-            trigger,
-            id=schedule['id'],
-            args=[config, guild, schedule['id']],
-            replace_existing=True
-        )
-
-async def run_scheduled_message(config: Config, guild: discord.Guild, schedule_id: str) -> None:
-    if guild is None:
-        return
-
-    schedules : typing.List[Schedule] = await config.guild(guild).schedules()
-    i, schedule = next((i, s) for i, s in enumerate(schedules) if s['id'] == schedule_id)
-
-    if schedule is None:
-        raise ValueError("No schedule found for the given id.")
-
-    if schedule['is_active'] is False:
-        return
-
-    for id in schedule['channel_ids']:
-        try:
-            channel = guild.get_channel(id) or await guild.fetch_channel(id)
-        except discord.NotFound:
-            author = guild.get_member(schedule['author_id'])
-            if author is not None:
-                await author.send(f"Channel `{id}` not found for schedule `{schedule_id}`.")
-            continue
-
-        await channel.send(schedule['content']) # type: ignore[union-attr]
-        schedule['no_runs'] += 1
-        schedule['last_run_at'] = datetime.datetime.now(tz=TIMEZONE).timestamp()
-
-    schedules[i] = schedule # type: ignore[index]
-    await config.guild(guild).schedules.set(schedules)
-
-    pass
-
 class ScheduledSay(commands.Cog):
     """
     Schedules the bot to say something somewhere.
     """
+    SCHEDULER : AsyncIOScheduler = None
 
     def __init__(self, bot: Red) -> None:
         self.bot = bot
@@ -116,12 +40,93 @@ class ScheduledSay(commands.Cog):
 
         self.config.register_guild(**DEFAULT_GUILD)
 
-        scheduler.start()
+        if not hasattr(self.bot, 'scheduler'):
+            setattr(self.bot, 'scheduler', AsyncIOScheduler(timezone="US/Eastern"))
+            getattr(self.bot, 'scheduler').start()
+
+        ScheduledSay.SCHEDULER = getattr(self.bot, 'scheduler')
+
+    @staticmethod
+    async def schedule_message(config: Config, guild: discord.Guild, schedule_id: str) -> None:
+        schedules : typing.List[Schedule] = await config.guild(guild).schedules()
+        schedule = next((s for s in schedules if s['id'] == schedule_id), None)
+
+        if schedule is None:
+            raise ValueError("No schedule found for the given id.")
+
+        if ScheduledSay.SCHEDULER.get_job(schedule['id']) is not None:
+            ScheduledSay.SCHEDULER.remove_job(schedule['id'])
+
+        if schedule['is_active']:        
+            if schedule['type'] == "at":
+                trigger = DateTrigger(run_date=datetime.datetime.fromtimestamp(float(schedule['schedule']['at']))) # type: ignore[arg-type]
+            elif schedule['type'] == "every":
+                trigger = IntervalTrigger(
+                    start_date=datetime.datetime.fromtimestamp(float(schedule['schedule']['at'])), # type: ignore[arg-type]
+                    seconds=schedule['schedule']['interval_secs'], timezone=TIMEZONE # type: ignore[arg-type]
+                )
+            elif schedule['type'] == "cron":
+                day_index_map = {
+                    "0": "Sun",
+                    "1": "Mon",
+                    "2": "Tue",
+                    "3": "Wed",
+                    "4": "Thu",
+                    "5": "Fri",
+                    "6": "Sat",
+                }
+
+                split = schedule['schedule']['cron'].split(' ') # type: ignore[union-attr]
+                
+                if len(split) == 5 and split[4] in day_index_map.keys():
+                    split[4] = day_index_map[split[4]]
+
+                trigger = CronTrigger.from_crontab(' '.join(split), timezone=TIMEZONE)
+
+            ScheduledSay.SCHEDULER.add_job(
+                ScheduledSay.run_scheduled_message, 
+                trigger,
+                id=schedule['id'],
+                args=[config, guild, schedule['id']],
+                replace_existing=True
+            )
+
+    @staticmethod
+    async def run_scheduled_message(config: Config, guild: discord.Guild, schedule_id: str) -> None:
+        if guild is None:
+            return
+
+        schedules : typing.List[Schedule] = await config.guild(guild).schedules()
+        i, schedule = next((i, s) for i, s in enumerate(schedules) if s['id'] == schedule_id)
+
+        if schedule is None:
+            raise ValueError("No schedule found for the given id.")
+
+        if schedule['is_active'] is False:
+            return
+
+        for id in schedule['channel_ids']:
+            try:
+                channel = guild.get_channel(id) or await guild.fetch_channel(id)
+            except discord.NotFound:
+                author = guild.get_member(schedule['author_id'])
+                if author is not None:
+                    await author.send(f"Channel `{id}` not found for schedule `{schedule_id}`.")
+                continue
+
+            await channel.send(schedule['content']) # type: ignore[union-attr]
+            schedule['no_runs'] += 1
+            schedule['last_run_at'] = datetime.datetime.now(tz=TIMEZONE).timestamp()
+
+        schedules[i] = schedule # type: ignore[index]
+        await config.guild(guild).schedules.set(schedules)
+
+        pass
 
     async def cog_load(self) -> None:
         guild_configs : typing.Dict[int, GuildConfig] = await self.config.all_guilds()
 
-        scheduler.remove_all_jobs()
+        ScheduledSay.SCHEDULER.remove_all_jobs()
 
         for id, guild_config in guild_configs.items():
             guild = await self.bot.fetch_guild(id)
@@ -130,7 +135,7 @@ class ScheduledSay(commands.Cog):
 
             schedules : typing.List[Schedule] = guild_config['schedules']
             for schedule in schedules:
-                await schedule_message(self.config, guild, schedule['id'])
+                await ScheduledSay.schedule_message(self.config, guild, schedule['id'])
                 pass
         pass
 
@@ -145,7 +150,7 @@ class ScheduledSay(commands.Cog):
     @commands.is_owner()
     async def jobs(self, ctx: commands.Context):
         """List scheduled jobs."""
-        jobs : typing.List[Job] = scheduler.get_jobs()
+        jobs : typing.List[Job] = ScheduledSay.SCHEDULER.get_jobs()
 
         description = ""
 

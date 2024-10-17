@@ -472,7 +472,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
         await self.message.edit(view=view)
         await view.wait()
 
-        await scheduledsay.schedule_message(
+        await scheduledsay.ScheduledSay.schedule_message(
             self.config, self.guild, self.schedule["id"]
         )
 
@@ -508,7 +508,7 @@ class ScheduledSayListPaginatedEmbed(PaginatedEmbed):
         schedules[i] = schedule  # type: ignore[index]
         await self.config.guild(self.guild).schedules.set(schedules)
 
-        await scheduledsay.schedule_message(self.config, self.guild, schedule["id"])
+        await scheduledsay.ScheduledSay.schedule_message(self.config, self.guild, schedule["id"])
 
         schedules.pop(i)  # type: ignore[arg-type]
 
@@ -653,7 +653,7 @@ class ScheduledSayConfigure(discord.ui.View):
         schedules[i] = schedule  # type: ignore[index]
         await self.config.guild(self.guild).schedules.set(schedules)
 
-        await scheduledsay.schedule_message(self.config, self.guild, self.schedule_id)
+        await scheduledsay.ScheduledSay.schedule_message(self.config, self.guild, self.schedule_id)
 
         await interaction.response.defer()
 
@@ -778,7 +778,7 @@ class ScheduledSayConfigure(discord.ui.View):
         schedules[i] = schedule  # type: ignore[index]
         await self.config.guild(self.guild).schedules.set(schedules)
 
-        await scheduledsay.schedule_message(self.config, self.guild, self.schedule_id)
+        await scheduledsay.ScheduledSay.schedule_message(self.config, self.guild, self.schedule_id)
 
         await self.collect()
         pass
