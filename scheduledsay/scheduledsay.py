@@ -66,7 +66,8 @@ async def schedule_message(config: Config, guild: discord.Guild, schedule_id: st
             run_scheduled_message, 
             trigger,
             id=schedule['id'],
-            args=[config, guild, schedule['id']]
+            args=[config, guild, schedule['id']],
+            replace_existing=True
         )
 
 async def run_scheduled_message(config: Config, guild: discord.Guild, schedule_id: str) -> None:
@@ -119,6 +120,8 @@ class ScheduledSay(commands.Cog):
 
     async def cog_load(self) -> None:
         guild_configs : typing.Dict[int, GuildConfig] = await self.config.all_guilds()
+
+        scheduler.remove_all_jobs()
 
         for id, guild_config in guild_configs.items():
             guild = await self.bot.fetch_guild(id)
