@@ -24,8 +24,22 @@ DEFAULT_TYPE: ScheduleType = "at"
 DEFAULT_SCHEDULE: ScheduleDefinition = {
     "at": datetime.datetime.now(tz=TIMEZONE).timestamp(),
     "interval_secs": -1,
-    "cron": "* * * * *",
+    "cron": "0 * * * *",
 }
+
+class CancelPrompt(discord.ui.View):
+    def __init__(self, *args, author: discord.User, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.author = author
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        return interaction.user.id == self.author.id
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger)
+    async def no(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+        self.stop()
 
 
 class _ScheduleTypeModal(discord.ui.Modal):
@@ -652,24 +666,43 @@ class ScheduledSayConfigure(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         await interaction.response.defer()
+
+        cancel_button = CancelPrompt(author=interaction.user, timeout=300) # type: ignore[arg-type]
+
         wait_message = await interaction.channel.send(  # type: ignore[union-attr]
-            "Awaiting new content for the message..."
+            "Awaiting new content for the message...",
+            view = cancel_button
         )
 
+        events = [
+            asyncio.create_task(self.bot.wait_for("message", check=lambda m: m.author.id == self.author_id, timeout=300)),
+            asyncio.create_task(self.bot.wait_for('interaction', check=lambda i: i.message.id == wait_message.id, timeout=300))
+        ]
+
         try:
-            message = await self.bot.wait_for(
-                "message", check=lambda m: m.author.id == self.author_id, timeout=300
-            )
+            done, pending = await asyncio.wait(events, return_when=asyncio.FIRST_COMPLETED)
+            event = done.pop().result()
+
+            for future in pending:
+                future.cancel()
+
         except asyncio.TimeoutError:
             await wait_message.delete()
             await interaction.channel.send("Timed out waiting for new content.", delete_after=10)  # type: ignore[union-attr]
             return
+        
+        await wait_message.delete()
 
-        view = ConfirmationView(author=message.author)
+        if isinstance(event, discord.Interaction):
+            await interaction.channel.send("Canceled.", delete_after=5)  # type: ignore[union-attr]
+            return
+        else:
+            message : discord.Message = event
+
+        view = ConfirmationView(author=message.author) # type: ignore[arg-type]
         prompt = await interaction.channel.send(f"Set content to the following?\n\n{message.content}", view=view, allowed_mentions=discord.AllowedMentions.none())  # type: ignore[union-attr]
 
         if await view.wait() or not view.value:
-            await wait_message.delete()
             await prompt.delete()
             return
 

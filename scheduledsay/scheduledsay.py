@@ -7,6 +7,7 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
+from apscheduler.job import Job # type: ignore[import-untyped]
 from apscheduler.schedulers.asyncio import AsyncIOScheduler # type: ignore[import-untyped]
 from apscheduler.triggers.cron import CronTrigger # type: ignore[import-untyped]
 from apscheduler.triggers.date import DateTrigger # type: ignore[import-untyped]
@@ -44,7 +45,22 @@ async def schedule_message(config: Config, guild: discord.Guild, schedule_id: st
                 seconds=schedule['schedule']['interval_secs'], timezone=TIMEZONE # type: ignore[arg-type]
             )
         elif schedule['type'] == "cron":
-            trigger = CronTrigger.from_crontab(schedule['schedule']['cron'], timezone=TIMEZONE)
+            day_index_map = {
+                "0": "Sun",
+                "1": "Mon",
+                "2": "Tue",
+                "3": "Wed",
+                "4": "Thu",
+                "5": "Fri",
+                "6": "Sat",
+            }
+
+            split = schedule['schedule']['cron'].split(' ') # type: ignore[union-attr]
+            
+            if len(split) == 5 and split[4] in day_index_map.keys():
+                split[4] = day_index_map[split[4]]
+
+            trigger = CronTrigger.from_crontab(' '.join(split), timezone=TIMEZONE)
 
         scheduler.add_job(
             run_scheduled_message, 
@@ -126,8 +142,20 @@ class ScheduledSay(commands.Cog):
     @commands.is_owner()
     async def jobs(self, ctx: commands.Context):
         """List scheduled jobs."""
-        jobs = scheduler.get_jobs()
-        await ctx.send(f"Jobs: {jobs}")
+        jobs : typing.List[Job] = scheduler.get_jobs()
+
+        description = ""
+
+        for job in jobs:
+            next_run_time : datetime.datetime = job.next_run_time
+
+            description += f"\tID: {job.id}"
+
+            if next_run_time is not None:
+                description += f" @ <t:{int(next_run_time.timestamp())}>"
+
+            description += "\n"
+        await ctx.send(f"Jobs:\n{description}")
         pass
 
     @ssay.command()
