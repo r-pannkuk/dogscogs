@@ -114,7 +114,7 @@ class ScheduledSay(commands.Cog):
                     await author.send(f"Channel `{id}` not found for schedule `{schedule_id}`.")
                 continue
 
-            await channel.send(schedule['content']) # type: ignore[union-attr]
+            await channel.send(schedule['content'], allowed_mentions=discord.mentions.AllowedMentions.all()) # type: ignore[union-attr]
             schedule['no_runs'] += 1
             schedule['last_run_at'] = datetime.datetime.now(tz=TIMEZONE).timestamp()
 
