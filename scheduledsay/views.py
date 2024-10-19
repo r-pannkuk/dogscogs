@@ -720,7 +720,6 @@ class ScheduledSayConfigure(discord.ui.View):
         schedules[i] = schedule  # type: ignore[index]
         await self.config.guild(self.guild).schedules.set(schedules)
 
-        await wait_message.delete()
         await prompt.delete()
 
         await self.collect()
