@@ -1,0 +1,5 @@
+[lint]
+ignore = [
+    # Relax the convention by _not_ requiring documentation for every function parameter.
+    "F541",
+]

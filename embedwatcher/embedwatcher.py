@@ -1,5 +1,6 @@
 import collections
 from datetime import timedelta
+import re
 from typing import Literal
 import typing
 
@@ -141,7 +142,7 @@ class EmbedWatcher(commands.Cog):
             channel_id = await self.config.guild(ctx.guild).channel_id()
             try:
                 channel = await ctx.guild.fetch_channel(channel_id)  # type: ignore[assignment]
-            except:
+            except discord.errors.NotFound:
                 channel = None
                 channel_id = None
             pass
@@ -257,7 +258,7 @@ class EmbedWatcher(commands.Cog):
                 try:
                     object: T = await fetch(list[i])
                     objects.append(object)
-                except:
+                except discord.errors.NotFound:
                     continue
             return objects
 
@@ -309,7 +310,7 @@ class EmbedWatcher(commands.Cog):
         try:
             if delete:
                 await after.delete()
-        except:
+        except discord.errors.NotFound:
             return
 
         if member:
@@ -320,7 +321,7 @@ class EmbedWatcher(commands.Cog):
                     reason = f"Embeds are currently prevented from being edited.  User has been timed out for {timeout_mins} minute{'' if timeout_mins == 1 else 's'}."
                     await member.timeout(timedelta(minutes=timeout_mins), reason=reason) # type: ignore[union-attr]
                     await member.send(reason)
-                except:
+                except discord.errors.Forbidden:
                     await member.send("Editing embeds is not allowed.")
                 pass
 
@@ -329,7 +330,7 @@ class EmbedWatcher(commands.Cog):
             if channel_id is not None:
                 try:
                     echo_channel: discord.TextChannel = await guild.fetch_channel(channel_id)  # type: ignore[assignment]
-                except:
+                except discord.errors.NotFound:
                     await self.config.guild(guild).channel_id.set(None)
                     return
 
@@ -362,7 +363,7 @@ class EmbedWatcher(commands.Cog):
         channel = self.bot.get_channel(event.channel_id)
         try:
             message : discord.Message = await channel.fetch_message(int(after['id'])) # type: ignore[union-attr]
-        except:
+        except (discord.errors.NotFound, discord.errors.Forbidden):
             return
 
         if message is None:
@@ -376,6 +377,14 @@ class EmbedWatcher(commands.Cog):
         # - edited_timestamp is not in after
         # - pinned is in after and is True
         # - pinned is in after and before is not None and before.pinned != after["pinned"]
+        if len(message.embeds) == 0 and len(message.attachments) == 0:
+            return
+        
+        if message.pinned:
+            return
+        
+        if not bool(re.search(r'https?:\/\/(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?', message.content)):
+            return
 
         # Reconstruct before if it's not found (no cache)
 
