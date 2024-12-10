@@ -12,8 +12,21 @@ class PaidEmojiConfig(typing.TypedDict):
     last_used_at: float
     used_count: int
 
-
 class EmojiConfigurationPrompt(typing.TypedDict):
     name: str
     url: str
     type: PaidEmojiType
+
+class PaidStickerConfig(typing.TypedDict):
+    id: int
+    author_id: int
+    price: int
+    source_url: str
+    last_used_at: float
+    used_count: int
+
+class StickerConfigurationPrompt(typing.TypedDict):
+    name: str
+    url: str
+    description: str
+    emoji: str

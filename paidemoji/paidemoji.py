@@ -1,4 +1,5 @@
 import datetime
+from io import BytesIO
 from typing import Literal
 import typing
 
@@ -9,9 +10,9 @@ from redbot.core.config import Config
 import requests  # type: ignore[import-untyped]
 
 from coins.coins import Coins
-from paidemoji.classes import EmojiConfigurationPrompt, PaidEmojiConfig
-from paidemoji.embeds import PaidEmojiEmbed
-from paidemoji.views import EmojiConfigurationModal
+from paidemoji.classes import EmojiConfigurationPrompt, PaidEmojiConfig, StickerConfigurationPrompt, PaidStickerConfig
+from paidemoji.embeds import PaidEmojiEmbed, PaidStickerEmbed
+from paidemoji.views import EmojiConfigurationModal, StickerConfigurationModal
 
 from dogscogs.constants import COG_IDENTIFIER
 from dogscogs.views.paginated import PaginatedEmbed
@@ -19,12 +20,15 @@ from dogscogs.views.confirmation import ConfirmationView
 from dogscogs.parsers.emoji import parse_emoji_ids
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
-
+PurchaseType = Literal["EMOJI", "STICKER"]
 
 DEFAULT_GUILD = {
     "emojis": [],
+    "stickers": [],
     "max_emojis": 5,
-    "cost": 100,
+    "max_stickers": 5,
+    "emoji_cost": 100,
+    "sticker_cost": 100,
 }
 
 class PaidEmoji(commands.Cog):
@@ -42,7 +46,7 @@ class PaidEmoji(commands.Cog):
 
         self.config.register_guild(**DEFAULT_GUILD)
 
-    async def _add_emoji(
+    async def __add_emoji(
         self,
         *,
         guild: discord.Guild,
@@ -77,7 +81,7 @@ class PaidEmoji(commands.Cog):
             raise ValueError("Failed to fetch image.")
 
         if price is None:
-            price = await self.config.guild(guild).cost()
+            price = await self.config.guild(guild).emoji_cost()
 
         try:
             emoji = await guild.create_custom_emoji(
@@ -88,7 +92,7 @@ class PaidEmoji(commands.Cog):
         except discord.Forbidden:
             raise ValueError("Bot does not have permission to create emojis.")
         except discord.HTTPException:
-            raise ValueError("Failed to create emoji.")
+            raise ValueError(f"Failed to create emoji. Make sure the image is the right format and not larger than 256 kb.")
 
         emoji_config = PaidEmojiConfig(
             id=emoji.id,
@@ -106,7 +110,7 @@ class PaidEmoji(commands.Cog):
 
         return emoji, emoji_config
 
-    async def _remove_emoji(self, guild: discord.Guild, emoji_config: PaidEmojiConfig):
+    async def __remove_emoji(self, guild: discord.Guild, emoji_config: PaidEmojiConfig):
         emoji_configs = await self.config.guild(guild).emojis()
         found_emoji_configs = [
             config for config in emoji_configs if config["id"] == emoji_config["id"]
@@ -135,41 +139,141 @@ class PaidEmoji(commands.Cog):
         await self.config.guild(guild).emojis.set(emoji_configs)
         pass
 
-    @commands.group()
-    async def paidemoji(self, ctx: commands.GuildContext):
-        """Manage paid emoji. Users can buy static or animated emoji slots by using currency. The oldest emoji slot will be replaced with any new ones created if the slots are full."""
+    async def __add_sticker(self,
+        *,
+        guild: discord.Guild,
+        author: discord.Member,
+        name: str,
+        description: str,
+        emoji: str,
+        image_url: str,
+        price: typing.Optional[int],
+    ) -> typing.Tuple[discord.Emoji, PaidEmojiConfig]:
+        sticker_configs: typing.List[PaidEmojiConfig] = await self.config.guild(
+            guild
+        ).stickers()
+        paid_stickers: typing.List[discord.GuildSticker] = [
+            s
+            for s in [discord.utils.get(guild.stickers, id=int(sticker['id'])) for sticker in sticker_configs]
+            if s is not None
+        ]
+        sticker_configs = [
+            sticker
+            for sticker in sticker_configs
+            if sticker["id"] in [s.id for s in paid_stickers]
+        ]
+
+        if image_url in [sticker.url for sticker in paid_stickers]:
+            raise ValueError("PaidStickerConfig already exists.")
+
+        if name in [sticker.name for sticker in paid_stickers]:
+            raise ValueError(f"Sticker with the name `{name}` already exists.")
+
+        fetch_image = requests.get(image_url)
+
+        if fetch_image.status_code != 200:
+            raise ValueError("Failed to fetch image.")
+
+        if price is None:
+            price = await self.config.guild(guild).sticker_cost()
+
+        try:
+            sticker = await guild.create_sticker(
+                name=name,
+                description=description,
+                emoji=emoji,
+                file=discord.File(BytesIO(fetch_image.content)),
+                reason=f"Paid Sticker by {author.name} for {price} {await Coins._get_currency_name(guild)}",
+            )
+        except discord.Forbidden:
+            raise ValueError("Bot does not have permission to create stickers.")
+        except discord.HTTPException:
+            raise ValueError("Failed to create sticker. Make sure image is in the right format.")
+
+        sticker_config = PaidStickerConfig(
+            id=sticker.id,
+            author_id=author.id,
+            source_url=image_url,
+            price=price,
+            last_used_at=datetime.datetime.now().timestamp(),
+            used_count=0,
+        )
+
+        sticker_configs.append(dict(sticker_config))  # type: ignore[arg-type]
+
+        await self.config.guild(guild).stickers.set(sticker_configs)
+
+        return sticker, sticker_config
+
+    async def __remove_sticker(self, guild: discord.Guild, sticker_config: PaidStickerConfig):
+        sticker_configs = await self.config.guild(guild).stickers()
+        found_sticker_configs = [
+            config for config in sticker_configs if config["id"] == sticker_config["id"]
+        ]
+
+        if len(found_sticker_configs) == 0:
+            raise ValueError("PaidStickerConfig not found.")
+
+        found_sticker: typing.Union[discord.GuildSticker, None] = discord.utils.get(guild.stickers, id=int(sticker_config['id']))
+
+        if found_sticker is None:
+            raise ValueError("Sticker not found.")
+
+        try:
+            await found_sticker.delete(reason=f"Paid Sticker removed by command.")
+        except discord.Forbidden:
+            raise ValueError("Bot does not have permission to delete stickers.")
+        except discord.HTTPException:
+            raise ValueError("Failed to delete sticker.")
+
+        sticker_configs = [
+            config for config in sticker_configs if config["id"] != sticker_config["id"]
+        ]
+        await self.config.guild(guild).stickers.set(sticker_configs)
         pass
 
-    @paidemoji.command()
-    async def buy(self, ctx: commands.GuildContext):
-        """Buy an emoji."""
-        author_balance = await Coins._get_balance(ctx.author)
+    async def __buy(self, ctx: commands.GuildContext, member: discord.Member, cost: int, type: PurchaseType):
+        balance = await Coins._get_balance(member)
         currency_name = await Coins._get_currency_name(ctx.guild)
-        cost = await self.config.guild(ctx.guild).cost()
 
-        if author_balance < cost:
+        if balance < cost:
             await ctx.send(
-                f"You don't have enough {currency_name} to buy an emoji. `{author_balance} / {cost}`",
+                f"You don't have enough {currency_name} to purchase {type.lower()} slots. `{balance} / {cost}`",
                 delete_after=15,
             )
             return
-
-        prompt: EmojiConfigurationPrompt = EmojiConfigurationPrompt()  # type: ignore
+        
+        if type == "EMOJI":
+            prompt: EmojiConfigurationPrompt = EmojiConfigurationPrompt()  # type: ignore
+        else:
+            prompt: StickerConfigurationPrompt = StickerConfigurationPrompt() #type: ignore
 
         async def prompt_user(interaction: discord.Interaction) -> bool:
-            modal = EmojiConfigurationModal(ctx)
-            await interaction.response.send_modal(modal)
-            await modal.wait()
-            if modal:
-                prompt["name"] = modal.name
-                prompt["url"] = modal.url
-                prompt["type"] = modal.type
-                return True
-            return False
+            if type == "EMOJI":
+                modal = EmojiConfigurationModal(ctx)
+                await interaction.response.send_modal(modal)
+                await modal.wait()
+                if modal:
+                    prompt["name"] = modal.name
+                    prompt["url"] = modal.url
+                    prompt["type"] = modal.type
+                    return True
+                return False
+            elif type == "STICKER":
+                modal = StickerConfigurationModal(ctx)
+                await interaction.response.send_modal(modal)
+                await modal.wait()
+                if modal:
+                    prompt["url"] = modal.url
+                    prompt["emoji"] = modal.emoji
+                    prompt["description"] = modal.description
+                    prompt['name'] = modal.name
+                    return True
+                return False
 
         view = ConfirmationView(author=ctx.author, callback=prompt_user)
         message = await ctx.reply(
-            content=f"Purchase an emoji for `{cost} {currency_name}`?  Current Balance: `{author_balance}`",
+            content=f"Purchase {type.lower()} for `{cost} {currency_name}`?  Current Balance: `{balance}`",
             view=view,
         )
 
@@ -180,39 +284,69 @@ class PaidEmoji(commands.Cog):
                 content="Purchase cancelled.", view=None, delete_after=10
             )
             return
+        
+        configs : typing.Union[typing.List[PaidStickerConfig], typing.List[PaidEmojiConfig]]
+        
+        if type == "EMOJI":
+            max = await self.config.guild(ctx.guild).max_emojis()
+            configs = await self.config.guild(ctx.guild).emojis()
+            configs = [c for c in configs if c["type"] == prompt["type"]]
+            emoji_slots_remaining = ctx.guild.emoji_limit - len([e for e in ctx.guild.emojis if e.animated == (prompt["type"] == "animated")])
+            max = min(max, emoji_slots_remaining + len(configs))
+        elif type == "STICKER":
+            max = await self.config.guild(ctx.guild).max_stickers()
+            configs = await self.config.guild(ctx.guild).stickers()
+            sticker_slots_remaining = ctx.guild.sticker_limit - len(ctx.guild.stickers)
+            max = min(max, sticker_slots_remaining + len(configs))
 
-        max_emoji = await self.config.guild(ctx.guild).max_emojis()
-        emoji_configs: typing.List[PaidEmojiConfig] = await self.config.guild(
-            ctx.guild
-        ).emojis()
-        matched_type_emoji_configs = [
-            c for c in emoji_configs if c["type"] == prompt["type"]
-        ]
+        if max == 0:
+            await ctx.send(
+                f"Could not add or remove paid {type.lower()}. Server has reached the maximum number of {type.lower()} slots."
+            )
+            return
 
-        if len(matched_type_emoji_configs) >= max_emoji:
-            found_matched_emojis = [
-                e
-                for e in [
-                    ctx.guild.get_emoji(emoji["id"])
-                    for emoji in matched_type_emoji_configs
+        if len(configs) >= max:
+            found : typing.Union[typing.List[discord.Emoji], typing.List[discord.GuildSticker]]
+
+            if type == "EMOJI":
+                found = [
+                    e
+                    for e in [
+                        ctx.guild.get_emoji(emoji["id"])
+                        for emoji in configs
+                    ]
+                    if e is not None
                 ]
-                if e is not None
-            ]
-            if len(found_matched_emojis) == 0:
+            elif type == "STICKER":
+                found = [
+                    s
+                    for s in [
+                        discord.utils.get(ctx.guild.stickers, id=int(sticker['id']))
+                        for sticker in configs
+                    ]
+                    if s is not None
+                ]
+
+            if len(configs) == 0:
                 await ctx.send(
-                    "Something went wrong. Could not find matching emojis on server."
+                    f"Something went wrong. Could not find matching {type.lower()} on server."
                 )
                 return
 
-            oldest_emoji = sorted(found_matched_emojis, key=lambda x: x.created_at)[0]
-            oldest_emoji_config = [
-                c for c in emoji_configs if c["id"] == oldest_emoji.id
+            oldest = sorted(found, key=lambda x: x.created_at)[0]
+            oldest_config = [
+                c for c in configs if c["id"] == oldest.id
             ][0]
+
+            if type == "EMOJI":
+                combined_type_string = f"{str(prompt['type']).lower()} emoji"
+            elif type == "STICKER":
+                combined_type_string = "sticker"
 
             view = ConfirmationView(author=ctx.author)
             await message.edit(
-                content=f"Maximum number of paid {str(prompt['type']).lower()} emojis reached. ({len(found_matched_emojis)} / {max_emoji})\n\n"
-                + f"Delete {oldest_emoji} to make room?\n",
+                content=f"Maximum number of paid {combined_type_string} reached. ({len(found)} / {max})\n\n"
+                + f"Delete {oldest} to make room?\n",
                 view=view,
             )
 
@@ -225,7 +359,10 @@ class PaidEmoji(commands.Cog):
                 return
 
             try:
-                await self._remove_emoji(ctx.guild, oldest_emoji_config)
+                if type == "EMOJI":
+                    await self.__remove_emoji(ctx.guild, oldest_config)
+                elif type == "STICKER":
+                    await self.__remove_sticker(ctx.guild, oldest_config)
             except ValueError as e:
                 await ctx.reply(str(e))
                 return
@@ -233,114 +370,224 @@ class PaidEmoji(commands.Cog):
         await message.delete()
 
         try:
-            emoji, _ = await self._add_emoji(
-                guild=ctx.guild,
-                author=ctx.author,
-                name=prompt["name"],
-                image_url=prompt["url"],
-                price=cost,
-            )
+            if type == "EMOJI":
+                result, _ = await self.__add_emoji(
+                    guild=ctx.guild,
+                    author=ctx.author,
+                    name=prompt["name"],
+                    image_url=prompt["url"],
+                    price=cost,
+                )
+            elif type == "STICKER":
+                result, _ = await self.__add_sticker(
+                    guild=ctx.guild,
+                    author=ctx.author,
+                    name=prompt["name"],
+                    image_url=prompt["url"],
+                    description=prompt["description"],
+                    emoji=prompt["emoji"],
+                    price=cost,
+                )
 
             await Coins._remove_balance(ctx.author, cost)
 
             await ctx.send(
-                f"Emoji {emoji} added by {ctx.author.mention} for {cost} {currency_name}."
+                f"{type.capitalize()} {result} added by {ctx.author.mention} for {cost} {currency_name}."
             )
 
         except ValueError as e:
             await ctx.reply(str(e))
 
-    @paidemoji.command()
-    async def list(self, ctx: commands.GuildContext):
-        """List all paid emojis."""
-        emoji_configs = await self.config.guild(ctx.guild).emojis()
-        found_emojis = [
-            e
-            for e in [ctx.guild.get_emoji(emoji["id"]) for emoji in emoji_configs]
-            if e is not None
-        ]
-        updated_emoji_configs = [
-            emoji
-            for emoji in emoji_configs
-            if emoji["id"] in [e.id for e in found_emojis]
+    async def __list(self, ctx: commands.GuildContext, type: PurchaseType):
+        if type == "EMOJI":
+            configs = await self.config.guild(ctx.guild).emojis()
+            found = [
+                e
+                for e in [ctx.guild.get_emoji(emoji["id"]) for emoji in configs]
+                if e is not None
+            ]
+        elif type == "STICKER":
+            configs = await self.config.guild(ctx.guild).stickers()
+            found = [
+                s
+                for s in [discord.utils.get(ctx.guild.stickers, id=int(sticker['id'])) for sticker in configs]
+                if s is not None
+            ]
+
+        updated_configs = [
+            c
+            for c in configs
+            if c["id"] in [f.id for f in found]
         ]
 
-        if len(found_emojis) != len(emoji_configs):
-            await self.config.guild(ctx.guild).emojis.set(updated_emoji_configs)
+        if len(found) != len(configs):
+            if type == "EMOJI":
+                await self.config.guild(ctx.guild).emojis.set(updated_configs)
+            elif type == "STICKER":
+                await self.config.guild(ctx.guild).stickers.set(updated_configs)
 
         async def get_page(index: int) -> typing.Tuple[discord.Embed, int]:
-            emoji_configs: typing.List[PaidEmojiConfig] = await self.config.guild(
-                ctx.guild
-            ).emojis()
+            if type == "EMOJI":
+                configs: typing.List[PaidEmojiConfig] = await self.config.guild(
+                    ctx.guild
+                ).emojis()
+                found = [
+                    e
+                    for e in [ctx.guild.get_emoji(emoji["id"]) for emoji in configs]
+                    if e is not None
+                ]
+                max_slots = await self.config.guild(ctx.guild).max_emojis()
+            elif type == "STICKER":
+                configs: typing.List[PaidStickerConfig] = await self.config.guild(
+                    ctx.guild
+                ).stickers()
+                found = [
+                    s
+                    for s in [discord.utils.get(ctx.guild.stickers, id=int(sticker['id'])) for sticker in configs]
+                    if s is not None
+                ]
+                max_slots = await self.config.guild(ctx.guild).max_stickers()
 
-            if len(emoji_configs) == 0:
+            if len(configs) == 0:
                 return (
                     discord.Embed(
-                        title="No Paid Emoji found.", color=discord.Color.red()
+                        title=f"No Paid {type.capitalize()}s found.", color=discord.Color.red()
                     ),
                     1,
                 )
 
-            emoji_configs.sort(
+            configs.sort(
                 key=lambda x: (
-                    x["type"],
-                    [e.created_at for e in found_emojis if e.id == x["id"]][0],
+                    x["type"] if type == "EMOJI" else "STICKER",
+                    [f.created_at for f in found if f.id == x["id"]][0],
                 ),
                 reverse=True,
             )
 
-            found_config = emoji_configs[index]
-            matched_type_configs = [
-                c for c in emoji_configs if c["type"] == found_config["type"]
-            ]
-            max_slots = await self.config.guild(ctx.guild).max_emojis()
-            relative_index = matched_type_configs.index(found_config) + 1
+            found_config = configs[index]
 
-            embed = PaidEmojiEmbed(
-                ctx=ctx,
-                emoji_config=found_config,
-            )
+            if type == "EMOJI":
+                matched_type_configs = [
+                    c for c in configs if c["type"] == found_config["type"]
+                ]
+                relative_index = matched_type_configs.index(found_config) + 1
+                embed = PaidEmojiEmbed(
+                    ctx=ctx,
+                    emoji_config=found_config,
+                )
+                embed.set_footer(
+                    text=f"{found_config['type'].capitalize()} Emoji Slot: {relative_index} / {max_slots}"
+                )
+            elif type == "STICKER":
+                relative_index = configs.index(found_config) + 1
+                embed = PaidStickerEmbed(
+                    ctx=ctx,
+                    sticker_config=found_config,
+                )
+                embed.set_footer(
+                    text=f"Sticker Slot: {relative_index} / {max_slots}"
+                )
 
-            embed.set_footer(
-                text=f"{found_config['type'].capitalize()} Slot: {relative_index} / {max_slots}"
-            )
-
-            return embed, len(emoji_configs)
+            return embed, len(configs)
 
         await PaginatedEmbed(message=ctx.message, get_page=get_page).send()
 
-    @paidemoji.command()
-    @commands.has_guild_permissions(manage_roles=True)
-    async def remove(self, ctx: commands.GuildContext, emoji: discord.Emoji):
-        """Remove a paid emoji."""
-        emoji_configs = await self.config.guild(ctx.guild).emojis()
-        found_emoji_configs = [
-            config for config in emoji_configs if config["id"] == emoji.id
+    async def __remove(self, ctx: commands.GuildContext, source: typing.Union[discord.Emoji, discord.GuildSticker], type: PurchaseType):
+        if type == "EMOJI":
+            configs = await self.config.guild(ctx.guild).emojis()
+        elif type == "STICKER":
+            configs = await self.config.guild(ctx.guild).stickers()
+
+        found_configs = [
+            config for config in configs if config["id"] == source.id
         ]
 
-        if len(found_emoji_configs) == 0:
-            await ctx.reply("Paid Emoji was not found.")
+        if len(found_configs) == 0:
+            await ctx.reply(f"Paid {type.lower()} was not found.")
             return
 
-        emoji_config = found_emoji_configs[0]
+        config = found_configs[0]
 
         try:
-            await self._remove_emoji(ctx.guild, emoji_config)
-            await ctx.reply(f"Emoji {emoji} removed.")
+            if type == "EMOJI":
+                await self.__remove_emoji(ctx.guild, config)
+                await ctx.reply(f"Emoji {source} removed.")
+            elif type == "STICKER":
+                await self.__remove_sticker(ctx.guild, config)
+                await ctx.reply(f"Sticker {source} removed.")
         except ValueError as e:
             await ctx.reply(str(e))
         pass
 
-    @paidemoji.command()
+    ################# EMOJI #################
+
+    @commands.group()
+    async def paidemoji(self, ctx: commands.GuildContext):
+        """Manage paid emoji. Users can buy static or animated emoji slots by using currency. The oldest emoji slot will be replaced with any new ones created if the slots are full."""
+        pass
+
+    @paidemoji.command(name="buy")
+    async def emoji_buy(self, ctx: commands.GuildContext):
+        """Buy an emoji."""
+        await self.__buy(ctx, ctx.author, await self.config.guild(ctx.guild).emoji_cost(), "EMOJI")
+
+    @paidemoji.command(name="list")
+    async def emoji_list(self, ctx: commands.GuildContext):
+        """List all paid emojis."""
+        await self.__list(ctx, "EMOJI")
+
+    @paidemoji.command(name="remove")
     @commands.has_guild_permissions(manage_roles=True)
-    async def cost(self, ctx: commands.GuildContext, cost: typing.Optional[int]):
+    async def emoji_remove(self, ctx: commands.GuildContext, emoji: discord.Emoji):
+        """Remove a paid emoji."""
+        await self.__remove(ctx, emoji, "EMOJI")
+
+    @paidemoji.command(name="cost")
+    @commands.has_guild_permissions(manage_roles=True)
+    async def emoji_cost(self, ctx: commands.GuildContext, cost: typing.Optional[int]):
         """Set the cost of adding an emoji."""
         if cost is None:
-            cost = await self.config.guild(ctx.guild).cost()
+            cost = await self.config.guild(ctx.guild).emoji_cost()
 
-        await self.config.guild(ctx.guild).cost.set(cost)
+        await self.config.guild(ctx.guild).emoji_cost.set(cost)
         await ctx.reply(
             f"Base cost of adding an emoji set to `{cost} {await Coins._get_currency_name(ctx.guild)}`."
+        )
+        pass
+
+    ################# STICKERS #################
+
+    @commands.group()
+    async def paidstickers(self, ctx: commands.GuildContext):
+        """Manage paid stickers. Users can buy sticker slots with currency. The oldest sticker slot will be replaced with any new ones created if the slots are full."""
+        pass
+
+    @paidstickers.command(name="buy")
+    async def sticker_buy(self, ctx: commands.GuildContext):
+        """Buy a sticker."""
+        await self.__buy(ctx, ctx.author, await self.config.guild(ctx.guild).sticker_cost(), "STICKER")
+
+    @paidstickers.command(name="list")
+    async def sticker_list(self, ctx: commands.GuildContext):
+        """List all paid stickers."""
+        await self.__list(ctx, "STICKER")
+
+    @paidstickers.command(name="remove")
+    @commands.has_guild_permissions(manage_roles=True)
+    async def sticker_remove(self, ctx: commands.GuildContext, sticker: discord.GuildSticker):
+        """Remove a paid emoji."""
+        await self.__remove(ctx, sticker, "STICKER")
+
+    @paidstickers.command(name="cost")
+    @commands.has_guild_permissions(manage_roles=True)
+    async def sticker_cost(self, ctx: commands.GuildContext, cost: typing.Optional[int]):
+        """Set the cost of adding a sticker."""
+        if cost is None:
+            cost = await self.config.guild(ctx.guild).sticker_cost()
+
+        await self.config.guild(ctx.guild).sticker_cost.set(cost)
+        await ctx.reply(
+            f"Base cost of adding a sticker set to `{cost} {await Coins._get_currency_name(ctx.guild)}`."
         )
         pass
 
@@ -369,6 +616,25 @@ class PaidEmoji(commands.Cog):
 
         if changed:
             await self.config.guild(message.guild).emojis.set(emoji_configs)
+
+        sticker_configs: typing.List[PaidStickerConfig] = await self.config.guild(
+            message.guild
+        ).stickers()
+        changed = False
+
+        found_sticker_ids = [sticker.id for sticker in message.stickers]
+
+        for i in range(len(sticker_configs)):
+            sticker_config = sticker_configs[i]
+
+            if sticker_config["id"] in found_sticker_ids:
+                sticker_configs[i]["used_count"] += 1
+                sticker_configs[i]["last_used_at"] = datetime.datetime.now().timestamp()
+                changed = True
+
+        if changed:
+            await self.config.guild(message.guild).stickers.set(sticker_configs)
+
         pass
 
     @commands.Cog.listener()
@@ -416,4 +682,26 @@ class PaidEmoji(commands.Cog):
         }
 
         await self.config.guild(guild).emojis.set(emoji_configs)
+        pass
+
+    @commands.Cog.listener()
+    async def on_guild_stickers_update(
+        self,
+        guild: discord.Guild,
+        before: typing.List[discord.GuildSticker],
+        after: typing.List[discord.GuildSticker],
+    ):
+        sticker_configs: typing.List[PaidStickerConfig] = await self.config.guild(
+            guild
+        ).stickers()
+        changed = False
+
+        sticker_configs = [
+            sc for sc in sticker_configs if sc["id"] in [s.id for s in after]
+        ]
+        found_after = {
+            sc["id"]: [s for s in after if s.id == sc["id"]][0] for sc in sticker_configs
+        }
+
+        await self.config.guild(guild).stickers.set(sticker_configs)
         pass

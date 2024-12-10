@@ -22,7 +22,7 @@ class GraduationConfigEmbed(discord.Embed):
 
         def print_role(head: RegisteredRole, registry: typing.List[RegisteredRole]):
             nonlocal depth
-            role = discord.utils.get(self.guild.roles, id=head['role_id'])
+            role = discord.utils.get(self.guild.roles, id=int(head['role_id']))
             if role is None:
                 return
             

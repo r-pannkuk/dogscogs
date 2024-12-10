@@ -131,11 +131,11 @@ class Graduation(commands.Cog):
             return False
         
         try:
-            await member.remove_roles(discord.utils.get(ctx.guild.roles, id=found_entry['role_id']), reason="Graduating to next tier.")
+            await member.remove_roles(discord.utils.get(ctx.guild.roles, id=int(found_entry['role_id'])), reason="Graduating to next tier.")
         except discord.Forbidden:
             await self.bot.send_to_owners(f"Graduation: I do not have permission to remove roles for {member.mention} in {ctx.guild.name}.")
 
-        roles_to_be_added = [r for r in [discord.utils.get(ctx.guild.roles, id=next_id) for next_id in found_entry["next_ids"]] if r is not None]
+        roles_to_be_added = [r for r in [discord.utils.get(ctx.guild.roles, id=int(next_id)) for next_id in found_entry["next_ids"]] if r is not None]
 
         try:
             await member.add_roles(*roles_to_be_added, reason="Graduating to next tier.")

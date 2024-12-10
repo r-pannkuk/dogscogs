@@ -37,7 +37,7 @@ class RoleTools(commands.Cog):
     @commands.has_guild_permissions(manage_roles=True)
     @commands.guild_only()
     async def list(self, ctx: commands.GuildContext, has_roles: commands.Greedy[discord.Role]):
-        """List all users with a role."""
+        """List all users with a role(s)."""
         if len(has_roles) == 0:
             await ctx.send("You must specify at least one role.")
             return
