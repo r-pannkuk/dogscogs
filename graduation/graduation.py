@@ -147,7 +147,7 @@ class Graduation(commands.Cog):
         except discord.Forbidden:
             await self.bot.send_to_owners(f"Graduation: I do not have permission to add roles for {member.mention} in {ctx.guild.name}.")
 
-        self.config.member(member).last_promotion_timestamp = ctx.message.created_at.timestamp()
+        await self.config.member(member).last_promotion_timestamp.set(ctx.message.created_at.timestamp())
 
         return True
 
