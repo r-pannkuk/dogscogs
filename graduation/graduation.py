@@ -21,6 +21,11 @@ DEFAULT_GUILD: GuildConfig = {
     # "head_id": 1315572475576324097,
     "registry": [
         {
+            "role_id": 1313226901799833680,
+            "next_ids": [1287870791752355971],
+            "exclusive": True,
+        },
+        {
             "role_id": 1287870791752355971,
             "next_ids": [1246866082988556339],
             "exclusive": True,
@@ -164,7 +169,7 @@ class Graduation(commands.Cog):
         Enable or disable the graduation system.
         """
         if is_enabled is None:
-            is_enabled = not await self.config.guild(ctx.guild).enabled()
+            is_enabled = await self.config.guild(ctx.guild).enabled()
 
         await self.config.guild(ctx.guild).enabled.set(is_enabled)
         await ctx.send(f"Graduation system is now {'ENABLED' if is_enabled else 'DISABLED'}.")
