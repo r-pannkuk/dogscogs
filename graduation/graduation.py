@@ -17,7 +17,7 @@ ASSIGNED_ROLE_TOKEN = "$ASSIGNED_ROLE$"
 
 DEFAULT_GUILD: GuildConfig = {
     "enabled": True,
-    "head_id": 1287870791752355971,
+    "head_id": 1313226901799833680,
     # "head_id": 1315572475576324097,
     "registry": [
         {
