@@ -512,14 +512,14 @@ class Nickname(commands.Cog):
             expiration=expiration,
         )
 
-        async def undo_curse():
-            await self._unset(victim, type=type)
+        async def undo_curse(v: discord.Member):
+            await self._unset(v, type=type)
             try:
-                if victim.id != self.bot.user.id:
-                    await ctx.channel.send(f"{instigator.display_name}'s ({instigator.name}) Curse on {victim.display_name} ({victim.name}) has ended.", silent=True)
-                    # await victim.send(f"{victim.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.", silent=True)
+                if v.id != self.bot.user.id:
+                    await ctx.channel.send(f"{instigator.display_name}'s ({instigator.name}) Curse on {v.display_name} ({v.name}) has ended.", silent=True)
+                    # await v.send(f"{v.guild.get_member(entry['instigator_id']).display_name}'s Curse on you has ended.", silent=True)
                 pass
-            except discord.errors.HTTPException as e:
+            except discord.errors.HTTPException as _:
                 print(
                     f"Attempted to send a message and failed to DM (could be bot?):\n{entry}"
                 )
@@ -538,14 +538,14 @@ class Nickname(commands.Cog):
                 await self._set(victim, entry=entry)
 
                 scheduler.add_job(
-                    undo_curse,
+                    partial(undo_curse, victim),
                     id=f"Nickname:{type.capitalize()}:{victim.id}",
                     trigger="date",
                     next_run_time=expiration,
                     replace_existing=True,
                 )
 
-            except (PermissionError, Forbidden) as e:
+            except (PermissionError, Forbidden) as _:
                 if target.id == victim.id:
                     next_curse_available = datetime.now(tz=TIMEZONE)
                     return datetime.now(tz=TIMEZONE), {
