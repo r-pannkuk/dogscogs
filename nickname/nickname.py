@@ -538,7 +538,8 @@ class Nickname(commands.Cog):
                 await self._set(victim, entry=entry)
 
                 scheduler.add_job(
-                    partial(undo_curse, victim),
+                    partial(undo_curse, v=victim),
+                    name=f"Nickname:{type.capitalize()}:{victim.id}:{entry['id']}",
                     id=f"Nickname:{type.capitalize()}:{victim.id}",
                     trigger="date",
                     next_run_time=expiration,
@@ -1373,6 +1374,7 @@ class Nickname(commands.Cog):
                     scheduler.add_job(
                         partial(undo_curse, type=curse["type"]),
                         id=f"Nickname:{curse['type'].capitalize()}:{member.id}",
+                        name=f"Nickname:{curse['type'].capitalize()}:{member.id}:{curse['id']}",
                         trigger="date",
                         next_run_time=datetime.fromtimestamp(
                             curse["expiration"], tz=TIMEZONE
