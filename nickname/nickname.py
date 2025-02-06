@@ -276,13 +276,13 @@ def bind_member(group: config.Group):
 
         nick_queue = list(filter(lambda entry: entry["type"] != "Default", nick_queue))
 
-        if to_be_replaced is None:
-            to_be_replaced = CreateNickQueueEntry(
-                name=name,
-                target_id=self.identifier_data.uuid,  # type: ignore[arg-type]
-                type="Default",
-                created_at=datetime.fromtimestamp(946713600),
-            )
+        # if to_be_replaced is None:
+        to_be_replaced = CreateNickQueueEntry(
+            name=name,
+            target_id=self.identifier_data.uuid,  # type: ignore[arg-type]
+            type="Default",
+            created_at=datetime.fromtimestamp(946713600),
+        )
 
         nick_queue.append(to_be_replaced)
         await self.nick_queue.set(nick_queue)
@@ -694,6 +694,8 @@ class Nickname(commands.Cog):
             ctx.author
         ).next_nyame_available()
 
+        name = nyamify(target)
+
         if not await self.bot.is_owner(ctx.author) and (
             not ctx.author.guild_permissions.manage_roles
             and next_nyame_available != None
@@ -732,7 +734,7 @@ class Nickname(commands.Cog):
             ctx=ctx,
             instigator=ctx.author,
             target=target,
-            name_func=nyamify,
+            name_func=lambda _: name.strip().strip("\"'"),
             type="Nyamed",
         )
 

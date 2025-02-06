@@ -244,7 +244,11 @@ class Battler(commands.Cog):
         defender_roll = applyModifiers(defender_roll, defender_battle_user, battle_types, ['defend', 'both'])
 
         attacker_result = d20.roll(attacker_roll)
-        defender_result = d20.roll(defender_roll)
+
+        if attacker.id == defender.id:
+            defender_result = d20.roll('10')
+        else:
+            defender_result = d20.roll(defender_roll)
 
         if await config.guild(guild).attacker_wins_ties():
             def predicate(x, y):
