@@ -1,0 +1,20 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "Clans",
+    "short": "Clan ownership and organization.",
+    "description": "Clan ownership and organization.",
+    "end_user_data_statement": "This cog stores group information about clans and who belongs to them.",
+    "author": [
+        "klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "clans",
+        "user"
+    ],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
