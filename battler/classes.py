@@ -56,7 +56,7 @@ def applyModifiers(roll: str, battle_user: BattleUser, curse_types: typing.Optio
                 modifiers.append(modifier)
 
     modifiers.sort(key=lambda m: (
-        0 if m['operator'] == 'set' else 1,     # Put all 'set' operators first
+        0 if m['operator'] == 'set' else 1 if m['operator'] == 'multiply' else 2,  # Put all 'set' operators first 
         m['value']                              # Sort by value ascending, so highest set is last.
     ))
 

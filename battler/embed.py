@@ -3,53 +3,84 @@ import discord
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from .config import BattleUserConfig, Equipment, Modifier, Race, SlotType, BattlerConfig
+from .config import BattleUserConfig, BonusType, Equipment, KeyType, Modifier, OperatorType, Race, SlotType, BattlerConfig
 
 TOKEN_BONUS_TYPE = "$BONUS$"
 TOKEN_MODIFIER_KEY = "$KEY$"
 
 def get_modifier_strings(modifiers: typing.List[Modifier]):
     modifier_strings = []
+    modifier_keys : typing.Dict[
+        KeyType, typing.Dict[
+            BonusType, typing.Dict[
+                OperatorType, typing.Optional[float]
+            ]
+        ]
+    ] ={
+        key: {
+            bonus: {
+                operator: None for operator in typing.get_args(OperatorType)
+            } for bonus in typing.get_args(BonusType)
+        } for key in typing.get_args(KeyType)
+    }
 
+    # Combining modifiers first to reduce bloat in the status messages. 
     for modifier in modifiers:
-        modifier_string: str
-        if int(modifier['value']) == modifier['value']:
-            modifier['value'] = int(modifier['value'])
+        if modifier_keys[modifier['key']][modifier['type']][modifier['operator']] is None:
+            modifier_keys[modifier['key']][modifier['type']][modifier['operator']] = modifier['value']
+        else:
+            if modifier['operator'] == 'set':
+                modifier_keys[modifier['key']][modifier['type']][modifier['operator']] = modifier['value']
+            elif modifier['operator'] == 'add':
+                modifier_keys[modifier['key']][modifier['type']][modifier['operator']] += modifier['value']
+            elif modifier['operator'] == 'multiply':
+                modifier_keys[modifier['key']][modifier['type']][modifier['operator']] *= modifier['value']
+            else:
+                raise ValueError(f"Invalid operator: {modifier['operator']}")
 
-        if modifier["operator"] == "set":
-            modifier_string = (
-                f"Set {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE}) to {modifier['value']}"
-            )
-        if modifier["operator"] == "add":
-            modifier_string = (
-                f"{modifier['value']:+} to {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE})"
-            )
-        if modifier["operator"] == "multiply":
-            modifier_string = (
-                f"x{modifier['value']} to {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE})"
-            )
+    for key, key_obj in modifier_keys.items():
+        for bonus, bonus_obj in key_obj.items():
+            for operator, value in bonus_obj.items():
+                if value is not None:
 
-        if modifier["key"] == "rolecolors":
-            modifier_string = modifier_string.replace(
-                TOKEN_MODIFIER_KEY, "Color Curses"
-            )
-        if modifier["key"] == "nyame":
-            modifier_string = modifier_string.replace(TOKEN_MODIFIER_KEY, "Nyaming")
-        if modifier["key"] == "curse":
-            modifier_string = modifier_string.replace(
-                TOKEN_MODIFIER_KEY, "Nickname Curses"
-            )
+                    modifier_string: str
+                    if int(value) == value:
+                        modifier = int(value)
 
-        if modifier["type"] == "attack":
-            modifier_string = modifier_string.replace(TOKEN_BONUS_TYPE, "Attacking")
-        if modifier["type"] == "defend":
-            modifier_string = modifier_string.replace(TOKEN_BONUS_TYPE, "Defending")
-        if modifier["type"] == "both":
-            modifier_string = modifier_string.replace(
-                TOKEN_BONUS_TYPE, "Attacking and Defending"
-            )
+                    if operator == "set":
+                        modifier_string = (
+                            f"Set {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE}) to {value}"
+                        )
+                    if operator == "add":
+                        modifier_string = (
+                            f"{value:+} to {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE})"
+                        )
+                    if operator == "multiply":
+                        modifier_string = (
+                            f"x{value} to {TOKEN_MODIFIER_KEY} ({TOKEN_BONUS_TYPE})"
+                        )
 
-        modifier_strings.append(modifier_string)
+                    if key == "rolecolors":
+                        modifier_string = modifier_string.replace(
+                            TOKEN_MODIFIER_KEY, "Color Curses"
+                        )
+                    if key == "nyame":
+                        modifier_string = modifier_string.replace(TOKEN_MODIFIER_KEY, "Nyaming")
+                    if key == "curse":
+                        modifier_string = modifier_string.replace(
+                            TOKEN_MODIFIER_KEY, "Nickname Curses"
+                        )
+
+                    if bonus == "attack":
+                        modifier_string = modifier_string.replace(TOKEN_BONUS_TYPE, "Attacking")
+                    if bonus == "defend":
+                        modifier_string = modifier_string.replace(TOKEN_BONUS_TYPE, "Defending")
+                    if bonus == "both":
+                        modifier_string = modifier_string.replace(
+                            TOKEN_BONUS_TYPE, "Attacking and Defending"
+                        )
+
+                    modifier_strings.append(modifier_string)
 
     return modifier_strings
 
