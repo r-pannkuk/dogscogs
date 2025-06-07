@@ -2,7 +2,7 @@ from typing import Literal
 import typing
 import uuid
 
-from .config import ChannelType, ClanBattleRecord, ClanRegistrationConfig, GuildConfig, MemberConfig, ClanConfig, PendingClanConfigDraft, PendingClanRegistrationConfigDraft, get_active_clan, get_active_clan_registrant
+from .config import ChannelType, ClanBattleRecord, ClanRegistrationConfig, GuildConfig, MemberConfig, ClanConfig, PendingClanConfigDraft, PendingClanRegistrationConfigDraft, RoleType, get_active_clan, get_active_clan_registrant
 from .embeds import BattleRecordEmbed, ClanDetailsEmbed, ClanDraftEmbed, ClanRegistrantEmbed
 from clans.views import ClanApprovalMessage, CreateBattleReportView, EditClanDraftView
 
@@ -24,7 +24,8 @@ DEFAULT_GUILD : GuildConfig = {
     "clan_registrants": {},
     "clan_battle_records": {},
     "clan_point_awards": {},
-    "channels": {}
+    "channels": {},
+    "roles": {},
 }
 
 DEFAULT_MEMBER : MemberConfig = {
@@ -99,6 +100,26 @@ class Clans(commands.Cog):
         await self.config.guild(ctx.guild).channels.set_raw(type, value=channel.id)
         return channel
     
+    async def _get_or_set_role(self, ctx: commands.GuildContext, type: RoleType, role: typing.Optional[discord.Role]) -> discord.Role:
+        """
+        Gets or sets if provided the configuration role for the given type.
+
+        Parameters:
+        - ctx: The context to send messages to.
+        - type: The type of role to get or set.
+        - role: The role to set if provided.
+        """
+        guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
+
+        if role is None:
+            role_id = guild_config['roles'].get(type, None)
+            if role_id is None:
+                return None
+            return ctx.guild.get_role(role_id)
+        
+        await self.config.guild(ctx.guild).roles.set_raw(type, value=role.id)
+        return role
+
     @settings.command(with_app_command=False, name="channels")
     @commands.guild_only()
     @commands.has_guild_permissions(manage_roles=True)
@@ -206,6 +227,56 @@ class Clans(commands.Cog):
         else:
             await ctx.send("Clan battle reports channel not set.")
     
+    @settings.command(with_app_command=False, name="roles")
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def roles(self, ctx: commands.GuildContext):
+        """
+        List all configured roles.
+        """
+        embed = discord.Embed(
+            title="Configured Roles",
+            color=discord.Color.blue(),
+        )
+
+        description = ""
+
+        for t in typing.get_args(RoleType):
+            role = await self.config.guild(ctx.guild).roles.get_raw(t, default=None)
+            description += f"**__{t.capitalize()}__**: {ctx.guild.get_role(role).mention if role else 'Not Set'}\n"
+
+        embed.description = description
+
+        await ctx.send(embed=embed)
+
+    @settings.command(with_app_command=False, name="leader", aliases=['leaders'])
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def role_leader(self, ctx: commands.GuildContext, role: typing.Optional[discord.Role]):
+        """
+        Set or see the role for clan leaders.
+        """
+        role = await self._get_or_set_role(ctx, "LEADER", role)
+
+        if role is not None:
+            await ctx.send(f"Clan Leader role set to {role.mention}.")
+        else:
+            await ctx.send("Clan Leader role not set.")
+
+    @settings.command(with_app_command=False, name="member", aliases=['members'])
+    @commands.guild_only()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def role_member(self, ctx: commands.GuildContext, role: typing.Optional[discord.Role]):
+        """
+        Set or see the role for clan members.
+        """
+        role = await self._get_or_set_role(ctx, "MEMBER", role)
+
+        if role is not None:
+            await ctx.send(f"Clan Member role set to {role.mention}.")
+        else:
+            await ctx.send("Clan Member role not set.")
+
     @clans.command(with_app_command=False)
     @commands.guild_only()
     @commands.is_owner()
@@ -232,6 +303,10 @@ class Clans(commands.Cog):
         Create a new clan.
         """
         guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
+
+        if not ctx.interaction:
+            await ctx.send("This command is now a slash command. Please use the new format.", ephemeral=True, delete_after=10)
+            return
 
         if ctx.channel.id != guild_config['channels'].get("CREATION", None):
             creation_channel_id = guild_config['channels'].get("CREATION", None)
@@ -472,6 +547,10 @@ class Clans(commands.Cog):
         """
 
         guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
+
+        if not ctx.interaction:
+            await ctx.send("This command is now a slash command. Please use the new format.", ephemeral=True, delete_after=10)
+            return
 
         if ctx.channel.id != guild_config['channels'].get("REPORT", None):
             report_channel_id = guild_config['channels'].get("REPORT", None)

@@ -12,7 +12,13 @@ ChannelType = typing.Literal[
     'REPORT'
 ]
 
+RoleType = typing.Literal[
+    'LEADER',
+    'MEMBER'
+]
+
 ChannelConfig = typing.Dict[ChannelType, typing.Optional[int]]
+RoleConfig = typing.Dict[RoleType, typing.Optional[int]]
 
 class GuildConfig(typing.TypedDict):
     clans: typing.Dict[str, 'ClanConfig']
@@ -22,6 +28,7 @@ class GuildConfig(typing.TypedDict):
     clan_battle_records: typing.Dict[str, 'ClanBattleRecord']
     clan_point_awards: typing.Dict[str, 'ClanPointAward']
     channels: ChannelConfig
+    roles: RoleConfig
 
 class MemberConfig(typing.TypedDict):
     clan_registrant_ids: typing.List[str]

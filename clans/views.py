@@ -342,6 +342,15 @@ class EditClanDraftView(discord.ui.View):
             clan_registrant is None
             or clan_registrant["clan_id"] != self.clan_draft["id"]
         ):
+            if len(self.clan_draft['active_registrant_ids']) > MAX_CLAN_MEMBERS:
+                await interaction.followup.send(
+                    "Cannot select a new member, as the clan already has the maximum number of members.",
+                    ephemeral=True,
+                )
+                await self.message.edit(view=None)
+                await self.collect()
+                return
+            
             possible_registrants = get_all_clan_registrants(
                 await self.config.guild(self.guild).all(),
                 await self.config.member(member).all(),
@@ -479,6 +488,8 @@ class EditClanDraftView(discord.ui.View):
     ):
         await interaction.response.defer()
 
+        await self.message.edit(view=None)
+
         channel_settings: ChannelConfig = await self.config.guild(self.guild).channels()
 
         if "EDIT" in channel_settings:
@@ -603,6 +614,12 @@ class ApproveClanDraftView(discord.ui.View):
     ):
         await interaction.response.defer()
 
+        await self.message.edit(view=None)
+
+        old_clan : ClanConfig = await self.config.guild(self.guild).get_raw(
+            "clans", self.clan_config["id"]
+        )
+
         await self.config.guild(self.guild).set_raw(
             "clans", self.clan_config["id"], value=self.clan_config
         )
@@ -689,7 +706,43 @@ class ApproveClanDraftView(discord.ui.View):
                 await edit_log_channel.send(
                     f"Clan change approved by {interaction.user.mention}: {self.message.jump_url}.\n\n{interaction.message.content}",
                     embed=embed,
+                    allowed_mentions= discord.AllowedMentions.none()
                 )
+        
+        leader_role_id = updated_guild["roles"].get("LEADER")
+        member_role_id = updated_guild["roles"].get("MEMBER")
+        leader_role = self.guild.get_role(leader_role_id) if leader_role_id else None
+        member_role = self.guild.get_role(member_role_id) if member_role_id else None
+
+        for reg_id in old_clan["active_registrant_ids"]:
+            registrant = updated_guild["clan_registrants"][reg_id]
+            member = self.guild.get_member(registrant["member_id"])
+
+            if member is None:
+                continue
+
+            await member.remove_roles(leader_role, member_role)
+
+        active_registrants = [
+            reg for reg in updated_guild["clan_registrants"].values()
+            if reg["id"] in self.clan_config["active_registrant_ids"]
+        ]
+
+        for reg in active_registrants:
+            member = self.guild.get_member(reg["member_id"])
+
+            if member is None:
+                continue
+
+            leader_registrant = updated_guild["clan_registrants"][
+                self.clan_config["leader_registrant_id"]
+            ]
+
+            if leader_role is not None and member.id == leader_registrant["member_id"]:
+                await member.add_roles(leader_role)
+
+            if member_role is not None:
+                await member.add_roles(member_role)
 
         await self.message.edit(content="Clan change approved.", view=None)
         pass
@@ -740,7 +793,7 @@ class ClanApprovalMessage:
 
         if original_clan_config["is_active"] != self.clan_draft["is_active"]:
             changes += (
-                f"Status: `{'Active' if self.clan_draft['is_active'] else 'Inactive'}` -> `{'Active' if original_clan_config['is_active'] else 'Inactive'}`\n"
+                f"Status: `{'Active' if original_clan_config['is_active'] else 'Inactive'}` -> `{'Active' if self.clan_draft['is_active'] else 'Inactive'}`\n"
             )
 
         if original_clan_config["name"] != self.clan_draft["name"]:
