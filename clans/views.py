@@ -211,6 +211,9 @@ class EditClanDraftView(discord.ui.View):
         self.toggle_active.label = (
             "Set Active" if not self.clan_draft["is_active"] else "Set Inactive"
         )
+        self.toggle_active.style = (
+            discord.ButtonStyle.success if not self.clan_draft["is_active"] else discord.ButtonStyle.danger
+        )
         self.select_leader.default_values = [leader_member]
         self.select_members.default_values = list(set(members))
 
@@ -487,6 +490,22 @@ class EditClanDraftView(discord.ui.View):
 
         draft_message = await draft_message_channel.send("SENDING")
 
+        # Delete all other pending clan edits and messages
+        pending_clan_edits: typing.Dict[str, PendingClanConfigDraft] = (
+            await self.config.guild(self.guild).get_raw("pending_clan_edits")
+        )
+        for clan_id, pending_clan in pending_clan_edits.items():
+            if clan_id == self.clan_draft["id"]:
+                pending_message = self.guild.get_channel(
+                    pending_clan["channel_id"]
+                ).get_partial_message(pending_clan["message_id"])
+
+                if pending_message and not pending_message.id == draft_message.id:
+                    try:
+                        await pending_message.delete()
+                    except discord.NotFound:
+                        pass
+
         # Saving clan draft
         self.clan_draft["message_id"] = draft_message.id
         self.clan_draft["channel_id"] = draft_message_channel.id
@@ -504,7 +523,7 @@ class EditClanDraftView(discord.ui.View):
             await self.config.guild(self.guild).set_raw(
                 "pending_clan_registrant_edits", registrant_id, value=registrant
             )
-
+            
         await ClanApprovalMessage(
             guild=self.guild,
             config=self.config,
@@ -516,11 +535,11 @@ class EditClanDraftView(discord.ui.View):
 
         self.pending = False
 
-        await interaction.followup.send(
-            f"Draft saved. See: {draft_message.jump_url}", ephemeral=True
-        )
-
         await self.collect()
+
+        await self.message.edit(
+            content=f"Draft saved. See: {draft_message.jump_url}", view=None, embed=None
+        )
 
         return
 
@@ -657,6 +676,21 @@ class ApproveClanDraftView(discord.ui.View):
                     "clans", clan["id"], value=clan
                 )
 
+        if updated_guild["channels"].get("EDIT_LOGS"):
+            edit_log_channel = self.guild.get_channel(
+                updated_guild["channels"]["EDIT_LOGS"]
+            )
+            if edit_log_channel:
+                embed = ClanDraftEmbed(
+                    guild=self.guild,
+                    clan_config=self.clan_config,
+                    registrants=self.clan_registrant_drafts,
+                )
+                await edit_log_channel.send(
+                    f"Clan change approved by {interaction.user.mention}: {self.message.jump_url}.\n\n{interaction.message.content}",
+                    embed=embed,
+                )
+
         await self.message.edit(content="Clan change approved.", view=None)
         pass
 
@@ -700,9 +734,14 @@ class ClanApprovalMessage:
     async def collect(self):
         changes = ""
 
-        original_clan_config = await self.config.guild(self.guild).get_raw(
+        original_clan_config : ClanConfig = await self.config.guild(self.guild).get_raw(
             "clans", self.clan_draft["id"]
         )
+
+        if original_clan_config["is_active"] != self.clan_draft["is_active"]:
+            changes += (
+                f"Status: `{'Active' if self.clan_draft['is_active'] else 'Inactive'}` -> `{'Active' if original_clan_config['is_active'] else 'Inactive'}`\n"
+            )
 
         if original_clan_config["name"] != self.clan_draft["name"]:
             changes += f"Name: `{original_clan_config['name']}` -> `{self.clan_draft['name']}`\n"
@@ -900,6 +939,13 @@ class CreateBattleReportView(discord.ui.View):
         )
 
         self.add_item(self.edit_stats)
+
+        if battle_record['winner_id'] is not None:
+            winner_registrant = await self.config.guild(self.guild).get_raw(
+                "clan_registrants", battle_record['winner_id']
+            )
+            self.winner.default_values = [self.guild.get_member(winner_registrant['member_id'])]
+
         self.add_item(self.winner)
 
         self.player1_character.options = [
@@ -993,10 +1039,20 @@ class CreateBattleReportView(discord.ui.View):
         if await modal.wait() or not modal.successful:
             return
         
+        if battle_record["player1_games_won"] != modal.player1_games_won or \
+           battle_record["player2_games_won"] != modal.player2_games_won:
+            battle_record["player1_verified"] = False
+            battle_record["player2_verified"] = False
+        
         battle_record["player1_games_won"] = modal.player1_games_won
         battle_record["player2_games_won"] = modal.player2_games_won
-        battle_record["player1_verified"] = False
-        battle_record["player2_verified"] = False
+
+        if battle_record["player1_games_won"] > battle_record["player2_games_won"]:
+            battle_record["winner_id"] = battle_record["player1_registrant_id"]
+            self.submit.disabled = False
+        elif battle_record["player2_games_won"] > battle_record["player1_games_won"]:
+            battle_record["winner_id"] = battle_record["player2_registrant_id"]
+            self.submit.disabled = False
 
         await self.config.guild(self.guild).set_raw(
             "clan_battle_records", self.battle_record_id, value=battle_record
@@ -1034,8 +1090,12 @@ class CreateBattleReportView(discord.ui.View):
 
         if select.values[0].id == player1_registrant["member_id"]:
             battle_record["winner_id"] = player1_registrant["id"]
+            battle_record["player1_verified"] = False
+            battle_record["player2_verified"] = False
         elif select.values[0].id == player2_registrant["member_id"]:
             battle_record["winner_id"] = player2_registrant["id"]
+            battle_record["player1_verified"] = False
+            battle_record["player2_verified"] = False
         else:
             await interaction.followup.send(
                 f"Winner must be one of the participants: {player1_member.mention} or {player2_member.mention}.", ephemeral=True,
@@ -1045,6 +1105,9 @@ class CreateBattleReportView(discord.ui.View):
         await self.config.guild(self.guild).set_raw(
             "clan_battle_records", self.battle_record_id, value=battle_record
         )
+
+        self.submit.disabled = False
+        
         await self.collect()
 
     @discord.ui.select(
@@ -1145,18 +1208,32 @@ class CreateBattleReportView(discord.ui.View):
             battle_record["player1_verified"] = True
         elif interaction.user.id == player2_registrant["member_id"]:
             battle_record["player2_verified"] = True
-        elif battle_record["player1_verified"] and battle_record["player2_verified"]:
-            pass # Do the thing here!
-        else:
-            await interaction.followup.send("Both participants must verify the results first.", ephemeral=True)
-            return
-        
+
         await self.config.guild(self.guild).set_raw(
             "clan_battle_records", self.battle_record_id, value=battle_record
         )
+        
+        if not (battle_record["player1_verified"] and battle_record["player2_verified"]):
+            await interaction.followup.send("Response has been recorded.  Awaiting both verifications.", ephemeral=True)
+            await self.collect()
+        else:
+            self.submit.disabled = True
+            self.cancel.disabled = True
+            self.edit_stats.disabled = True
+            self.winner.disabled = True
+            self.player1_character.disabled = True
+            self.player2_character.disabled = True
 
-        await self.collect()
-        pass
+            await interaction.followup.send("Both players have verified the record.  Submitting.")
+
+            await self.collect()
+            embed = BattleRecordEmbed(
+                ctx=self.ctx,
+                guild_config=await self.config.guild(self.guild).all(),
+                battle_record_id=self.battle_record_id,
+            )
+
+            await self.message.edit(embed=embed, view=None)
 
     @discord.ui.button(
         label="Cancel",
@@ -1192,5 +1269,4 @@ class CreateBattleReportView(discord.ui.View):
             "clan_battle_records", self.battle_record_id, value=battle_record
         )
         
-        await self.collect()
-        pass
+        await self.message.delete()

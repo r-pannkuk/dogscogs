@@ -119,13 +119,17 @@ class ClanDetailsEmbed(ClanDraftEmbed):
                 or battle["player2_registrant_id"]
                 in clan_config["active_registrant_ids"]
             )
+            and (battle["player1_verified"] and battle["player2_verified"])
         ]
 
         wins = len(
             [
                 battle
                 for battle in clan_battles
-                if battle["winner_id"] == clan_config["id"]
+                if battle["winner_id"] in (
+                    reg["id"] for reg in guild_config["clan_registrants"].values()
+                    if reg["clan_id"] == clan_config["id"]
+                )
             ]
         )
         losses = len(clan_battles) - wins
@@ -155,7 +159,10 @@ class ClanDetailsEmbed(ClanDraftEmbed):
             [
                 battle
                 for battle in this_month_battles
-                if battle["winner_id"] == clan_config["id"]
+                if battle["winner_id"] in (
+                    reg["id"] for reg in guild_config["clan_registrants"].values()
+                    if reg["clan_id"] == clan_config["id"]
+                )
             ]
         )
         month_losses = len(this_month_battles) - month_wins
@@ -183,16 +190,15 @@ class ClanRegistrantEmbed(discord.Embed):
         *,
         ctx: commands.GuildContext,
         guild_config: GuildConfig,
+        member: discord.Member,
         member_config: MemberConfig,
     ):
         timestamp = ctx.message.created_at.astimezone(tz=TIMEZONE)
 
-        registrant = get_active_clan_registrant(guild_config, member_config).copy()
+        registrant = get_active_clan_registrant(guild_config, member_config)
 
-        member = ctx.guild.get_member(registrant["member_id"])
-
-        if member is None:
-            raise ValueError("Member could not be found.")
+        if registrant is not None:
+            registrant = registrant.copy()
 
         all_registrants = get_all_clan_registrants(guild_config, member_config).copy()
 
@@ -232,13 +238,14 @@ class ClanRegistrantEmbed(discord.Embed):
                     battle["player1_registrant_id"] == registrant["id"]
                     or battle["player2_registrant_id"] == registrant["id"]
                 )
+                and (battle["player1_verified"] and battle["player2_verified"])
             ]
 
             wins = len(
                 [
                     battle
                     for battle in clan_battles
-                    if battle["winner_id"] == registrant["clan_id"]
+                    if battle["winner_id"] == registrant["id"]
                 ]
             )
             losses = len(clan_battles) - wins
@@ -258,21 +265,21 @@ class ClanRegistrantEmbed(discord.Embed):
             this_month_awards = [
                 award
                 for award in clan_awards
-                if award["created_at"].month == timestamp.month
-                and award["created_at"].year == timestamp.year
+                if datetime.fromtimestamp(award["created_at"]).month == timestamp.month
+                and datetime.fromtimestamp(award["created_at"]).year == timestamp.year
             ]
             this_month_battles = [
                 battle
                 for battle in clan_battles
-                if battle["created_at"].month == timestamp.month
-                and battle["created_at"].year == timestamp.year
+                if datetime.fromtimestamp(battle["created_at"]).month == timestamp.month
+                and datetime.fromtimestamp(battle["created_at"]).year == timestamp.year
             ]
 
             month_wins = len(
                 [
                     battle
                     for battle in this_month_battles
-                    if battle["winner_id"] == registrant["clan_id"]
+                    if battle["winner_id"] == registrant["id"]
                 ]
             )
             month_losses = len(this_month_battles) - month_wins
@@ -310,6 +317,8 @@ class ClanRegistrantEmbed(discord.Embed):
                     if (
                         battle["player1_registrant_id"] == reg["id"]
                         or battle["player2_registrant_id"] == reg["id"]
+                    ) and (
+                        battle["player1_verified"] and battle["player2_verified"]
                     )
                 ]
                 for reg in all_registrants
@@ -321,7 +330,7 @@ class ClanRegistrantEmbed(discord.Embed):
             [
                 battle
                 for battle in combined_lifetime_battles
-                if battle["winner_id"] == registrant["clan_id"]
+                if battle["winner_id"] == registrant["id"]
             ]
         )
         combined_losses = len(combined_lifetime_battles) - combined_wins
@@ -373,22 +382,30 @@ class BattleRecordEmbed(discord.Embed):
         )
 
         self.add_field(
-            name=(f"{Characters[battle_record['player1_character']]['emoji']} " if battle_record['player1_character'] else "") +
-            f"{player1.display_name} ({discord.utils.escape_markdown(player1_clan['name'])})",
-            value=f"__User__: {player1.mention}\n" +
-            f"__Games Won__: {battle_record['player1_games_won']}\n" + 
-            f"__Verified__: {':white_check_mark:' if battle_record['player1_verified'] else ':x:'}\n" +
-            f"__Character__: {Characters[battle_record['player1_character']]['full_name'] if battle_record['player1_character'] else ''}",
+            name=(
+                f"{Characters[battle_record['player1_character']]['emoji']} "
+                if battle_record["player1_character"]
+                else ""
+            )
+            + f"{player1.display_name} ({discord.utils.escape_markdown(player1_clan['name'])})",
+            value=f"__User__: {player1.mention}\n"
+            + f"__Games Won__: {battle_record['player1_games_won']}\n"
+            + f"__Verified__: {':white_check_mark:' if battle_record['player1_verified'] else ':x:'}\n"
+            + f"__Character__: {Characters[battle_record['player1_character']]['full_name'] if battle_record['player1_character'] else ''}",
             inline=True,
         )
 
         self.add_field(
-            name=(f"{Characters[battle_record['player2_character']]['emoji']} " if battle_record['player2_character'] else "") + 
-            f"{player2.display_name} ({discord.utils.escape_markdown(player2_clan['name'])})",
-            value=f"__User__: {player2.mention}\n" +
-            f"__Games Won__: {battle_record['player2_games_won']}\n" + 
-            f"__Verified__: {':white_check_mark:' if battle_record['player2_verified'] else ':x:'}\n" +
-            f"__Character__: {Characters[battle_record['player2_character']]['full_name'] if battle_record['player2_character'] else ''}",
+            name=(
+                f"{Characters[battle_record['player2_character']]['emoji']} "
+                if battle_record["player2_character"]
+                else ""
+            )
+            + f"{player2.display_name} ({discord.utils.escape_markdown(player2_clan['name'])})",
+            value=f"__User__: {player2.mention}\n"
+            + f"__Games Won__: {battle_record['player2_games_won']}\n"
+            + f"__Verified__: {':white_check_mark:' if battle_record['player2_verified'] else ':x:'}\n"
+            + f"__Character__: {Characters[battle_record['player2_character']]['full_name'] if battle_record['player2_character'] else ''}",
             inline=True,
         )
 

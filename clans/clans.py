@@ -4,7 +4,7 @@ import uuid
 
 from .config import ChannelType, ClanBattleRecord, ClanRegistrationConfig, GuildConfig, MemberConfig, ClanConfig, PendingClanConfigDraft, PendingClanRegistrationConfigDraft, get_active_clan, get_active_clan_registrant
 from .embeds import BattleRecordEmbed, ClanDetailsEmbed, ClanDraftEmbed, ClanRegistrantEmbed
-from clans.views import ApproveClanDraftView, ClanApprovalMessage, CreateBattleReportView, EditClanDraftView
+from clans.views import ClanApprovalMessage, CreateBattleReportView, EditClanDraftView
 
 import discord
 from redbot.core import commands
@@ -206,7 +206,6 @@ class Clans(commands.Cog):
         else:
             await ctx.send("Clan battle reports channel not set.")
     
-
     @clans.command(with_app_command=False)
     @commands.guild_only()
     @commands.is_owner()
@@ -217,7 +216,6 @@ class Clans(commands.Cog):
         await self.config.clear_all_guilds()
         await self.config.clear_all_members()
         await ctx.send("All clan data has been reset.")
-
 
     @clans.command(aliases=['ccreate'], with_app_command=True)
     @commands.guild_only()
@@ -234,6 +232,19 @@ class Clans(commands.Cog):
         Create a new clan.
         """
         guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
+
+        if ctx.channel.id != guild_config['channels'].get("CREATION", None):
+            creation_channel_id = guild_config['channels'].get("CREATION", None)
+            if creation_channel_id is not None:
+                creation_channel = ctx.guild.get_channel(creation_channel_id)
+                if creation_channel is not None:
+                    return await ctx.reply(
+                        f"Please create clans in {creation_channel.mention}.",
+                        delete_after=10,
+                        allowed_mentions=discord.AllowedMentions.none()
+                    )
+            else:
+                return await ctx.reply("The clan creation channel is not set.", delete_after=10, allowed_mentions=discord.AllowedMentions.none())
 
         if any([c['name'].lower() == name.lower() for c in guild_config['clans'].values()]):
             return await ctx.send(f"Clan {name} already exists.")
@@ -439,7 +450,12 @@ class Clans(commands.Cog):
 
         member_config : MemberConfig = await self.config.member(member).all()
 
-        embed = ClanRegistrantEmbed(ctx=ctx, guild_config=guild_config, member_config=member_config)
+        embed = ClanRegistrantEmbed(
+            ctx=ctx, 
+            guild_config=guild_config, 
+            member=member,
+            member_config=member_config
+        )
 
         await ctx.send(embed=embed)
 
@@ -456,6 +472,21 @@ class Clans(commands.Cog):
         """
 
         guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
+
+        if ctx.channel.id != guild_config['channels'].get("REPORT", None):
+            report_channel_id = guild_config['channels'].get("REPORT", None)
+            if report_channel_id is not None:
+                report_channel = ctx.guild.get_channel(report_channel_id)
+                if report_channel is not None:
+                    await ctx.reply(
+                        f"Please submit reports in {report_channel.mention}.",
+                        delete_after=10,
+                        allowed_mentions=discord.AllowedMentions.none()
+                    )
+                    return
+            else:
+                await ctx.reply("The report channel is not set.", delete_after=10, allowed_mentions=discord.AllowedMentions.none())
+                return
 
         if not ctx.author.guild_permissions.manage_roles:
 
@@ -502,7 +533,7 @@ class Clans(commands.Cog):
             "player2_character": None,
             "player2_games_won": None,
             "player2_verified": False,
-            "winner_id": player1.id if player1.id == ctx.author.id else player2.id,
+            "winner_id": None,
             "created_at": ctx.message.created_at.timestamp(),
         }
 

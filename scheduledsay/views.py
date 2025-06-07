@@ -23,7 +23,7 @@ DEFAULT_CONTENT = "<CONTENT>"
 DEFAULT_TYPE: ScheduleType = "at"
 DEFAULT_SCHEDULE: ScheduleDefinition = {
     "at": datetime.datetime.now(tz=TIMEZONE).timestamp(),
-    "interval_secs": -1,
+    "interval_secs": 60*60*24*365,
     "cron": "0 * * * *",
 }
 
