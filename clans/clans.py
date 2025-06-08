@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Literal, get_type_hints
 import typing
 import uuid
 
@@ -445,20 +445,11 @@ class Clans(commands.Cog):
             ).collect()
         )
 
-
-    @clans.command(aliases=['cinfo'], with_app_command=False)
-    async def info(self, ctx: commands.GuildContext, *, clan: typing.Optional[typing.Annotated[ClanConfig, ClanConverter]]):
+    async def clan_info(self, ctx: commands.GuildContext, clan: ClanConfig):
         """
         Display info about a clan.
         """
-        
         guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
-
-        if clan is None:
-            clan = get_active_clan(guild_config, await self.config.member(ctx.author).all())
-
-            if clan is None:
-                return await ctx.send("You are not in a clan.")
 
         registrant_config = get_active_clan_registrant(guild_config, await self.config.member(ctx.author).all())
 
@@ -482,6 +473,64 @@ class Clans(commands.Cog):
                     guild=ctx.guild,
                 ).collect()
             )
+
+    async def member_info(self, ctx: commands.GuildContext, member: discord.Member):
+        """
+        Display info about a user. 
+        """
+        
+        guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
+
+        member_config : MemberConfig = await self.config.member(member).all()
+
+        embed = ClanRegistrantEmbed(
+            ctx=ctx, 
+            guild_config=guild_config, 
+            member=member,
+            member_config=member_config
+        )
+
+        await ctx.send(embed=embed)
+
+    @clans.command(with_app_command=False)
+    async def info(self, ctx: commands.GuildContext, *, query: typing.Union[typing.Optional[discord.Member], typing.Optional[typing.Annotated[ClanConfig, ClanConverter]]]):
+        if isinstance(query, discord.Member):
+            await self.minfo(ctx, query)
+            return
+        elif isinstance(query, dict) and all(key in query for key in get_type_hints(ClanConfig).keys()):
+            await self.cinfo(ctx, query)
+            return
+        else:
+            active_clan = get_active_clan(
+                await self.config.guild(ctx.guild).all(),
+                await self.config.member(ctx.author).all()
+            )
+
+            if active_clan is not None:
+                await self.clan_info(ctx, active_clan)
+                return
+            
+            await self.member_info(ctx, ctx.author)
+        
+    @clans.command(aliases=['myinfo', 'memberinfo'], with_app_command=False)
+    async def minfo(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]):
+        await self.member_info(ctx, member or ctx.author)
+
+    @clans.command(with_app_command=False)
+    async def cinfo(self, ctx: commands.GuildContext, clan: typing.Optional[typing.Annotated[ClanConfig, ClanConverter]]):
+        """
+        Display info about a clan.
+        """
+        if clan is None:
+            clan = get_active_clan(
+                await self.config.guild(ctx.guild).all(),
+                await self.config.member(ctx.author).all()
+            )
+
+            if clan is None:
+                return await ctx.send("You are not in a clan.")
+        
+        await self.clan_info(ctx, clan)
 
     @clans.command(with_app_command=False)
     async def list(self, ctx: commands.GuildContext):
@@ -511,28 +560,6 @@ class Clans(commands.Cog):
             message=ctx.message,
             get_page=get_page,
         ).send()
-
-    @clans.command(aliases=['myinfo', 'memberinfo'], with_app_command=False)
-    async def minfo(self, ctx: commands.GuildContext, member: typing.Optional[discord.Member]):
-        """
-        Display info about a user. 
-        """
-        
-        guild_config : GuildConfig = await self.config.guild(ctx.guild).all()
-
-        if member is None:
-            member = ctx.author
-
-        member_config : MemberConfig = await self.config.member(member).all()
-
-        embed = ClanRegistrantEmbed(
-            ctx=ctx, 
-            guild_config=guild_config, 
-            member=member,
-            member_config=member_config
-        )
-
-        await ctx.send(embed=embed)
 
 
     @clans.command(with_app_command=True)
