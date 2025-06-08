@@ -257,6 +257,17 @@ class EditClanDraftView(discord.ui.View):
 
         return await super().interaction_check(interaction)
 
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(view=None)
+            except discord.NotFound:
+                pass
+            except discord.Forbidden:
+                pass
+            except discord.HTTPException:
+                pass
+
     @discord.ui.button(label="Set Inactive", style=discord.ButtonStyle.danger)
     async def toggle_active(
         self, interaction: discord.Interaction, button: discord.ui.Button
@@ -1033,6 +1044,17 @@ class CreateBattleReportView(discord.ui.View):
         await self.message.edit(embed=embed, view=self)
 
         return self
+
+    async def on_timeout(self):
+        if self.message:
+            try:
+                await self.message.edit(view=None)
+            except discord.NotFound:
+                pass
+            except discord.Forbidden:
+                pass
+            except discord.HTTPException:
+                pass
 
     async def interaction_check(self, interaction: discord.Interaction):
         if interaction.user.guild_permissions.manage_roles:
