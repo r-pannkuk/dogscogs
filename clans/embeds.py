@@ -174,7 +174,7 @@ class ClanDetailsEmbed(ClanDraftEmbed):
         this_month_stats += f"__Record__: {month_wins} W : {month_losses} L"
 
         self.add_field(
-            name=f"{timestamp.strftime('%B')} Stats",
+            name=f"{clan_config['name']} {timestamp.strftime('%B')} Stats",
             value=this_month_stats,
             inline=False,
         )
