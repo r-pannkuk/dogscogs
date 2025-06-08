@@ -755,7 +755,7 @@ class ApproveClanDraftView(discord.ui.View):
             if member_role is not None:
                 await member.add_roles(member_role)
 
-        await self.message.edit(content="Clan change approved.", view=None)
+        await self.message.edit(content="Clan change approved.", view=None, delete_after=10)
         pass
 
     @discord.ui.button(label="Reject", style=discord.ButtonStyle.danger)
@@ -774,7 +774,7 @@ class ApproveClanDraftView(discord.ui.View):
                 "pending_clan_registrant_edits", registrant_id
             )
 
-        await self.message.edit(content="Clan change rejected.", view=None)
+        await self.message.edit(content="Clan change rejected.", view=None, delete_after=10)
         pass
 
 
