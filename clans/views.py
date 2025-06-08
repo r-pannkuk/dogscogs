@@ -35,7 +35,7 @@ from .config import (
 )
 from .embeds import BattleRecordEmbed, ClanDraftEmbed
 
-MAX_CLAN_MEMBERS = 4
+MAX_CLAN_MEMBERS = 20
 
 
 class ClanDetailsModal(discord.ui.Modal):
