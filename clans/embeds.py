@@ -138,7 +138,7 @@ class ClanDetailsEmbed(ClanDraftEmbed):
             f"__Points__: {sum([award['points'] for award in clan_awards])}\n"
         )
         lifetime_stats += f"__Battles__: {len(clan_battles)}\n"
-        lifetime_stats += f"__Record__: {wins} Wins : {losses} Losses"
+        lifetime_stats += f"__Record__: {wins} W : {losses} L"
 
         self.add_field(name="Lifetime Stats", value=lifetime_stats, inline=False)
 
@@ -171,7 +171,7 @@ class ClanDetailsEmbed(ClanDraftEmbed):
             f"__Points__: {sum([award['points'] for award in this_month_awards])}\n"
         )
         this_month_stats += f"__Battles__: {len(this_month_battles)}\n"
-        this_month_stats += f"__Record__: {month_wins} Wins : {month_losses} Losses"
+        this_month_stats += f"__Record__: {month_wins} W : {month_losses} L"
 
         self.add_field(
             name=f"{timestamp.strftime('%B')} Stats",
@@ -254,7 +254,7 @@ class ClanRegistrantEmbed(discord.Embed):
                 f"__Points__: {sum([award['points'] for award in clan_awards])}\n"
             )
             clan_lifetime_stats += f"__Battles__: {len(clan_battles)}\n"
-            clan_lifetime_stats += f"__Record__: {wins} Wins : {losses} Losses"
+            clan_lifetime_stats += f"__Record__: {wins} W : {losses} L"
 
             self.add_field(
                 name=f"{clan_config['name']} Lifetime Stats",
@@ -288,7 +288,7 @@ class ClanRegistrantEmbed(discord.Embed):
                 f"__Points__: {sum([award['points'] for award in this_month_awards])}\n"
             )
             this_month_stats += f"__Battles__: {len(this_month_battles)}\n"
-            this_month_stats += f"__Record__: {month_wins} Wins : {month_losses} Losses"
+            this_month_stats += f"__Record__: {month_wins} W : {month_losses} L"
 
             self.add_field(
                 name=f"{timestamp.strftime('%B')} Stats",
@@ -337,7 +337,7 @@ class ClanRegistrantEmbed(discord.Embed):
 
         combined_lifetime_stats = f"__Points__: {combined_lifetime_points}\n"
         combined_lifetime_stats += f"__Battles__: {len(combined_lifetime_battles)}\n"
-        combined_lifetime_stats += f"__Record__: {combined_wins} Wins : {combined_losses} Losses"
+        combined_lifetime_stats += f"__Record__: {combined_wins} W : {combined_losses} L"
 
         self.add_field(
             name="Combined Lifetime Stats", value=combined_lifetime_stats, inline=False
