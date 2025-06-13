@@ -985,7 +985,7 @@ class CreateBattleReportView(discord.ui.View):
         author_id: int,
         battle_record_id: int,
     ):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
 
         self.bot = bot
         self.config = config
