@@ -98,7 +98,7 @@ Characters : typing.Dict[str, Character] = {
         "name": "Suwako",
         "full_name": "Suwako Moriya",
         "icon": "https://wiki.koumakan.jp/images/hisouten/1/1b/Suwako_Icon.png",
-        "emoji": "<:Suika:1345599703248797706>"
+        "emoji": "<:Suwako:1345599514592940114>"
     },
     "TENSHI": {
         "name": "Tenshi",
