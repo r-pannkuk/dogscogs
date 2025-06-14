@@ -41,7 +41,7 @@ class ScoreboardPaginatedEmbed(PaginatedEmbed):
     config : Config
     guild: discord.Guild
 
-    ranking_choice : str = "total_points"
+    ranking_choice : str = "wins"
     type_choice : str = "clans"
     period_choice : str = "this_month"
     option_character : str = "REIMU"
@@ -180,11 +180,11 @@ class ScoreboardPaginatedEmbed(PaginatedEmbed):
         super().update_buttons()
 
         self.select_ranking.options = [
-            discord.SelectOption(
-                label="Total Points",
-                value="total_points",
-                default=True if self.ranking_choice == "total_points" else False,
-            ),
+            # discord.SelectOption(
+            #     label="Total Points",
+            #     value="total_points",
+            #     default=True if self.ranking_choice == "total_points" else False,
+            # ),
             discord.SelectOption(
                 label="Wins",
                 value="wins",
