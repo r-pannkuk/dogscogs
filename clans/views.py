@@ -1299,7 +1299,7 @@ class CreateBattleReportView(discord.ui.View):
             self.player1_character.disabled = True
             self.player2_character.disabled = True
 
-            await interaction.followup.send("Both players have verified the record.  Submitting.")
+            followup : discord.Message = await interaction.followup.send("Both players have verified the record.  Submitting.")
 
             await self.collect()
             embed = BattleRecordEmbed(
@@ -1309,6 +1309,8 @@ class CreateBattleReportView(discord.ui.View):
             )
 
             await self.message.edit(embed=embed, view=None)
+
+            await followup.delete(delay=10)
 
     @discord.ui.button(
         label="Cancel",
