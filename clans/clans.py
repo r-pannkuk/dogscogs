@@ -33,13 +33,14 @@ from redbot.core import commands
 from redbot.core.bot import Red
 from redbot.core.config import Config
 
-from dogscogs.constants import COG_IDENTIFIER
+from dogscogs.constants import COG_IDENTIFIER, TIMEZONE
 from dogscogs.views.paginated import PaginatedEmbed
 from dogscogs.core.converter import DogCogConverter
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 
 REFRESH_INTERVAL_SECS = 60 * 10 # 10 minutes
+MINIMUM_BATTLES_BETWEEN_REPORT = 2
 
 DEFAULT_GUILD: GuildConfig = {
     "clans": {},
@@ -900,10 +901,10 @@ class Clans(commands.Cog):
             )
 
             clan_embed.title = f"{clan_embed.title} - Clans"
-            clan_embed.set_footer(text=f"Updated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            clan_embed.set_footer(text=f"Updated at: {datetime.now(tz=TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')}")
 
             member_embed.title = f"{member_embed.title} - Members"
-            member_embed.set_footer(text=f"Updated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            member_embed.set_footer(text=f"Updated at: {datetime.now(tz=TIMEZONE).strftime('%Y-%m-%d %H:%M:%S')}")
 
             message = await message.edit(content=None, embeds=[clan_embed, member_embed])
 
