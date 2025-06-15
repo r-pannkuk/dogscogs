@@ -753,6 +753,57 @@ class Clans(commands.Cog):
                     "You are not currently part of a clan.", delete_after=10
                 )
                 return
+            
+            opponent = player1 if player1.id != ctx.author.id else player2
+
+            author_registrant_ids = await self.config.member(ctx.author).clan_registrant_ids()
+            opponent_registrant_ids = await self.config.member(opponent).clan_registrant_ids()
+
+            battle_records = guild_config["clan_battle_records"]
+            battle_records = sorted(filter(
+                lambda record: (
+                    record["player1_registrant_id"] in author_registrant_ids or
+                    record["player2_registrant_id"] in author_registrant_ids
+                ) and record["player2_verified"] and record["player1_verified"],
+                battle_records.values(),
+            ), key=lambda record: (
+                record["created_at"], record["id"],
+            ), reverse=True)
+
+            these_two_battle_records = list(filter(
+                lambda record: (
+                    (record["player1_registrant_id"] in author_registrant_ids and record["player2_registrant_id"] in opponent_registrant_ids) or
+                    (record["player1_registrant_id"] in opponent_registrant_ids and record["player2_registrant_id"] in author_registrant_ids)
+                ),
+                battle_records
+            ))
+            last_battle_record = these_two_battle_records[0] if len(these_two_battle_records) > 0 else None
+
+            if last_battle_record is not None:
+                for i in range(0, MINIMUM_BATTLES_BETWEEN_REPORT):
+                    if i >= len(battle_records):
+                        break
+                    
+                    if battle_records[i]['id'] == last_battle_record['id']:
+                        won : bool = (
+                            battle_records[i]["winner_id"] in author_registrant_ids
+                        )
+                        await ctx.reply(
+                            f"You have already submitted a report recently for {player1.mention} and {player2.mention}.\n"
+                            f"Why don't you stop {'bullying' if won else 'inting at'} {opponent.mention} and fight someone {'your own size' if won else 'more your level'}?\n"
+                            f"(Submit battles for {MINIMUM_BATTLES_BETWEEN_REPORT - i} different opponents first).",
+                            delete_after=20,
+                            allowed_mentions=discord.AllowedMentions.none(),
+                        )
+                        return
+                
+        if player1.id == player2.id:
+            await ctx.reply(
+                "Stop hitting yourself, idiot.",
+                delete_after=10,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+            return
 
         player1_config: MemberConfig = await self.config.member(player1).all()
         player2_config: MemberConfig = await self.config.member(player2).all()
