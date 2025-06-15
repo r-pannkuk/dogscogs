@@ -28,7 +28,12 @@ class GuildConfig(typing.TypedDict):
     clan_battle_records: typing.Dict[str, 'ClanBattleRecord']
     clan_point_awards: typing.Dict[str, 'ClanPointAward']
     channels: ChannelConfig
+    leaderboard_message: typing.Optional['MessageConfig']
     roles: RoleConfig
+
+class MessageConfig(typing.TypedDict):
+    message_id: int
+    channel_id: int
 
 class MemberConfig(typing.TypedDict):
     clan_registrant_ids: typing.List[str]

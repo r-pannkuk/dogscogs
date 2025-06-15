@@ -1,9 +1,11 @@
+from datetime import datetime
 from typing import Literal, get_type_hints
 import typing
 import uuid
+from discord.ext import tasks
 
 from clans.views.clans import ClanApprovalMessage, EditClanDraftView
-from clans.views.scoreboard import ScoreboardPaginatedEmbed
+from clans.views.scoreboard import ScoreboardPaginatedEmbed, generate_page
 from clans.views.scores import CreateBattleReportView
 
 from .config import (
@@ -36,6 +38,8 @@ from dogscogs.views.paginated import PaginatedEmbed
 from dogscogs.core.converter import DogCogConverter
 
 RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
+
+REFRESH_INTERVAL_SECS = 60 * 10 # 10 minutes
 
 DEFAULT_GUILD: GuildConfig = {
     "clans": {},
@@ -195,6 +199,21 @@ class Clans(commands.Cog):
 
         if channel is not None:
             await ctx.send(f"Leaderboard channel set to {channel.mention}.")
+
+            leaderboard_message_config = await self.config.guild(ctx.guild).get_raw("leaderboard_message", default=None)
+
+            if leaderboard_message_config is not None:
+                if leaderboard_message_config["channel_id"] == channel.id:
+                    return
+                
+                leaderboard_message = ctx.guild.get_channel(
+                    leaderboard_message_config["channel_id"]
+                ).get_partial_message(leaderboard_message_config["message_id"])
+
+                if leaderboard_message is not None:
+                    await leaderboard_message.delete()
+
+            self.refresh_leaderboard.restart()
         else:
             await ctx.send("Leaderboard channel not set.")
 
@@ -839,6 +858,60 @@ class Clans(commands.Cog):
         ).send()
         pass
 
+    @tasks.loop(seconds=REFRESH_INTERVAL_SECS)
+    async def refresh_leaderboard(self):
+        """
+        Refresh the leaderboard message in the configured channel.
+        """
+        for guild in self.bot.guilds:
+            leaderboard_channel_id = await self.config.guild(guild).channels.get_raw("LEADERBOARD", default=None)
+            if leaderboard_channel_id is None:
+                continue
+
+            channel = guild.get_channel(leaderboard_channel_id)
+            if channel is None:
+                continue
+
+            original_message_config = await self.config.guild(guild).get_raw("leaderboard_message", default=None)
+            message = None
+
+            if original_message_config is not None:
+                try:
+                    message = await channel.fetch_message(
+                        original_message_config["message_id"]
+                    )
+                except Exception:
+                    pass
+
+            if message is None:
+                message = await channel.send("Loading")
+
+            clan_embed, _ = await generate_page(
+                index=0,
+                config=self.config,
+                guild=guild,
+            )
+
+            member_embed, _ = await generate_page(
+                index=0,
+                config=self.config,
+                guild=guild,
+                type_choice="members",
+            )
+
+            clan_embed.title = f"{clan_embed.title} - Clans"
+            clan_embed.set_footer(text=f"Updated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            member_embed.title = f"{member_embed.title} - Members"
+            member_embed.set_footer(text=f"Updated at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+            message = await message.edit(content=None, embeds=[clan_embed, member_embed])
+
+            await self.config.guild(guild).set_raw("leaderboard_message", value={
+                "message_id": message.id,
+                "channel_id": channel.id,
+            })
+
     async def cog_load(self):
         for guild in self.bot.guilds:
             pending_clan_edits: typing.Dict[
@@ -866,3 +939,8 @@ class Clans(commands.Cog):
                     registrant_drafts=registrant_drafts,
                     guild=guild,
                 ).collect()
+
+        self.refresh_leaderboard.start()
+
+    async def cog_unload(self):
+        self.refresh_leaderboard.cancel()
