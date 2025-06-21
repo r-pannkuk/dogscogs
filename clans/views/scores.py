@@ -156,7 +156,14 @@ class CreateBattleReportView(discord.ui.View):
             battle_record_id=self.battle_record_id,
         )
 
-        await self.message.edit(embed=embed, view=self)
+        try:
+            await self.message.edit(embed=embed, view=self)
+        except discord.HTTPException as e:
+            if e.code == 50027: # Invalid Webhook Token
+                channel = await self.guild.fetch_channel(self.message.channel.id)
+                message = await channel.fetch_message(self.message.id)
+
+                await message.edit(embed=embed, view=self)
 
         return self
 
