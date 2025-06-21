@@ -218,7 +218,11 @@ class ClanRegistrantEmbed(discord.Embed):
         registrant["member"] = member
 
         super().__init__(
-            title=f"{registrant['member'].display_name}'s Clan Profile",
+            title=f"{member.display_name}'s Clan Profile",
+        )
+
+        self.set_thumbnail(
+            url=member.display_avatar.url
         )
 
         clan_config = get_active_clan(guild_config, member_config)
