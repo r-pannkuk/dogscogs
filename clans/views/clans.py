@@ -10,6 +10,7 @@ from dogscogs.views.prompts import ValidImageURLTextInput
 
 
 from ..config import (
+    MAX_CLAN_MEMBERS,
     GuildConfig,
     ChannelConfig,
     ClanRegistrationConfig,
@@ -21,9 +22,6 @@ from ..config import (
     get_active_clan_registrant,
 )
 from ..embeds import ClanDraftEmbed
-
-MAX_CLAN_MEMBERS = 20
-
 
 class ClanDetailsModal(discord.ui.Modal):
     name_field: discord.ui.TextInput = discord.ui.TextInput(

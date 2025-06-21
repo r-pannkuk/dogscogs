@@ -36,6 +36,4 @@ from ..config import (
     get_all_clan_registrants,
     get_active_clan_registrant,
 )
-from ..embeds import BattleRecordEmbed, ClanDraftEmbed, ClanScoreboardEmbed
-
-MAX_CLAN_MEMBERS = 20
+from ..embeds import BattleRecordEmbed, ClanDraftEmbed

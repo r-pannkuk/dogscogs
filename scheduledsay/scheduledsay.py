@@ -147,7 +147,7 @@ class ScheduledSay(commands.Cog):
         pass
 
     @ssay.command()
-    @commands.is_owner()
+    @commands.has_guild_permissions(manage_messages=True)
     async def jobs(self, ctx: commands.Context):
         """List scheduled jobs."""
         jobs : typing.List[Job] = ScheduledSay.SCHEDULER.get_jobs()

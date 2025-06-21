@@ -7,14 +7,13 @@ from redbot.core import commands
 from dogscogs.constants import TIMEZONE
 
 from .config import (
+    MAX_CLAN_MEMBERS,
     ClanPointAward,
     ClanRegistrationConfig,
     GuildConfig,
     ClanConfig,
     MemberConfig,
     ClanBattleRecord,
-    PendingClanConfigDraft,
-    PendingClanRegistrationConfigDraft,
     get_active_clan,
     get_active_clan_registrant,
     get_all_clan_registrants,
@@ -45,6 +44,13 @@ class ClanDraftEmbed(discord.Embed):
         for reg in active_registrants:
             reg["member"] = guild.get_member(reg["member_id"])
 
+            if reg["member"] is None:
+                reg["member"] = {
+                    "id": reg["member_id"],
+                    "mention": f"<@{reg['member_id']}>",
+                    "name": str(reg["member_id"]),
+                }
+
         super().__init__(
             title=f"Clan: {discord.utils.escape_markdown(clan_config['name'])}"
             + (" (INACTIVE)" if clan_config["is_active"] is False else ""),
@@ -60,10 +66,10 @@ class ClanDraftEmbed(discord.Embed):
         )
 
         self.add_field(
-            name="Active Members",
+            name=f"Active Members ({len(clan_config['active_registrant_ids'])}/{MAX_CLAN_MEMBERS})",
             value="\n".join(
                 [
-                    f"{reg['member'].mention} ({reg['member'].name})"
+                    f"{reg['member'].mention} ({discord.utils.escape_markdown(reg['member'].name)})"
                     if reg["member"] is not None
                     else reg["member_id"]
                     for reg in active_registrants

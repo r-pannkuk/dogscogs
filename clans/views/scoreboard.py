@@ -68,6 +68,7 @@ async def generate_page(
     accumulator : typing.Dict[str, int] = {}
 
     date_filter = date_filter_all if period_choice == "all_time" else date_filter_this_month
+    no_1_icon : typing.Optional[str] = None
 
     if ranking_choice == "total_points":
         for award in clan_point_awards.values():
@@ -98,7 +99,7 @@ async def generate_page(
         for clan_id, points in clan_accumulator.items():
             clan_config = clans.get(clan_id)
             if clan_config is not None:
-                ranked_list.append((clan_config['name'], points))
+                ranked_list.append((clan_config, points))
 
     elif type_choice == "members":
         member_accumulator: typing.Dict[str, int] = {}
@@ -111,7 +112,7 @@ async def generate_page(
         for member_id, points in member_accumulator.items():
             member = guild.get_member(int(member_id))
             if member is not None:
-                ranked_list.append((member.mention, points))
+                ranked_list.append((member, points))
             else:
                 ranked_list.append((member_id, points))
                 
@@ -139,7 +140,7 @@ async def generate_page(
     start_index = index * LEADERBOARD_ROWS_PER_PAGE
     end_index = start_index + LEADERBOARD_ROWS_PER_PAGE
 
-    page_items = ranked_list[start_index:end_index]
+    page_items = [(x.mention, i) if isinstance(x, discord.Member) else (x['name'], i) for x, i in ranked_list[start_index:end_index]]
     embed = discord.Embed(
         title="Clan Battle Scoreboard",
         description=f"__Type__: {type_choice}\n__Ranking__: {ranking_choice}\n__Period__: {period_choice}",
@@ -150,6 +151,13 @@ async def generate_page(
         f"{i + 1 + start_index}. {text} - {points}"
         for i, (text, points) in enumerate(page_items)
     ])
+
+    no_1 = ranked_list[0][0] if len(ranked_list) > 0 else None
+
+    if no_1 is not None:
+        embed.set_thumbnail(
+            url=no_1["icon_url"] if isinstance(no_1, dict) else no_1.display_avatar.url
+        )
 
     embed.add_field(
         name="Rankings",

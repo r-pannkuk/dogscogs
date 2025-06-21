@@ -3,6 +3,8 @@ import typing
 
 from .characters import CharacterID
 
+MAX_CLAN_MEMBERS = 15
+
 ChannelType = typing.Literal[
     'LEADERBOARD', 
     'CREATION', 
