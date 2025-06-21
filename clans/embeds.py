@@ -1,4 +1,5 @@
 from datetime import datetime
+from types import SimpleNamespace
 import typing
 import discord
 
@@ -45,11 +46,10 @@ class ClanDraftEmbed(discord.Embed):
             reg["member"] = guild.get_member(reg["member_id"])
 
             if reg["member"] is None:
-                reg["member"] = {
-                    "id": reg["member_id"],
-                    "mention": f"<@{reg['member_id']}>",
-                    "name": str(reg["member_id"]),
-                }
+                reg["member"] = SimpleNamespace()
+                reg["member"].id = reg["member_id"]
+                reg["member"].mention = f"<@{reg['member_id']}>"
+                reg["member"].name = str(reg["member_id"])
 
         super().__init__(
             title=f"Clan: {discord.utils.escape_markdown(clan_config['name'])}"
