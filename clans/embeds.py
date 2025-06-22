@@ -51,6 +51,7 @@ class ClanDraftEmbed(discord.Embed):
                 reg["member"].id = reg["member_id"]
                 reg["member"].mention = f"<@{reg['member_id']}>"
                 reg["member"].name = str(reg["member_id"])
+                reg["member"].status = discord.Status.offline
 
         super().__init__(
             title=f"Clan: {discord.utils.escape_markdown(clan_config['name'])}"
