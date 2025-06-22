@@ -1,4 +1,5 @@
 from datetime import datetime
+import random
 from types import SimpleNamespace
 import typing
 import discord
@@ -63,6 +64,15 @@ class ClanDraftEmbed(discord.Embed):
             if leader_registrant["member"] is not None
             else leader_registrant["member_id"],
             inline=False,
+        )
+
+        seed_value = datetime.now(tz=TIMEZONE).strftime("%Y%m%d")
+        random.seed(seed_value)
+        clan_mvp = random.choice([r for r in active_registrants if r["member"] is not None and r['member'].status != discord.Status.offline])
+
+        self.add_field(
+            name="Clan MVP",
+            value=f":star: {clan_mvp['member'].mention} ({discord.utils.escape_markdown(clan_mvp['member'].name)}) :star:"
         )
 
         self.add_field(
