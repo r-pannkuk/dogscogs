@@ -71,7 +71,7 @@ class ClanDraftEmbed(discord.Embed):
             random.seed(seed_value)
             possible_mvps = [r for r in active_registrants if r["member"] is not None and r['member'].status != discord.Status.offline]
 
-            if len(possible_mvps) == 0:
+            if len(possible_mvps) > 0:
                 clan_mvp = random.choice(possible_mvps)
 
                 self.add_field(
