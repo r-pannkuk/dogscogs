@@ -69,12 +69,15 @@ class ClanDraftEmbed(discord.Embed):
         if len(active_registrants) != 0:
             seed_value = datetime.now(tz=TIMEZONE).strftime("%Y%m%d")
             random.seed(seed_value)
-            clan_mvp = random.choice([r for r in active_registrants if r["member"] is not None and r['member'].status != discord.Status.offline])
+            possible_mvps = [r for r in active_registrants if r["member"] is not None and r['member'].status != discord.Status.offline]
 
-            self.add_field(
-                name="Clan MVP",
-                value=f":star: {clan_mvp['member'].mention} ({discord.utils.escape_markdown(clan_mvp['member'].name)}) :star:"
-            )
+            if len(possible_mvps) == 0:
+                clan_mvp = random.choice(possible_mvps)
+
+                self.add_field(
+                    name="Clan MVP",
+                    value=f":star: {clan_mvp['member'].mention} ({discord.utils.escape_markdown(clan_mvp['member'].name)}) :star:"
+                )
 
         self.add_field(
             name=f"Active Members ({len(clan_config['active_registrant_ids'])}/{MAX_CLAN_MEMBERS})",
