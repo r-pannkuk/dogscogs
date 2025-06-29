@@ -199,7 +199,7 @@ class EditClanDraftView(discord.ui.View):
         self.toggle_active.style = (
             discord.ButtonStyle.success if not self.clan_draft["is_active"] else discord.ButtonStyle.danger
         )
-        self.select_leader.default_values = [leader_member]
+        self.select_leader.default_values = [leader_member] if leader_member is not None else []
         self.select_members.default_values = list(set(members))
 
         self.add_item(self.toggle_active)
