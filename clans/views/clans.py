@@ -820,7 +820,7 @@ class ClanApprovalMessage:
             )
 
             changes += (
-                f"Leader: {old_leader_member.mention} -> {new_leader_member.mention}\n"
+                f"Leader: {old_leader_member.mention if old_leader_member else old_leader_registrant['member_id']} -> {new_leader_member.mention}\n"
             )
 
         new_members = []
@@ -833,7 +833,7 @@ class ClanApprovalMessage:
             changes += "New Members: "
             changes += ",".join(
                 [
-                    f"{self.guild.get_member(member['member_id']).mention}"
+                    f"{self.guild.get_member(member['member_id']).mention if self.guild.get_member(member['member_id']) else member['member_id']}"
                     for member in new_members
                 ]
             )
@@ -860,7 +860,7 @@ class ClanApprovalMessage:
             changes += "Removed Members: "
             changes += ",".join(
                 [
-                    f"{self.guild.get_member(member['member_id']).mention}"
+                    f"{self.guild.get_member(member['member_id']).mention if self.guild.get_member(member['member_id']) else member['member_id']}"
                     for member in removed_members
                 ]
             )
