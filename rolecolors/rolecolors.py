@@ -64,10 +64,13 @@ class ColorRoleConverter(DogCogConverter):
 
         if len(color_roles) == 0:
             raise commands.BadArgument("No color roles found.  Please ask your moderator to add more color roles.")
-
+        
         try:
-            return await commands.RoleConverter().convert(ctx, argument)
-        except:
+            role = await commands.RoleConverter().convert(ctx, argument)
+            if role.id not in color_role_ids:
+                raise commands.BadArgument(f"Role is not a color role: {role.mention}.")
+            return role
+        except commands.RoleNotFound:
             pass
 
         if not re.match(
@@ -82,7 +85,7 @@ class ColorRoleConverter(DogCogConverter):
                     )
                 )
             except:
-                raise commands.BadArgument("Invalid hex color format.  Please use `#rrggbb`.")
+                raise commands.BadArgument(f"Invalid hex color format: `{argument}`.  Please use `#rrggbb`.")
         else:
             role = min(
                 color_roles,
@@ -93,6 +96,8 @@ class ColorRoleConverter(DogCogConverter):
 
         if role is None:
             raise commands.BadArgument("No color role found.  Please ask your moderator to add more color roles.")
+        elif role.id not in color_role_ids:
+            raise commands.BadArgument(f"String is not a color role: {argument}.")
         
         return role
 
