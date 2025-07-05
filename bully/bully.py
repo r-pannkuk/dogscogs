@@ -64,7 +64,7 @@ class Bully(commands.Cog):
 
         pass
 
-    @commands.hybrid_group()
+    @commands.group()
     @commands.has_guild_permissions(manage_roles=True)
     async def bully(self, ctx: commands.GuildContext):
         """Commands for bullying users who upset the bot.
