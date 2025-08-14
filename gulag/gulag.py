@@ -78,10 +78,9 @@ class Gulag(commands.Cog):
         """
         channel_id = await self.config.guild(guild).category_id()
 
-        category: discord.CategoryChannel
-        fetched_channel = guild.get_channel(channel_id)
+        category = guild.get_channel(channel_id) # type: ignore[assignment]
 
-        if fetched_channel == None:
+        if category == None:
 
             category_name = await self.config.guild(guild).category_name()
 
