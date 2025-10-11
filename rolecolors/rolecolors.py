@@ -293,12 +293,12 @@ class RoleColors(commands.Cog):
         color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
 
         color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
-        
+        color_roles.sort(key=lambda r: r.name)
         if len(color_roles) == 0:
             await ctx.send("No color roles found.")
             return
         
-        role_list = "\n".join([f"• {role.mention} ({role.name})" for role in color_roles])
+        role_list = "\n".join([f"• {role.mention} (#{role.colour.value:06x})" for role in color_roles])
         await ctx.send(f"**Color Roles:**\n{role_list}")
         
 
