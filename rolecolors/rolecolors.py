@@ -150,7 +150,15 @@ class RoleColors(commands.Cog):
         """
         pass
 
-    @rolecolors.command(usage="<amount>", name="create")
+    @rolecolors.group()
+    @commands.has_guild_permissions(manage_roles=True)
+    async def settings(self, ctx):
+        """
+        Manages settings for the cog.
+        """
+        pass
+
+    @settings.command(usage="<amount>", name="create")
     @commands.has_guild_permissions(manage_roles=True)
     async def create_color_roles(
         self, ctx: commands.GuildContext, amount: typing.Optional[int]
@@ -232,7 +240,7 @@ class RoleColors(commands.Cog):
         )
         return
 
-    @rolecolors.command(usage="<hex_or_roleid>", name="add")
+    @settings.command(usage="<hex_or_roleid>", name="add")
     @commands.has_guild_permissions(manage_roles=True)
     async def add_color_role(
         self, ctx: commands.GuildContext, role: typing.Union[discord.Role, str]
@@ -276,7 +284,25 @@ class RoleColors(commands.Cog):
         await self.config.guild_from_id(guild.id).role_ids.set(previous_role_ids)
         await ctx.channel.send(f"Added color role {role.mention}.")
 
-    @rolecolors.command()
+    @settings.command(name="list")
+    @commands.has_guild_permissions(manage_roles=True)
+    async def list_color_roles(self, ctx: commands.GuildContext):
+        """
+        List all of the color roles currently enabled in the config.
+        """
+        color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
+
+        color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
+        
+        if len(color_roles) == 0:
+            await ctx.send("No color roles found.")
+            return
+        
+        role_list = "\n".join([f"• {role.mention} ({role.name})" for role in color_roles])
+        await ctx.send(f"**Color Roles:**\n{role_list}")
+        
+
+    @settings.command()
     @commands.has_guild_permissions(manage_roles=True)
     async def duration(self, ctx: commands.GuildContext, duration_sec: typing.Optional[typing.Union[int, str]] = None):
         """
@@ -313,7 +339,7 @@ class RoleColors(commands.Cog):
         )
         pass
 
-    @rolecolors.command()
+    @settings.command()
     @commands.has_guild_permissions(manage_roles=True)
     async def cost(self, ctx: commands.GuildContext, points: typing.Optional[int]):
         """
