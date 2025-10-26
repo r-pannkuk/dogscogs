@@ -14,7 +14,7 @@ RequestType = Literal["discord_deleted_user", "owner", "user", "user_strict"]
 DEFAULT_GUILD = {
     "is_enabled": True,
     "channel_id": None,
-    "ban_message": "You've posted in a spam trap channel. Any messages sent in the channel will result in an automatic ban. Please contact the moderators if you believe this to be an error.",
+    "ban_message": "You've posted in a spam trap channel. Any messages sent in the channel will result in an automatic ban. You will be unbanned shortly.",
     "timeout_secs": 0,
     "delete_message_seconds": 5 * 60,  # Deletes the last 5 minutes of messages when banning
     "whitelist": {
@@ -365,16 +365,17 @@ class SpamTrap(commands.Cog):
             #             print(f"Deleted {delete_count} messages from user {message.author}.")
             # else:
 
-            await message.author.ban(reason="Posted in spam trap channel.", delete_message_seconds=guild_config["delete_message_seconds"])
-            # wait 10 seconds
-            await asyncio.sleep(10)
-
-            await message.author.unban(reason="Unbanned after posting in spam trap channel.")
-
             try:
                 await message.author.send(ban_message)
             except discord.Forbidden:
                 pass  # Can't send DM to user
+
+            await message.author.ban(reason="Posted in spam trap channel.", delete_message_seconds=guild_config["delete_message_seconds"])
+
+            # wait 10 seconds
+            await asyncio.sleep(10)
+
+            await message.author.unban(reason="Unbanned after posting in spam trap channel.")
         except discord.Forbidden:
             # Log the lack of permissions or notify admins as needed
             print(f"Insufficient permissions to ban or timeout user {message.author} in guild {message.guild}.")
