@@ -113,11 +113,19 @@ class SpamTrap(commands.Cog):
 
     @commands.guild_only()
     @spamtrap.command()
-    async def timeout(self, ctx: commands.GuildContext, seconds: int) -> None:
+    async def timeout(self, ctx: commands.GuildContext, seconds: typing.Optional[int]) -> None:
         """Set the duration (in seconds) for which a user is timed out when they post in the spam trap channel.
 
         Set to 0 to disable timeouts.
         """
+        if seconds is None:
+            current = await self.config.guild(ctx.guild).timeout_secs()
+            if current == 0:
+                await ctx.send("Timeouts are currently disabled. Users posting in the spam trap channel will be banned indefinitely.")
+            else:
+                await ctx.send(f"Users posting in the spam trap channel are currently timed out for {current} seconds.")
+            return
+        
         if seconds < 0:
             await ctx.send("Timeout duration cannot be negative.")
             return
