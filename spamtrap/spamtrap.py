@@ -73,7 +73,7 @@ class SpamTrap(commands.Cog):
 
     @commands.guild_only()
     @spamtrap.command()
-    async def channel(self, ctx: commands.GuildContext, channel: typing.Optional[discord.TextChannel]) -> None:
+    async def channel(self, ctx: commands.GuildContext, channel: typing.Optional[typing.Union[discord.TextChannel, discord.Thread, discord.VoiceChannel]]) -> None:
         """Set the spam trap channel.
 
         If no channel is provided, it will use the current channel.
@@ -112,7 +112,7 @@ class SpamTrap(commands.Cog):
 
 
     @commands.guild_only()
-    @spamtrap.command()
+    @spamtrap.command(aliases=["timeout_duration", "time", "duration"])
     async def timeout(self, ctx: commands.GuildContext, seconds: typing.Optional[int]) -> None:
         """Set the duration (in seconds) for which a user is timed out when they post in the spam trap channel.
 
