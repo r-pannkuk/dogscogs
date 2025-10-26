@@ -1,0 +1,21 @@
+{
+    "$schema": "https://raw.githubusercontent.com/Cog-Creators/Red-DiscordBot/V3/develop/schema/red_cog.schema.json",
+    "name": "SpamTrap",
+    "short": "Autobans and removes messages from a designated channel to catch spamming bots or compromised accounts.",
+    "description": "Autobans and removes messages from a designated channel to catch spamming bots or compromised accounts.",
+    "end_user_data_statement": "N/A",
+    "install_msg": "N/A",
+    "author": [
+        "klypto"
+    ],
+    "required_cogs": {},
+    "requirements": [],
+    "tags": [
+        "spam",
+        "moderation"
+    ],
+    "min_bot_version": "3.5.0",
+    "hidden": false,
+    "disabled": false,
+    "type": "COG"
+}
