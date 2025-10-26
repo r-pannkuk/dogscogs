@@ -1,3 +1,4 @@
+import asyncio
 from datetime import timedelta
 from typing import Literal
 import typing
@@ -112,34 +113,34 @@ class SpamTrap(commands.Cog):
         await ctx.send(f"The spam trap ban message has been updated to:\n> {message}")
 
 
-    @commands.guild_only()
-    @spamtrap.command(aliases=["timeout_duration", "time", "duration"])
-    async def timeout(self, ctx: commands.GuildContext, seconds: typing.Optional[int]) -> None:
-        """Set the duration (in seconds) for which a user is timed out when they post in the spam trap channel.
+    # @commands.guild_only()
+    # @spamtrap.command(aliases=["timeout_duration", "time", "duration"])
+    # async def timeout(self, ctx: commands.GuildContext, seconds: typing.Optional[int]) -> None:
+    #     """Set the duration (in seconds) for which a user is timed out when they post in the spam trap channel.
 
-        Set to 0 to disable timeouts.
-        """
-        if seconds is None:
-            current = await self.config.guild(ctx.guild).timeout_secs()
-            if current == 0:
-                await ctx.send("Timeouts are currently disabled. Users posting in the spam trap channel will be banned indefinitely.")
-            else:
-                await ctx.send(f"Users posting in the spam trap channel are currently timed out for {current} seconds.")
-            return
+    #     Set to 0 to disable timeouts.
+    #     """
+    #     if seconds is None:
+    #         current = await self.config.guild(ctx.guild).timeout_secs()
+    #         if current == 0:
+    #             await ctx.send("Timeouts are currently disabled. Users posting in the spam trap channel will be banned indefinitely.")
+    #         else:
+    #             await ctx.send(f"Users posting in the spam trap channel are currently timed out for {current} seconds.")
+    #         return
         
-        if seconds < 0:
-            await ctx.send("Timeout duration cannot be negative.")
-            return
+    #     if seconds < 0:
+    #         await ctx.send("Timeout duration cannot be negative.")
+    #         return
         
-        if seconds > 2_419_200:  # 28 days in seconds
-            await ctx.send("Timeout duration cannot exceed 28 days (2,419,200 seconds).")
-            return
+    #     if seconds > 2_419_200:  # 28 days in seconds
+    #         await ctx.send("Timeout duration cannot exceed 28 days (2,419,200 seconds).")
+    #         return
 
-        await self.config.guild(ctx.guild).timeout_secs.set(seconds)
-        if seconds == 0:
-            await ctx.send("Timeouts have been disabled.  Users posting in the spam trap channel will be banned indefinitely.")
-        else:
-            await ctx.send(f"Users posting in the spam trap channel will now be timed out for {seconds} seconds.")
+    #     await self.config.guild(ctx.guild).timeout_secs.set(seconds)
+    #     if seconds == 0:
+    #         await ctx.send("Timeouts have been disabled.  Users posting in the spam trap channel will be banned indefinitely.")
+    #     else:
+    #         await ctx.send(f"Users posting in the spam trap channel will now be timed out for {seconds} seconds.")
 
     @commands.guild_only()
     @spamtrap.command()
@@ -319,51 +320,56 @@ class SpamTrap(commands.Cog):
             if role.id in guild_config["whitelist"]["roles"]:
                 return
 
-        timeout_duration = guild_config["timeout_secs"]
+        # timeout_duration = guild_config["timeout_secs"]
         ban_message = guild_config["ban_message"]
 
         try:
-            if timeout_duration > 0:
-                timeout_until = discord.utils.utcnow() + timedelta(seconds=timeout_duration)
-                purge_timestamp = discord.utils.utcnow() - timedelta(seconds=guild_config["delete_message_seconds"])
+            # if timeout_duration > 0:
+            #     timeout_until = discord.utils.utcnow() + timedelta(seconds=timeout_duration)
+            #     purge_timestamp = discord.utils.utcnow() - timedelta(seconds=guild_config["delete_message_seconds"])
                 
-                await message.author.timeout(timeout_until, reason="Posted in spam trap channel.")
-                ban_message += f"\n\nYou are timed out until <t:{int(timeout_until.timestamp())}:F>."
+            #     await message.author.timeout(timeout_until, reason="Posted in spam trap channel.")
+            #     ban_message += f"\n\nYou are timed out until <t:{int(timeout_until.timestamp())}:F>."
 
-                # Get all messages from the user in the last `delete_message_seconds` seconds
-                if guild_config["delete_message_seconds"] > 0:
-                    def is_user_msg(msg: discord.Message) -> bool:
-                        return msg.author.id == message.author.id
+            #     # Get all messages from the user in the last `delete_message_seconds` seconds
+            #     if guild_config["delete_message_seconds"] > 0:
+            #         def is_user_msg(msg: discord.Message) -> bool:
+            #             return msg.author.id == message.author.id
 
-                    delete_count = 0
-                    to_be_deleted = []
+            #         delete_count = 0
+            #         to_be_deleted = []
 
-                    await message.guild.fetch_channels()
+            #         await message.guild.fetch_channels()
 
-                    now = discord.utils.utcnow()
+            #         now = discord.utils.utcnow()
 
-                    for channel in message.guild.channels:
-                        if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)):
-                            continue
-                        try:
-                            print(channel.name)
-                            async for message in channel.history(limit=None, before=now, after=purge_timestamp):
-                                if is_user_msg(message):
-                                    to_be_deleted.append(message)
+            #         for channel in message.guild.channels:
+            #             if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.VoiceChannel)):
+            #                 continue
+            #             try:
+            #                 print(channel.name)
+            #                 async for message in channel.history(limit=None, before=now, after=purge_timestamp):
+            #                     if is_user_msg(message):
+            #                         to_be_deleted.append(message)
 
-                            if len(to_be_deleted) > 0:
-                                await channel.delete_messages(to_be_deleted)
-                                delete_count += len(to_be_deleted)
-                                to_be_deleted.clear()
+            #                 if len(to_be_deleted) > 0:
+            #                     await channel.delete_messages(to_be_deleted)
+            #                     delete_count += len(to_be_deleted)
+            #                     to_be_deleted.clear()
 
-                        except discord.Forbidden:
-                            # Log the lack of permissions or notify admins as needed
-                            print(f"Insufficient permissions to purge messages in channel {channel}.")
+            #             except discord.Forbidden:
+            #                 # Log the lack of permissions or notify admins as needed
+            #                 print(f"Insufficient permissions to purge messages in channel {channel}.")
 
-                    if delete_count > 0:
-                        print(f"Deleted {delete_count} messages from user {message.author}.")
-            else:
-                await message.author.ban(reason="Posted in spam trap channel.", delete_message_seconds=guild_config["delete_message_seconds"])
+            #         if delete_count > 0:
+            #             print(f"Deleted {delete_count} messages from user {message.author}.")
+            # else:
+
+            await message.author.ban(reason="Posted in spam trap channel.", delete_message_seconds=guild_config["delete_message_seconds"])
+            # wait 10 seconds
+            await asyncio.sleep(10)
+
+            await message.author.unban(reason="Unbanned after posting in spam trap channel.")
 
             try:
                 await message.author.send(ban_message)
