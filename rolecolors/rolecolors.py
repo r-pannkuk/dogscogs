@@ -283,23 +283,6 @@ class RoleColors(commands.Cog):
         previous_role_ids.append(role.id)
         await self.config.guild_from_id(guild.id).role_ids.set(previous_role_ids)
         await ctx.channel.send(f"Added color role {role.mention}.")
-
-    @settings.command(name="list")
-    @commands.has_guild_permissions(manage_roles=True)
-    async def list_color_roles(self, ctx: commands.GuildContext):
-        """
-        List all of the color roles currently enabled in the config.
-        """
-        color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
-
-        color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
-        color_roles.sort(key=lambda r: r.name)
-        if len(color_roles) == 0:
-            await ctx.send("No color roles found.")
-            return
-        
-        role_list = "\n".join([f"• {role.mention} (#{role.colour.value:06x})" for role in color_roles])
-        await ctx.send(f"**Color Roles:**\n{role_list}")
         
 
     @settings.command()
@@ -705,6 +688,25 @@ class RoleColors(commands.Cog):
         await ctx.channel.send(
             f"Removed any color roles from {ctx.author.display_name}"
         )
+
+    
+
+    @rolecolors.command(name="colorlist", aliases=['clist'])
+    @commands.has_guild_permissions()
+    async def list_color_roles(self, ctx: commands.GuildContext):
+        """
+        List all of the color roles currently enabled in the config.
+        """
+        color_role_ids = await self.config.guild_from_id(ctx.guild.id).role_ids()
+
+        color_roles = [role for role in ctx.guild.roles if role.id in color_role_ids]
+        color_roles.sort(key=lambda r: r.name)
+        if len(color_roles) == 0:
+            await ctx.send("No color roles found.")
+            return
+        
+        role_list = "\n".join([f"• {role.mention} (#{role.colour.value:06x})" for role in color_roles])
+        await ctx.send(f"**Color Roles:**\n{role_list}")
 
     @commands.Cog.listener()
     async def on_guild_role_delete(self, role: discord.Role):
