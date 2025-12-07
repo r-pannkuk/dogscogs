@@ -57,7 +57,7 @@ class BetListPaginatedEmbed(PaginatedEmbed):
             bet_configs = list(active_bets.values())
             filtered_configs = [config for config in bet_configs if self.filter(config)]
 
-            if not filtered_configs:
+            if not filtered_configs or len(filtered_configs) == 0:
                 return (
                     discord.Embed(
                         title="No Bets Found",
@@ -931,13 +931,8 @@ class BetAdministrationView(discord.ui.View):
                 raise ValueError(
                     f"Winning option `{config['winning_option_id']}` not found."
                 )
-
-            message = await interaction.followup.send(
-                f"🎉 The winning option is `{winning_option['option_name']}`. Total pool: `{pool_total}`",
-                ephemeral=True,
-                wait=True,
-            )
-            await message.delete(delay=15)
+            
+            winners : typing.List[discord.Member] = []
 
             results_msg = ""
 
@@ -948,6 +943,7 @@ class BetAdministrationView(discord.ui.View):
                 if better["bet_option_id"] == winning_option["id"]:
                     share = better["bet_amount"] / bet_totals[winning_option["id"]]
                     total_winnings = int(pool_total * share)
+                    winners.append(member)
                     new_balance = await Coins._add_balance(member, total_winnings)  # type: ignore[arg-type]
                     # results_msg += f"💸 {member.mention} won `{total_winnings}` " + \
                     #                   f"(+{total_winnings/better['bet_amount'] - 1:.2%}) " if total_winnings != better['bet_amount'] else '' + \
@@ -955,6 +951,11 @@ class BetAdministrationView(discord.ui.View):
                 else:
                     # await member.send(f"🧾 `{config['title']}` has resolved. ", silent=True)
                     pass
+
+            message = await interaction.followup.send(
+                f"🎉 The winning option is `{winning_option['option_name']}`. Total pool: `{pool_total}`\nWinners: {', '.join([m.mention for m in winners])}",
+                wait=True,
+            )
 
             active_bets.update({str(self.bet_config_id): config})
             await self.config.guild(self.guild).active_bets.set(active_bets)
